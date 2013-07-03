@@ -1,0 +1,232 @@
+/***************************************************************************
+                  VCtopologyparticles.h  -  Virtual cartesian topology
+                  A virtual topology is a mechanism for naming the processes
+                  in a communicator in a way that fits the communication
+                  pattern better. Since our processes will communicate mainly
+                  with the nearest neighbours after the fashion of a two-dimensional
+                  grid, we create a virtual topology to reflect this fact
+                             -------------------
+
+ ***************************************************************************/
+
+
+#include "mpi.h"
+
+#include <iostream>
+
+#include "VCtopologyparticles.h"
+
+using std::cout;
+using std::endl;
+
+/**
+*
+* @date Fri Jun 4 2007
+* @author Stefano Markidis, Giovanni Lapenta.
+* @version 2.0
+*
+*/
+
+/** constructor: initialize a virtual cartesian topology */
+VCtopologyparticles::VCtopologyparticles(){
+    /*************************************************************/
+    /***  HERE YOU SET THE TOPOLOGY    XLEN*YLEN = n_procs     ***/
+    XLEN = 4;   // number of processor in X-direction
+    YLEN = 1;  // number of processor in Y-direction
+    nprocs = XLEN*YLEN; // number of processor
+    /*************************************************************/
+    /****** PERIODICITY OF PROCESS TOPOLOGY   ***/
+    /** IF ONE OF THIS PERIODICITY IS TRUE PERIODICITY IS AUTOMATICALLY IMPOSED ON BC !!!!*/
+    PERIODICX = true;
+    PERIODICY = true; // ie false for GEM challange
+    /**************************************************************/
+
+
+
+    XDIR = 0;
+    YDIR = 1;
+    RIGHT = 1;
+    LEFT = -1;
+    int reorder = 1;
+    divisions = new int[2];
+    periods = new int[2];
+    divisions[0] = XLEN;
+    divisions[1] = YLEN;
+    periods[0] = PERIODICX;
+    periods[1] = PERIODICY;
+    coordinates = new int[2];
+    cVERBOSE = false;
+
+}
+/** destructor */
+VCtopologyparticles::~VCtopologyparticles(){
+  delete[] periods;
+  delete[] divisions;
+  delete[] coordinates;
+}
+/** Within CART_COMM, processes find about their new rank numbers, their cartesian coordinates,
+    and their neighbors  */
+void VCtopologyparticles::setup_vctopology(MPI_Comm old_comm){
+    if (XLEN ==1 && YLEN == 1){
+      PROCDIM =2;
+    } else
+    {
+      PROCDIM = 2;
+    }
+    MPI_Cart_create(old_comm, 2, divisions, periods, reorder, &CART_COMM);
+    if (CART_COMM != MPI_COMM_NULL){
+      int *tempCoor = new int[2];
+      int bx, by;
+      MPI_Comm_rank   (CART_COMM, &cartesian_rank);
+      MPI_Cart_coords (CART_COMM, cartesian_rank, 2, coordinates);
+
+      MPI_Cart_shift  (CART_COMM, XDIR, RIGHT, &xleft_neighbor, &xright_neighbor);
+      MPI_Cart_shift  (CART_COMM, YDIR, RIGHT, &yleft_neighbor, &yright_neighbor);
+      // know the 12 processors in diagonal that share edges
+      /** cartesian rank of XLEFT(-) YLEFT(-) */
+      if ( (xleft_neighbor!= -1) && (yleft_neighbor!= -1) ){
+          bx =   ((coordinates[0])==(0))?(XLEN):(0);
+          by =   ((coordinates[1])==(0))?(YLEN):(0);
+
+          tempCoor[0] = (coordinates[0]-1) + bx;
+          tempCoor[1] = (coordinates[1]-1) + by;
+          MPI_Cart_rank(CART_COMM,tempCoor,&XleftYleft_neighbor);
+
+      } else {
+           XleftYleft_neighbor = -1;
+
+      }
+      /** cartesian rank of XLEFT(-) YRIGHT(+)*/
+      if( (xleft_neighbor!= -1) && (yright_neighbor!= -1) ){
+        bx = ((coordinates[0])==(0))?(XLEN):(0);
+        tempCoor[0] = (coordinates[0]-1) + bx;
+        tempCoor[1] = (coordinates[1]+1)%(YLEN);
+        MPI_Cart_rank(CART_COMM,tempCoor,&XleftYright_neighbor);
+
+      } else
+      {
+         XleftYright_neighbor = -1;
+      }
+      /** cartesian rank of XRIGHT(+) YLEFT(-) SAME Z neighbor */
+      if((xright_neighbor!= -1) && (yleft_neighbor!= -1)){
+        by =  ((coordinates[1])==(0))?(YLEN):(0);
+        tempCoor[0] = (coordinates[0]+1)%XLEN;
+        tempCoor[1] = coordinates[1]-1 + by;
+        MPI_Cart_rank(CART_COMM,tempCoor,&XrightYleft_neighbor);
+      }  else
+      {
+         XrightYleft_neighbor = -1;
+      }
+      /** cartesian rank of XRIGHT(+) YRIGHT(+) SAME Z neighbor */
+      if ((xright_neighbor!= -1) && (yright_neighbor!= -1)){
+        tempCoor[0] = (coordinates[0]+1)%XLEN;
+        tempCoor[1] = (coordinates[1]+1)%YLEN;
+        MPI_Cart_rank(CART_COMM,tempCoor,&XrightYright_neighbor);
+      } else
+      {
+        XrightYright_neighbor = -1;
+      }
+
+
+    } else
+    {
+      cout << "A process is trown away from the new topology. VCtopologyparticles.h" << endl;
+    }
+}
+
+/** print topology info */
+void VCtopologyparticles::Print(){
+  cout << endl;
+  cout << "Virtual Cartesian Processors Topology" << endl;
+  cout << "-------------------------------------"<< endl;
+  cout << "Processors Topology dimension = " << PROCDIM << endl;
+  cout << "Processors grid: " << XLEN << "x" << YLEN << endl;
+  cout << "Periodicity X: " << periods[0] << endl;
+  cout << "Periodicity Y: " << periods[1] << endl;
+  cout << endl;
+}
+/** print cartesian rank of neighbors and coordinate of process */
+void VCtopologyparticles::PrintMapping(){
+  cout << endl;
+  cout << "Mapping of process " << cartesian_rank << endl;
+  cout << "----------------------" << endl;
+  cout << "Coordinates: X = " << coordinates[0] << "; Y = " << coordinates[1] << endl;
+  cout << "Neighbors: xLeft = " << xleft_neighbor << "; xRight = " << xright_neighbor << "; yLeft = " << yleft_neighbor << "; yRight = "<< yright_neighbor << endl;
+  cout << "Neighbors: xRightYright = " << XrightYright_neighbor << "; xRightYleft = " << XrightYleft_neighbor << "; xLeftYright = " << XleftYright_neighbor << "; xLeftYleft = "<< XleftYleft_neighbor << endl;
+
+  cout << endl;
+}
+/** get XLEN */
+int VCtopologyparticles::getXLEN(){
+  return(XLEN);
+}
+/** get YLEN */
+int VCtopologyparticles::getYLEN(){
+  return(YLEN);
+}
+/** get nprocs */
+int VCtopologyparticles::getNprocs(){
+  return(nprocs);
+}
+/** get periodicity on boundaries - DIRECTION X*/
+bool VCtopologyparticles::getPERIODICX(){
+  return(PERIODICX);
+}
+/** get periodicity on boundaries - DIRECTION Y*/
+bool VCtopologyparticles::getPERIODICY(){
+  return(PERIODICY);
+}
+/** get the cartesian rank of the process */
+int VCtopologyparticles::getCartesian_rank(){
+  return(cartesian_rank);
+}
+/** get the cartesian rank of XLEFT neighbor */
+int VCtopologyparticles::getXleft_neighbor(){
+  return(xleft_neighbor);
+}
+/** get the cartesian rank of XRIGHT neighbor */
+int VCtopologyparticles::getXright_neighbor(){
+  return(xright_neighbor);
+}
+/** get the cartesian rank of YLEFT neighbor */
+int VCtopologyparticles::getYleft_neighbor(){
+  return(yleft_neighbor);
+}
+/** get the cartesian rank of YRIGHT neighbor */
+int VCtopologyparticles::getYright_neighbor(){
+  return(yright_neighbor);
+}
+/** get the cartesian rank of XLEFT(-) YLEFT(-) SAME Z neighbor  */
+int VCtopologyparticles::getXleftYleft_neighbor(){
+  return(XleftYleft_neighbor);
+}
+/** cartesian rank of XLEFT(-) YRIGHT(+) SAME Z neighbor */
+int VCtopologyparticles::getXleftYright_neighbor(){
+  return(XleftYright_neighbor);
+}
+/** cartesian rank of XRIGHT(+) YLEFT(-) SAME Z neighbor */
+int VCtopologyparticles::getXrightYleft_neighbor(){
+  return(XrightYleft_neighbor);
+}
+/** cartesian rank of XRIGHT(+) YRIGHT(+) SAME Z neighbor */
+int VCtopologyparticles::getXrightYright_neighbor(){
+  return(XrightYright_neighbor);
+}
+
+
+
+/** if cVERBOSE == true, print to the screen all the comunication */
+bool VCtopologyparticles::getcVERBOSE(){
+   return(cVERBOSE);
+}
+/** get the coordinates in dir direction of process*/
+int VCtopologyparticles::getCoordinates(int dir){
+   return(coordinates[dir]);
+}
+/** get Periodicity condition in dir direction */
+int VCtopologyparticles::getPeriods(int dir){
+   return(periods[dir]);
+}
+
+
+

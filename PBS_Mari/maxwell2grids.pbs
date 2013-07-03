@@ -1,0 +1,36 @@
+#!/bin/bash -l
+
+#PBS -l walltime=00:02:00
+#PBS -l nodes=1:ppn=8:nehalem
+# name of run
+#PBS -N maxwell2grids
+#PBS -m abe
+###PBS -M mariaelena.innocenti@wis.kuleuven.be
+
+#PBS -j oe -k eo
+
+echo Start: host `hostname`, date `date`
+echo PBS id is $PBS_JOBID
+echo Assigned nodes: `cat $PBS_NODEFILE`
+
+cd $PBS_O_WORKDIR
+
+#module load mpich2/1.0.8_intel
+module load ictce/4.0.0.020
+module load hdf5/1.6.8_gcc
+
+echo $PATH
+
+NPROCS=`wc -l < $PBS_NODEFILE`
+n_node=$(cat $PBS_NODEFILE | uniq | wc -l)
+NODEFILE_UNIQ=/tmp/`basename ${PBS_NODEFILE}`.uniq
+cat $PBS_NODEFILE | uniq > $NODEFILE_UNIQ
+# Boot the MPI2 engine.
+mpdboot --rsh=ssh -n $n_node --file=${NODEFILE_UNIQ} --verbose
+
+echo $NPROCS
+
+mpiexec -l -n $NPROCS /user/leuven/300/vsc30068/Parsek_AMR/AMR_In_Progress/Parsek2D-amr/ParsekEM /user/leuven/300/vsc30068/Parsek_AMR/AMR_In_Progress/Parsek2D-amr/INPUTFILE_Mari/inputfile.maxwell2grids
+mpdallexit
+mkdir $VSC_SCRATCH_SITE/maxwell2grids
+mv *.stf* $VSC_SCRATCH_SITE/results/maxwell2grids/

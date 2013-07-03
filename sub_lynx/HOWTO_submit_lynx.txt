@@ -1,0 +1,1 @@
+isub -n "number of cores" job.sh

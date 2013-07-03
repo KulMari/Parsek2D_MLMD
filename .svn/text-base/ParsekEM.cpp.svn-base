@@ -1,0 +1,235 @@
+/********************************************************************************************
+ParsekEM.cpp  - A main file for running a parallel Particle-in-Cell with Electromagnetic field
+			        -------------------
+developers: Stefano Markidis, Enrico Camporeale, Giovanni Lapenta, David Burgess
+********************************************************************************************/
+
+// MPI
+#include "mpi.h"
+#include "mpidata/MPIdata.h"
+// topology
+#include "processtopology/VirtualTopology.h"
+#include "processtopology/VCtopology.h"
+#include "processtopology/VCtopologyparticles.h"
+// input
+#include "inputoutput/CollectiveIO.h"
+#include "inputoutput/Collective.h"
+// grid
+#include "grids/Grid.h"
+#include "grids/Grid2DCU.h"
+// fields
+#include "fields/Field.h"
+#include "fields/EMfields.h"
+// particle
+#include "particles/Particles.h"
+#include "particles/Particles2Dcomm.h"
+#include "particles/Particles2D.h"
+//  output
+#include "PSKOutput2D/PSKOutput.h"
+#include "PSKOutput2D/PSKhdf5adaptor.h"
+#include "inputoutput/Restart.h"
+#include "inputoutput/SerialIO.h"
+// performance
+// wave
+//#include "perturbation/Planewave.h"
+
+
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <sstream>
+
+using namespace std;
+using std::cerr;
+using std::endl;
+
+
+
+
+int main (int argc, char **argv) {
+ // initialize MPI environment
+ int nprocs, myrank, mem_avail;
+ MPIdata *mpi = new MPIdata(&argc,&argv);
+ nprocs = mpi->nprocs; // nprocs = number of processors
+ myrank = mpi->rank;   // myrank = rank of the process (ID)
+
+ Collective *col = new Collective(argc,argv); // Every proc loads the parameters of simulation from class Collective
+ bool verbose = col->getVerbose();
+ string SaveDirName = col->getSaveDirName();
+ string RestartDirName = col->getRestartDirName();
+ const int restart = col->getRestart_status();
+ const int ns = col->getNs(); // get the number of particle species involved in simulation
+ const int first_cycle = col->getLast_cycle()+1; // get the last cycle from the restart
+ // initialize the virtual cartesian topology
+ VCtopology *vct = new VCtopology();
+ VCtopologyparticles *vctparticles = new VCtopologyparticles();
+ if (nprocs != vct->getNprocs()){ // Check if we can map the processes into a matrix ordering defined in Collective.cpp
+    if (myrank == 0 ) {
+      cerr << "Error: " << nprocs << " processes cant be mapped into " << vct->getXLEN() << "x" << vct->getYLEN() << " matrix: Change XLEN,YLEN in method VCTopology.init()" << endl;
+      mpi->finalize_mpi();
+      return(1);
+    }
+  }
+  vct->setup_vctopology(MPI_COMM_WORLD); // field 2D Cartesian Topology
+  vctparticles->setup_vctopology(MPI_COMM_WORLD); // particles 2D Cartesian Topology
+  // initialize the central cell index
+  const int nx0 = col->getNxc() / vct->getXLEN() / 2;// get the central cell in x for each processor
+  const int ny0 = col->getNyc() / vct->getYLEN() / 2;// get the central cell in y for each processor
+  // Print the initial settings from the INPUT file
+  if (myrank==0){
+	  mpi->Print();
+	  vct->Print();
+	  col->Print();
+  }
+  MPI_Barrier( MPI_COMM_WORLD ) ;
+  Grid2DCU* grid = new Grid2DCU(col,vct); // Create the local grid
+  EMfields *EMf = new EMfields(col, grid); // Create Electromagnetic Fields Object
+  // Initial Condition for FIELD if you are not starting from RESTART
+  EMf->initUniform(vct,grid); // initialize with constant values
+  //EMf->initLHDI(vct,grid); // initialize for the LHDI
+  //EMf->initGEM(vct,grid); // initialize GEM Challenge
+  //EMf->initForceFree(vct,grid); // initialize Force Free case
+  //EMf->initAlfven(vct,grid); // initialize Alfven Wave (set also periodicy in processtopology/VCtopology to true)
+  // Allocation of particles
+  Particles2D *part = new Particles2D[ns];
+  for (int i=0; i < ns; i++)
+    part[i].allocate(i,col,vctparticles,grid);
+  // Initial Condition for PARTICLES if you are not starting from RESTART
+  if (restart==0){
+     //Planewave *wave = new Planewave(col, EMf, grid, vct);
+     //wave->Wave_Rotated(part); // Single Plane Wave
+     for (int i=0; i < ns; i++)
+	 part[i].maxwellian(grid,EMf,vctparticles);  // all the species have Maxwellian distribution in the velocity
+       //part[i].maxwellian_Alfven(grid,EMf,vctparticles);  // all the species have Maxwellian distribution in the velocity
+       //part[i].force_free(grid,EMf,vctparticles);  // all the species have Maxwellian distribution in the velocity
+  }
+  // Initialize the output (simulation results and restart file)
+  PSK::OutputManager< PSK::OutputAdaptor > output_mgr;  // Create an Output Manager
+  myOutputAgent< PSK::HDF5OutputAdaptor > hdf5_agent; // Create an Output Agent for HDF5 output
+  hdf5_agent.set_simulation_pointers(EMf, grid, vct, mpi, col);
+  for (int i=0 ; i<ns ; ++i)
+      hdf5_agent.set_simulation_pointers_part(&part[i]);
+  output_mgr.push_back( &hdf5_agent ); // Add the HDF5 output agent to the Output Manager's list
+  if (myrank ==0 & restart<2){
+	  hdf5_agent.open(SaveDirName+"/settings.hdf");  // write in proc dir
+	  output_mgr.output("collective + total_topology + proc_topology",0);
+	  hdf5_agent.close();
+	  hdf5_agent.open(RestartDirName+"/settings.hdf"); // write in restart dir
+	  output_mgr.output("collective + total_topology + proc_topology",0);
+	  hdf5_agent.close();
+  }
+  stringstream num_proc;
+  num_proc << myrank;
+  if (restart==0){ // new simulation from input file
+    hdf5_agent.open(SaveDirName+"/proc"+num_proc.str()+".hdf");
+    output_mgr.output("proc_topology ",0);
+	hdf5_agent.close();
+    hdf5_agent.open(SaveDirName+"/part"+num_proc.str()+".hdf");
+    output_mgr.output("proc_topology ",0);
+	hdf5_agent.close();
+  }
+  else{ // restart append the results to the previous simulation
+    hdf5_agent.open_append(SaveDirName+"/proc"+num_proc.str()+".hdf");
+	output_mgr.output("proc_topology ",0);
+	hdf5_agent.close();
+    hdf5_agent.open_append(SaveDirName+"/part"+num_proc.str()+".hdf");
+	output_mgr.output("proc_topology ",0);
+	hdf5_agent.close();
+  }
+
+  string cq = SaveDirName + "/VirtualSatelliteTraces"+num_proc.str()+".txt";
+//  if(myrank==0){
+    ofstream my_file(cq.c_str());
+    my_file <<  grid->getXC(nx0,ny0,0) << "\t" << grid->getYC(nx0,ny0,0) << "\t";;
+    my_file <<  grid->getXC(1,1,0) << "\t" << grid->getYC(1,1,0) << endl;;
+    my_file.close();
+ // }particle species involved in simulation
+
+  MPI_Barrier( MPI_COMM_WORLD ) ;
+  //*******************************************//<<
+  //****     Start the  Simulation!         ***//
+  //*******************************************//
+  for (int cycle = first_cycle; cycle < (col->getNcycles()+first_cycle); cycle++){
+	  if (myrank==0 && verbose){
+		  cout << "***********************" << endl;
+		  cout << "*   cycle = " << cycle + 1 <<"        *" << endl;
+		  cout << "***********************" << endl;
+          }
+      // interpolation
+	 	  EMf->setZeroDensities(); // set to zero the densities
+	  for (int i=0; i < ns; i++)
+		  part[i].interpP2G(EMf,grid,vct); // interpolate Particles to Grid(Nodes)
+	  EMf->sumOverSpecies(vct);               // correct boundaries if necessary and sum the charge densities  all over the species
+	  MPI_Barrier(MPI_COMM_WORLD);
+	  // here write to serial
+	  //writeRHOascii2Dion("rho_i",myrank, cycle, grid,EMf);
+	  //writeRHOascii2Del("rho_e",myrank,cycle,grid,EMf);
+
+	  EMf->interpDensitiesN2C(vct,grid);   // calculate densities on centers from nodes
+	  EMf->calculateHatFunctions(grid,vct); // calculate the hat quantities for the implicit method
+		MPI_Barrier(MPI_COMM_WORLD);
+ 	  // OUTPUT to large file, called proc**
+	  if (cycle%(col->getFieldOutputCycle())==0 || cycle==first_cycle){
+		  hdf5_agent.open_append(SaveDirName+"/proc"+num_proc.str()+".hdf");
+		  output_mgr.output("k_energy + E_energy + B_energy + pressure",cycle);
+		  output_mgr.output("Eall + Ball + rhos + rho + phi + Jsall",cycle);
+		  hdf5_agent.close();
+	  }
+	  if (cycle%(col->getParticlesOutputCycle())==0 && col->getParticlesOutputCycle()!=1){
+         hdf5_agent.open_append(SaveDirName+"/part"+num_proc.str()+".hdf");
+		 output_mgr.output("position + velocity + q +ID",cycle, 1);
+		 hdf5_agent.close();
+	  }
+	  // write the virtual satellite traces
+//	   if (cycle%(col->getFieldOutputCycle())==0 || cycle==first_cycle){
+	    //      if((vct->getCoordinates(0) == vct->getXLEN()/2)  && (vct->getCoordinates(1) == vct->getYLEN()/2)){
+	             if(ns>2){
+	             ofstream my_file(cq.c_str(),fstream::app);
+	             my_file << EMf->getBx(nx0,ny0,0) << "\t" << EMf->getBy(nx0,ny0,0) << "\t" <<EMf->getBz(nx0,ny0,0) << "\t";
+	             my_file << EMf->getEx(nx0,ny0,0) << "\t" << EMf->getEy(nx0,ny0,0) << "\t" <<EMf->getEz(nx0,ny0,0) << "\t";
+	             my_file << EMf->getJxs(nx0,ny0,0,0) + EMf->getJxs(nx0,ny0,0,2) << "\t" << EMf->getJys(nx0,ny0,0,0) +  EMf->getJys(nx0,ny0,0,2) << "\t" <<EMf->getJzs(nx0,ny0,0,0) +  EMf->getJzs(nx0,ny0,0,2)<< "\t";
+	             my_file << EMf->getJxs(nx0,ny0,0,1) + EMf->getJxs(nx0,ny0,0,3) << "\t" << EMf->getJys(nx0,ny0,0,1) +  EMf->getJys(nx0,ny0,0,3) << "\t" <<EMf->getJzs(nx0,ny0,0,1) +  EMf->getJzs(nx0,ny0,0,3)<< "\t";
+	             my_file << EMf->getRHOns(nx0,ny0,0,0) + EMf->getRHOns(nx0,ny0,0,2)<< "\t";
+	             my_file << EMf->getRHOns(nx0,ny0,0,1) + EMf->getRHOns(nx0,ny0,0,3)<< "\t";
+	             my_file << EMf->getBx(1,1,0) << "\t" << EMf->getBy(1,1,0) << "\t" <<EMf->getBz(1,1,0) << "\t";
+	             my_file << EMf->getEx(1,1,0) << "\t" << EMf->getEy(1,1,0) << "\t" <<EMf->getEz(1,1,0) << "\t";
+	             my_file << EMf->getJxs(1,1,0,0) + EMf->getJxs(1,1,0,2) << "\t" << EMf->getJys(1,1,0,0) +  EMf->getJys(1,1,0,2) << "\t" <<EMf->getJzs(1,1,0,0) +  EMf->getJzs(1,1,0,2)<< "\t";
+	             my_file << EMf->getJxs(1,1,0,1) + EMf->getJxs(1,1,0,3) << "\t" << EMf->getJys(1,1,0,1) +  EMf->getJys(1,1,0,3) << "\t" <<EMf->getJzs(1,1,0,1) +  EMf->getJzs(1,1,0,3)<< "\t";
+	             my_file << EMf->getRHOns(1,1,0,0) + EMf->getRHOns(1,1,0,2) << "\t"  ;
+	             my_file << EMf->getRHOns(1,1,0,1) + EMf->getRHOns(1,1,0,3) << "\t"  << endl;
+	             my_file.close();
+	             }
+	     //      }
+//	         }
+	  // done with output
+	  // solve Maxwell equations
+	  	  EMf->calculateField(grid,vct); // calculate the EM fields
+	  // mover
+	  for (int i=0; i < ns; i++) // move each species
+		  mem_avail = part[i].mover_PC(grid,vctparticles,EMf); // use the Predictor Corrector scheme
+	      if (mem_avail < 0){ // not enough memory space allocated for particles: stop the simulation
+		     if (myrank==0){
+		         cout << "*************************************************************" << endl;
+				 cout << "Simulation stopped. Not enough memory allocated for particles" << endl;
+		         cout << "*************************************************************" << endl;
+		      }
+		      cycle = col->getNcycles()+first_cycle; // exit from the time loop
+	   }
+		MPI_Barrier(MPI_COMM_WORLD);
+	   // Output save a file for the RESTART
+	   if (cycle%(col->getRestartOutputCycle())==0 && cycle != first_cycle)
+	    writeRESTART(RestartDirName,myrank,cycle,ns,mpi,vct,col,grid,EMf,part,0); // without ,0 add to restart file
+	   MPI_Barrier(MPI_COMM_WORLD);
+
+  }  // end of the cycle
+
+  if (mem_avail==0) // write the restart only if the simulation finished succesfully
+    writeRESTART(RestartDirName,myrank,(col->getNcycles()+first_cycle)-1,ns,mpi,vct,col,grid,EMf,part,0);
+
+   // close MPI
+  mpi->finalize_mpi();
+
+  return(0);
+
+}
+

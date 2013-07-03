@@ -1,0 +1,38 @@
+#!/bin/sh
+
+#PBS -l walltime=24:00:00
+#!PBS -l nodes=128
+#!PBS -l nodes=32:ppn=4:ib2
+#PBS -l nodes=8:ppn=4
+
+#PBS -N MMS256
+#PBS -j oe -k eo
+
+echo Start: host `hostname`, date `date`
+NPROCS=`wc -l < $PBS_NODEFILE`
+echo Number of nodes is $NPROCS
+echo PBS id is $PBS_JOBID
+echo Assigned nodes: `cat $PBS_NODEFILE`
+
+echo Creating directories
+for node in `cat $PBS_NODEFILE`
+do
+echo Doing node $node
+ssh $node mkdir /scratch/gianni
+ssh $node rm -f /scratch/gianni/*
+done
+echo Done.
+		
+
+cd ~/Parsek2D
+
+mpirun -v -machinefile $PBS_NODEFILE -np $NPROCS ./ParsekEM inputfile.prit256
+
+echo Moving from  directories
+for node in `cat $PBS_NODEFILE`
+do
+echo Doing node $node
+ssh $node mv /scratch/gianni/* ~/Parsek2D/results
+ssh $node mv ~/Parsek2D/results/* /l/users/u0052182/mms
+done
+echo Done.

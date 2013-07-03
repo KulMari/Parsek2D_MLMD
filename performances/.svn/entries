@@ -1,0 +1,41 @@
+8
+
+dir
+15
+svn+ssh://gianni@mmsids.colorado.edu/home/gianni/parsek/Parsek2D/performances
+svn+ssh://gianni@mmsids.colorado.edu/home/gianni/parsek
+
+
+
+2009-10-04T20:58:38.693978Z
+1
+gianni
+
+
+svn:special svn:externals svn:needs-lock
+
+
+
+
+
+
+
+
+
+
+
+363e26a7-bf01-4ef6-ae51-5f20758abc6c
+
+Timing.h
+file
+
+
+
+
+2009-10-25T10:52:36.000000Z
+33ab324e03795f3483b98af65f3a9891
+2009-10-04T20:58:38.693978Z
+1
+gianni
+has-props
+

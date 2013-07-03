@@ -1,0 +1,8 @@
+TARNAME=/l/users/u0052182/$1
+
+echo storing in $TARNAME
+
+rm $TARNAME 
+
+tar zcvf $TARNAME inputfile.gem2 results
+

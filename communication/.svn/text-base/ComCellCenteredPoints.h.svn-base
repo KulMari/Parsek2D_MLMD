@@ -1,0 +1,527 @@
+/***************************************************************************
+    ComCellCenteredPoints.h  -  Library to manage communication of field, defined on central points, valeus among processors
+                       -------------------
+    begin                : Fri Jun 4 2004
+    copyright            : (C) 2004 Los Alamos National Laboratory
+    developers           : Stefano Markidis, Giovanni Lapenta
+    email                : markidis@lanl.gov, lapenta@lanl.gov
+ ***************************************************************************/
+
+#ifndef ComCellCenteredPoints_H
+#define ComCellCenteredPoints_H
+#include "../bc/BcFields.h"
+#include "ComBasic.h"
+
+/** communicate ghost cells */
+inline void communicateGhost(int nx, int ny, int nz, double ***vector, int bcFaceXright, int bcFaceXleft, int bcFaceYright, int bcFaceYleft,int bcFaceZright,int bcFaceZleft, double dx, double dy, double dz, int DIM, VirtualTopology *vct){
+  bool comDONEXrightYright = false, comDONEXrightYleft = false, comDONEXleftYright = false, comDONEXleftYleft = false;
+  bool comDONEXrightZright = false, comDONEXrightZleft = false, comDONEXleftZright = false, comDONEXleftZleft = false;
+  bool comDONEYrightZright = false, comDONEYrightZleft = false, comDONEYleftZright = false, comDONEYleftZleft = false;
+
+  bool comDONEXrightYrightZright= false,comDONEXleftYrightZright= false,comDONEXrightYleftZright= false,comDONEXleftYleftZright= false;
+  bool comDONEXrightYrightZleft = false,comDONEXleftYrightZleft = false,comDONEXrightYleftZleft = false,comDONEXleftYleftZleft = false;
+
+  // allocate 6 ghost cell Faces
+  double *ghostXrightFace = new double[(ny-2)*(nz-2)];
+  double *ghostXleftFace  = new double[(ny-2)*(nz-2)];
+  double *ghostYrightFace = new double[(nx-2)*(nz-2)];
+  double *ghostYleftFace  = new double[(nx-2)*(nz-2)];
+  double *ghostZrightFace = new double[(nx-2)*(ny-2)];
+  double *ghostZleftFace  = new double[(nx-2)*(ny-2)];
+  // allocate 12 ghost cell Edges
+  // X EDGE
+  double *ghostXsameYleftZleftEdge   = new double[nx-2];
+  double *ghostXsameYrightZleftEdge  = new double[nx-2];
+  double *ghostXsameYleftZrightEdge  = new double[nx-2];
+  double *ghostXsameYrightZrightEdge = new double[nx-2];
+  // Y EDGE
+  double *ghostXrightYsameZleftEdge  = new double[ny-2];
+  double *ghostXleftYsameZleftEdge   = new double[ny-2];
+  double *ghostXrightYsameZrightEdge = new double[ny-2];
+  double *ghostXleftYsameZrightEdge  = new double[ny-2];
+  // Z EDGE
+  double *ghostXrightYleftZsameEdge  = new double[nz-2];
+  double *ghostXrightYrightZsameEdge = new double[nz-2];
+  double *ghostXleftYleftZsameEdge   = new double[nz-2];
+  double *ghostXleftYrightZsameEdge  = new double[nz-2];
+  // allocate 8 ghost cell corner
+  double ghostXrightYrightZrightCorner,ghostXleftYrightZrightCorner,ghostXrightYleftZrightCorner,ghostXleftYleftZrightCorner;
+  double ghostXrightYrightZleftCorner, ghostXleftYrightZleftCorner, ghostXrightYleftZleftCorner, ghostXleftYleftZleftCorner;
+  switch(DIM){
+  case 0: // 1D X-DIRECTION
+  makeGhostFaceX(nx,ny,nz,vector,ghostXrightFace,ghostXleftFace);
+  communicateGhostFace((ny-2)*(nz-2),vct->getCartesian_rank(),vct->getXright_neighbor(),vct->getXleft_neighbor(),0,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXrightFace, ghostXleftFace);
+  parseGhostFaceX(nx,ny,nz,vector,ghostXrightFace,ghostXleftFace);
+  BCface(nx,ny,nz,vector,bcFaceXright,bcFaceXleft,bcFaceYright,bcFaceYleft,bcFaceZright,bcFaceZleft,dx,dy,dz,vct);
+  break;
+  case 1: // 1D Y-DIRECTION
+  makeGhostFaceY(nx,ny,nz,vector,ghostYrightFace,ghostYleftFace);
+  communicateGhostFace((nx-2)*(nz-2),vct->getCartesian_rank(),vct->getYright_neighbor(),vct->getYleft_neighbor(),1,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostYrightFace, ghostYleftFace);
+  parseGhostFaceY(nx,ny,nz,vector,ghostYrightFace,ghostYleftFace);
+  BCface(nx,ny,nz,vector,bcFaceXright,bcFaceXleft,bcFaceYright,bcFaceYleft,bcFaceZright,bcFaceZleft,dx,dy,dz,vct);
+  break;
+  case 2: // 1D Z-DIRECTION
+  makeGhostFaceZ(nx,ny,nz,vector,ghostZrightFace,ghostZleftFace);
+  communicateGhostFace((nx-2)*(ny-2),vct->getCartesian_rank(),vct->getZright_neighbor(),vct->getZleft_neighbor(),2,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostZrightFace, ghostZleftFace);
+  parseGhostFaceZ(nx,ny,nz,vector,ghostZrightFace,ghostZleftFace);
+  BCface(nx,ny,nz,vector,bcFaceXright,bcFaceXleft,bcFaceYright,bcFaceYleft,bcFaceZright,bcFaceZleft,dx,dy,dz,vct);
+  break;
+  
+  
+  case 3: // 2D XY PLANE
+  makeGhostFaceX(nx,ny,nz,vector,ghostXrightFace,ghostXleftFace);
+  makeGhostFaceY(nx,ny,nz,vector,ghostYrightFace,ghostYleftFace);
+  // X-DIRECTION
+  communicateGhostFace((ny-2)*(nz-2),vct->getCartesian_rank(),vct->getXright_neighbor(),vct->getXleft_neighbor(),0,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXrightFace, ghostXleftFace);
+  // Y-DIRECTION
+  communicateGhostFace((nx-2)*(nz-2),vct->getCartesian_rank(),vct->getYright_neighbor(),vct->getYleft_neighbor(),1,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostYrightFace, ghostYleftFace);
+  parseGhostFaceX(nx,ny,nz,vector,ghostXrightFace,ghostXleftFace);
+  parseGhostFaceY(nx,ny,nz,vector,ghostYrightFace,ghostYleftFace);
+  BCface(nx,ny,nz,vector,bcFaceXright,bcFaceXleft,bcFaceYright,bcFaceYleft,bcFaceZright,bcFaceZleft,dx,dy,dz,vct);
+  
+  // EDGES!!!!!!!!!!!!!!!
+  makeGhostEdgeZ(nx,ny,nz,vector,ghostXrightYrightZsameEdge,ghostXleftYleftZsameEdge,ghostXrightYleftZsameEdge,ghostXleftYrightZsameEdge);
+  // communicate the edge to the processor in diagonal if there is one
+  communicateGhostEdge(nz-2,vct->getCartesian_rank(),vct->getXrightYrightZsame_neighbor(),vct->getXleftYleftZsame_neighbor(),0, vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXrightYrightZsameEdge,ghostXleftYleftZsameEdge,&comDONEXrightYright,&comDONEXleftYleft);
+  // Direction 1: EDGE Z
+  communicateGhostEdge(nz-2,vct->getCartesian_rank(),vct->getXrightYleftZsame_neighbor(),vct->getXleftYrightZsame_neighbor(),1, vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXrightYleftZsameEdge,ghostXleftYrightZsameEdge,&comDONEXrightYleft,&comDONEXleftYright);
+  // otherwise communicate to the face
+  communicateGhostFace((nz-2),vct->getCartesian_rank(),vct->getXright_neighbor(),vct->getXleft_neighbor(),0,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXrightYrightZsameEdge,ghostXleftYrightZsameEdge,&comDONEXrightYright,&comDONEXleftYright);
+  communicateGhostFace((nz-2),vct->getCartesian_rank(),vct->getXright_neighbor(),vct->getXleft_neighbor(),0,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXrightYleftZsameEdge,ghostXleftYleftZsameEdge,&comDONEXrightYleft,&comDONEXleftYleft);
+  communicateGhostFace((nz-2),vct->getCartesian_rank(),vct->getYright_neighbor(),vct->getYleft_neighbor(),1,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXleftYrightZsameEdge,ghostXleftYleftZsameEdge,&comDONEXleftYright,&comDONEXleftYleft);
+  communicateGhostFace((nz-2),vct->getCartesian_rank(),vct->getYright_neighbor(),vct->getYleft_neighbor(),1,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXrightYrightZsameEdge,ghostXrightYleftZsameEdge,&comDONEXrightYright,&comDONEXrightYleft);
+  parseGhostEdgeZ(nx,ny,nz,vector,ghostXrightYrightZsameEdge,ghostXleftYleftZsameEdge,ghostXrightYleftZsameEdge,ghostXleftYrightZsameEdge);
+  BCedge(nx,ny,nz,vector,bcFaceXright,bcFaceXleft,bcFaceYright,bcFaceYleft,bcFaceZright,bcFaceZleft,dx,dy,dz,vct);
+  break;
+  
+  
+  case 4: // 2D XZ PLANE
+  makeGhostFaceX(nx,ny,nz,vector,ghostXrightFace,ghostXleftFace);
+  makeGhostFaceZ(nx,ny,nz,vector,ghostZrightFace,ghostZleftFace);
+  communicateGhostFace((ny-2)*(nz-2),vct->getCartesian_rank(),vct->getXright_neighbor(),vct->getXleft_neighbor(),0,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXrightFace, ghostXleftFace);
+  communicateGhostFace((nx-2)*(ny-2),vct->getCartesian_rank(),vct->getZright_neighbor(),vct->getZleft_neighbor(),2,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostZrightFace, ghostZleftFace);
+  parseGhostFaceX(nx,ny,nz,vector,ghostXrightFace,ghostXleftFace);
+  parseGhostFaceZ(nx,ny,nz,vector,ghostZrightFace,ghostZleftFace);
+  BCface(nx,ny,nz,vector,bcFaceXright,bcFaceXleft,bcFaceYright,bcFaceYleft,bcFaceZright,bcFaceZleft,dx,dy,dz,vct);
+  makeGhostEdgeY(nx,ny,nz,vector,ghostXrightYsameZrightEdge,ghostXleftYsameZleftEdge,ghostXleftYsameZrightEdge,ghostXrightYsameZleftEdge);
+  communicateGhostEdge(ny-2,vct->getCartesian_rank(),vct->getXrightYsameZright_neighbor(),vct->getXleftYsameZleft_neighbor(),2, vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXrightYsameZrightEdge,ghostXleftYsameZleftEdge,&comDONEXrightZright,&comDONEXleftZleft);
+  communicateGhostEdge(ny-2,vct->getCartesian_rank(),vct->getXrightYsameZleft_neighbor(),vct->getXleftYsameZright_neighbor(),3, vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXrightYsameZleftEdge,ghostXleftYsameZrightEdge,&comDONEXrightZleft,&comDONEXleftZright);
+  communicateGhostFace((ny-2),vct->getCartesian_rank(),vct->getXright_neighbor(),vct->getXleft_neighbor(),0,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXrightYsameZleftEdge,ghostXleftYsameZleftEdge,&comDONEXrightZleft,&comDONEXleftZleft);
+  communicateGhostFace((ny-2),vct->getCartesian_rank(),vct->getXright_neighbor(),vct->getXleft_neighbor(),0,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXrightYsameZrightEdge,ghostXleftYsameZrightEdge,&comDONEXrightZright,&comDONEXleftZright);
+  communicateGhostFace((ny-2),vct->getCartesian_rank(),vct->getZright_neighbor(),vct->getZleft_neighbor(),2,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXleftYsameZrightEdge,ghostXleftYsameZleftEdge,&comDONEXleftZright,&comDONEXleftZleft);
+  communicateGhostFace((ny-2),vct->getCartesian_rank(),vct->getZright_neighbor(),vct->getZleft_neighbor(),2,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXrightYsameZrightEdge,ghostXrightYsameZleftEdge,&comDONEXrightZright,&comDONEXrightZleft);
+  parseGhostEdgeY(nx,ny,nz,vector,ghostXrightYsameZrightEdge,ghostXleftYsameZleftEdge,ghostXleftYsameZrightEdge,ghostXrightYsameZleftEdge);
+  BCedge(nx,ny,nz,vector,bcFaceXright,bcFaceXleft,bcFaceYright,bcFaceYleft,bcFaceZright,bcFaceZleft,dx,dy,dz,vct);
+  break;
+  case 5: // 2D YZ PLANE
+  makeGhostFaceY(nx,ny,nz,vector,ghostYrightFace,ghostYleftFace);
+  makeGhostFaceZ(nx,ny,nz,vector,ghostZrightFace,ghostZleftFace);
+  communicateGhostFace((nx-2)*(nz-2),vct->getCartesian_rank(),vct->getYright_neighbor(),vct->getYleft_neighbor(),1,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostYrightFace, ghostYleftFace);
+  communicateGhostFace((nx-2)*(ny-2),vct->getCartesian_rank(),vct->getZright_neighbor(),vct->getZleft_neighbor(),2,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostZrightFace, ghostZleftFace);
+  parseGhostFaceY(nx,ny,nz,vector,ghostYrightFace,ghostYleftFace);
+  parseGhostFaceZ(nx,ny,nz,vector,ghostZrightFace,ghostZleftFace);
+  BCface(nx,ny,nz,vector,bcFaceXright,bcFaceXleft,bcFaceYright,bcFaceYleft,bcFaceZright,bcFaceZleft,dx,dy,dz,vct);
+  makeGhostEdgeX(nx,ny,nz,vector,ghostXsameYrightZrightEdge,ghostXsameYleftZleftEdge,ghostXsameYleftZrightEdge,ghostXsameYrightZleftEdge);
+  communicateGhostEdge(nx-2,vct->getCartesian_rank(),vct->getXsameYrightZright_neighbor(),vct->getXsameYleftZleft_neighbor(),4, vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXsameYrightZrightEdge,ghostXsameYleftZleftEdge,&comDONEYrightZright,&comDONEYleftZleft);
+  communicateGhostEdge(nx-2,vct->getCartesian_rank(),vct->getXsameYrightZleft_neighbor(),vct->getXsameYleftZright_neighbor(),5, vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXsameYrightZleftEdge,ghostXsameYleftZrightEdge,&comDONEYrightZleft,&comDONEYleftZright);
+  communicateGhostFace((nx-2),vct->getCartesian_rank(),vct->getYright_neighbor(),vct->getYleft_neighbor(),1,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXsameYrightZrightEdge,ghostXsameYleftZrightEdge,&comDONEYrightZright,&comDONEYleftZright);
+  communicateGhostFace((nx-2),vct->getCartesian_rank(),vct->getYright_neighbor(),vct->getYleft_neighbor(),1,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXsameYrightZleftEdge,ghostXsameYleftZleftEdge,&comDONEYrightZleft,&comDONEYleftZleft);
+  communicateGhostFace((nx-2),vct->getCartesian_rank(),vct->getZright_neighbor(),vct->getZleft_neighbor(),2,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXsameYleftZrightEdge,ghostXsameYleftZleftEdge,&comDONEYleftZright,&comDONEYleftZleft);
+  communicateGhostFace((nx-2),vct->getCartesian_rank(),vct->getZright_neighbor(),vct->getZleft_neighbor(),2,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXsameYrightZrightEdge,ghostXsameYrightZleftEdge,&comDONEYrightZright,&comDONEYrightZleft);
+  parseGhostEdgeX(nx,ny,nz,vector,ghostXsameYrightZrightEdge,ghostXsameYleftZleftEdge,ghostXsameYleftZrightEdge,ghostXsameYrightZleftEdge);
+  BCedge(nx,ny,nz,vector,bcFaceXright,bcFaceXleft,bcFaceYright,bcFaceYleft,bcFaceZright,bcFaceZleft,dx,dy,dz,vct);
+  break;
+  case 6: // COMMUNICATION 3D  
+  // apply boundary condition to 6 Ghost Faces and communicate if necessary to 6 processors: along 3 DIRECTIONS
+  makeGhostFace(nx,ny,nz,vector,ghostXrightFace,ghostXleftFace,ghostYrightFace,ghostYleftFace,ghostZrightFace,ghostZleftFace);
+  communicateGhostFace((ny-2)*(nz-2),vct->getCartesian_rank(),vct->getXright_neighbor(),vct->getXleft_neighbor(),0,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXrightFace, ghostXleftFace);
+  communicateGhostFace((nx-2)*(nz-2),vct->getCartesian_rank(),vct->getYright_neighbor(),vct->getYleft_neighbor(),1,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostYrightFace, ghostYleftFace);
+  communicateGhostFace((nx-2)*(ny-2),vct->getCartesian_rank(),vct->getZright_neighbor(),vct->getZleft_neighbor(),2,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostZrightFace, ghostZleftFace);
+  parseGhostFace(nx,ny,nz,vector,ghostXrightFace,ghostXleftFace,ghostYrightFace,ghostYleftFace,ghostZrightFace,ghostZleftFace);
+  BCface(nx,ny,nz,vector,bcFaceXright,bcFaceXleft,bcFaceYright,bcFaceYleft,bcFaceZright,bcFaceZleft,dx,dy,dz,vct);
+  // apply boundary condition to 12 Ghost Edges and communicate if necessary to 12 processors
+  makeGhostEdgeZ(nx,ny,nz,vector,ghostXrightYrightZsameEdge,ghostXleftYleftZsameEdge,ghostXrightYleftZsameEdge,ghostXleftYrightZsameEdge);
+  makeGhostEdgeY(nx,ny,nz,vector,ghostXrightYsameZrightEdge,ghostXleftYsameZleftEdge,ghostXleftYsameZrightEdge,ghostXrightYsameZleftEdge);
+  makeGhostEdgeX(nx,ny,nz,vector,ghostXsameYrightZrightEdge,ghostXsameYleftZleftEdge,ghostXsameYleftZrightEdge,ghostXsameYrightZleftEdge);
+  /** communicate ghost edge along a direction; there are 6 Diagonal directions through which we exchange Ghost Edges :
+          0 = from   XrightYrightZsame to YleftZleftZsame; we exchange Z edge
+          1 = from   XrightYleftZsame to XleftYrightZsame; we exchange Z edge
+          2 = from   XrightYsameZright to XleftYsameZsame; we exchange Y edge
+          3 = from   XrightYsameZleft to XleftYsameZright; we exchange Y edge
+          4 = from   XsameYrightZright to XsameYleftZleft; we exchange X edge
+          5 = from   XsameYrightZleft to XsameYleftZright; we exchange X edge
+      */
+
+  // Direction 0: EDGE Z
+  communicateGhostEdge(nz-2,vct->getCartesian_rank(),vct->getXrightYrightZsame_neighbor(),vct->getXleftYleftZsame_neighbor(),0, vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXrightYrightZsameEdge,ghostXleftYleftZsameEdge,&comDONEXrightYright,&comDONEXleftYleft);
+  // Direction 1: EDGE Z
+  communicateGhostEdge(nz-2,vct->getCartesian_rank(),vct->getXrightYleftZsame_neighbor(),vct->getXleftYrightZsame_neighbor(),1, vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXrightYleftZsameEdge,ghostXleftYrightZsameEdge,&comDONEXrightYleft,&comDONEXleftYright);
+  // Direction 2: EDGE Y
+  communicateGhostEdge(ny-2,vct->getCartesian_rank(),vct->getXrightYsameZright_neighbor(),vct->getXleftYsameZleft_neighbor(),2, vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXrightYsameZrightEdge,ghostXleftYsameZleftEdge,&comDONEXrightZright,&comDONEXleftZleft);
+  // Direction 3: EDGE Y
+  communicateGhostEdge(ny-2,vct->getCartesian_rank(),vct->getXrightYsameZleft_neighbor(),vct->getXleftYsameZright_neighbor(),3, vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXrightYsameZleftEdge,ghostXleftYsameZrightEdge,&comDONEXrightZleft,&comDONEXleftZright);
+  // Direction 4: EDGE X
+  communicateGhostEdge(nx-2,vct->getCartesian_rank(),vct->getXsameYrightZright_neighbor(),vct->getXsameYleftZleft_neighbor(),4, vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXsameYrightZrightEdge,ghostXsameYleftZleftEdge,&comDONEYrightZright,&comDONEYleftZleft);
+  // Direction 5: EDGE X
+  communicateGhostEdge(nx-2,vct->getCartesian_rank(),vct->getXsameYrightZleft_neighbor(),vct->getXsameYleftZright_neighbor(),5, vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXsameYrightZleftEdge,ghostXsameYleftZrightEdge,&comDONEYrightZleft,&comDONEYleftZright);
+
+  // COMMUNICATE - Z EDGE if edge processors are not available
+  communicateGhostFace((nz-2),vct->getCartesian_rank(),vct->getXright_neighbor(),vct->getXleft_neighbor(),0,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXrightYrightZsameEdge,ghostXleftYrightZsameEdge,&comDONEXrightYright,&comDONEXleftYright);
+  communicateGhostFace((nz-2),vct->getCartesian_rank(),vct->getXright_neighbor(),vct->getXleft_neighbor(),0,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXrightYleftZsameEdge,ghostXleftYleftZsameEdge,&comDONEXrightYleft,&comDONEXleftYleft);
+  communicateGhostFace((nz-2),vct->getCartesian_rank(),vct->getYright_neighbor(),vct->getYleft_neighbor(),1,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXleftYrightZsameEdge,ghostXleftYleftZsameEdge,&comDONEXleftYright,&comDONEXleftYleft);
+  communicateGhostFace((nz-2),vct->getCartesian_rank(),vct->getYright_neighbor(),vct->getYleft_neighbor(),1,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXrightYrightZsameEdge,ghostXrightYleftZsameEdge,&comDONEXrightYright,&comDONEXrightYleft);
+  // COMMUNICATE - Y EDGE if edge processors are not available
+  communicateGhostFace((ny-2),vct->getCartesian_rank(),vct->getXright_neighbor(),vct->getXleft_neighbor(),0,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXrightYsameZleftEdge,ghostXleftYsameZleftEdge,&comDONEXrightZleft,&comDONEXleftZleft);
+  communicateGhostFace((ny-2),vct->getCartesian_rank(),vct->getXright_neighbor(),vct->getXleft_neighbor(),0,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXrightYsameZrightEdge,ghostXleftYsameZrightEdge,&comDONEXrightZright,&comDONEXleftZright);
+  communicateGhostFace((ny-2),vct->getCartesian_rank(),vct->getZright_neighbor(),vct->getZleft_neighbor(),2,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXleftYsameZrightEdge,ghostXleftYsameZleftEdge,&comDONEXleftZright,&comDONEXleftZleft);
+  communicateGhostFace((ny-2),vct->getCartesian_rank(),vct->getZright_neighbor(),vct->getZleft_neighbor(),2,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXrightYsameZrightEdge,ghostXrightYsameZleftEdge,&comDONEXrightZright,&comDONEXrightZleft);
+  // COMMUNICATE - X EDGE if edge processors are not available
+  communicateGhostFace((nx-2),vct->getCartesian_rank(),vct->getYright_neighbor(),vct->getYleft_neighbor(),1,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXsameYrightZrightEdge,ghostXsameYleftZrightEdge,&comDONEYrightZright,&comDONEYleftZright);
+  communicateGhostFace((nx-2),vct->getCartesian_rank(),vct->getYright_neighbor(),vct->getYleft_neighbor(),1,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXsameYrightZleftEdge,ghostXsameYleftZleftEdge,&comDONEYrightZleft,&comDONEYleftZleft);
+  communicateGhostFace((nx-2),vct->getCartesian_rank(),vct->getZright_neighbor(),vct->getZleft_neighbor(),2,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXsameYleftZrightEdge,ghostXsameYleftZleftEdge,&comDONEYleftZright,&comDONEYleftZleft);
+  communicateGhostFace((nx-2),vct->getCartesian_rank(),vct->getZright_neighbor(),vct->getZleft_neighbor(),2,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXsameYrightZrightEdge,ghostXsameYrightZleftEdge,&comDONEYrightZright,&comDONEYrightZleft);
+
+  parseGhostEdgeZ(nx,ny,nz,vector,ghostXrightYrightZsameEdge,ghostXleftYleftZsameEdge,ghostXrightYleftZsameEdge,ghostXleftYrightZsameEdge);
+  parseGhostEdgeY(nx,ny,nz,vector,ghostXrightYsameZrightEdge,ghostXleftYsameZleftEdge,ghostXleftYsameZrightEdge,ghostXrightYsameZleftEdge);
+  parseGhostEdgeX(nx,ny,nz,vector,ghostXsameYrightZrightEdge,ghostXsameYleftZleftEdge,ghostXsameYleftZrightEdge,ghostXsameYrightZleftEdge);
+
+  BCedge(nx,ny,nz,vector,bcFaceXright,bcFaceXleft,bcFaceYright,bcFaceYleft,bcFaceZright,bcFaceZleft,dx,dy,dz,vct);
+  // apply boundary condition to 8 Ghost Corners and communicate if necessary to 8 processors
+  makeGhostCorner(nx,ny,nz,vector,&ghostXrightYrightZrightCorner,&ghostXleftYrightZrightCorner,&ghostXrightYleftZrightCorner,&ghostXleftYleftZrightCorner,&ghostXrightYrightZleftCorner,&ghostXleftYrightZleftCorner,&ghostXrightYleftZleftCorner,&ghostXleftYleftZleftCorner);
+  /** Communicate ghost corners along a direction; there are 4 Diagonal directions through which we exchange Ghost Corners:
+          0 =  from XrightYrightZright to XleftYleftZleft
+          1 =  from XrightYleftZright  to XleftYrightZleft
+          2 =  from XleftYrightZright  to XrightYleftZleft
+          3 =  from XleftYleftZright   to XrightYrightZleft
+  */
+
+  communicateGhostCorner(vct->getCartesian_rank(),vct->getXrightYrightZright_neighbor(),vct->getXleftYleftZleft_neighbor(),0,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXrightYrightZrightCorner,&ghostXleftYleftZleftCorner,&comDONEXrightYrightZright,&comDONEXleftYleftZleft);
+  communicateGhostCorner(vct->getCartesian_rank(),vct->getXrightYleftZright_neighbor(),vct->getXleftYrightZleft_neighbor(),1,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXrightYleftZrightCorner,&ghostXleftYrightZleftCorner,&comDONEXrightYleftZright,&comDONEXleftYrightZleft);
+  communicateGhostCorner(vct->getCartesian_rank(),vct->getXleftYrightZright_neighbor(),vct->getXrightYleftZleft_neighbor(),2,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXleftYrightZrightCorner,&ghostXrightYleftZleftCorner,&comDONEXleftYrightZright,&comDONEXrightYleftZleft);
+  communicateGhostCorner(vct->getCartesian_rank(),vct->getXleftYleftZright_neighbor(),vct->getXrightYrightZleft_neighbor(),3,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXleftYleftZrightCorner,&ghostXrightYrightZleftCorner,&comDONEXleftYleftZright,&comDONEXrightYrightZleft);
+  // FURTHER COMMUNICATION FOR CORNERS
+  // First couple of corners  from XrightYrightZright to XleftYleftZleft
+  communicateGhostEdge(1,vct->getCartesian_rank(),vct->getXrightYrightZsame_neighbor(),vct->getXleftYleftZsame_neighbor(),0, vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXrightYrightZrightCorner,&ghostXleftYleftZleftCorner,&comDONEXrightYrightZright,&comDONEXleftYleftZleft);
+  communicateGhostEdge(1,vct->getCartesian_rank(),vct->getXrightYsameZright_neighbor(),vct->getXleftYsameZleft_neighbor(),2, vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXrightYrightZrightCorner,&ghostXleftYleftZleftCorner,&comDONEXrightYrightZright,&comDONEXleftYleftZleft);
+  communicateGhostEdge(1,vct->getCartesian_rank(),vct->getXsameYrightZright_neighbor(),vct->getXsameYleftZleft_neighbor(),4, vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXrightYrightZrightCorner,&ghostXleftYleftZleftCorner,&comDONEXrightYrightZright,&comDONEXleftYleftZleft);
+  // Second couple of corners from XrightYleftZright  to XleftYrightZleft
+  communicateGhostEdge(1,vct->getCartesian_rank(),vct->getXrightYleftZsame_neighbor(),vct->getXleftYrightZsame_neighbor(),1, vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXrightYleftZrightCorner,&ghostXleftYrightZleftCorner,&comDONEXrightYleftZright,&comDONEXleftYrightZleft);
+  communicateGhostEdge(1,vct->getCartesian_rank(),vct->getXrightYsameZright_neighbor(),vct->getXleftYsameZleft_neighbor(),2, vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXrightYleftZrightCorner,&ghostXleftYrightZleftCorner,&comDONEXrightYleftZright,&comDONEXleftYrightZleft);
+  communicateGhostEdge(1,vct->getCartesian_rank(),vct->getXsameYleftZright_neighbor(),vct->getXsameYrightZleft_neighbor(),5, vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXrightYleftZrightCorner,&ghostXleftYrightZleftCorner,&comDONEXrightYleftZright,&comDONEXleftYrightZleft);
+  // Third couple of corners from XleftYrightZright  to XrightYleftZleft
+  communicateGhostEdge(1,vct->getCartesian_rank(),vct->getXleftYrightZsame_neighbor(),vct->getXrightYleftZsame_neighbor(),1, vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXleftYrightZrightCorner,&ghostXrightYleftZleftCorner,&comDONEXleftYrightZright,&comDONEXrightYleftZleft);
+  communicateGhostEdge(1,vct->getCartesian_rank(),vct->getXleftYsameZright_neighbor(),vct->getXrightYsameZleft_neighbor(),3, vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXleftYrightZrightCorner,&ghostXrightYleftZleftCorner,&comDONEXleftYrightZright,&comDONEXrightYleftZleft);
+  communicateGhostEdge(1,vct->getCartesian_rank(),vct->getXsameYrightZright_neighbor(),vct->getXsameYleftZleft_neighbor(),4, vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXleftYrightZrightCorner,&ghostXrightYleftZleftCorner,&comDONEXleftYrightZright,&comDONEXrightYleftZleft);
+  // Fourth couple of corners XleftYleftZright   to XrightYrightZleft
+  communicateGhostEdge(1,vct->getCartesian_rank(),vct->getXleftYleftZsame_neighbor(),vct->getXrightYrightZsame_neighbor(),0, vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXleftYleftZrightCorner,&ghostXrightYrightZleftCorner,&comDONEXleftYleftZright,&comDONEXrightYrightZleft);
+  communicateGhostEdge(1,vct->getCartesian_rank(),vct->getXleftYsameZright_neighbor(),vct->getXrightYsameZleft_neighbor(),3, vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXleftYleftZrightCorner,&ghostXrightYrightZleftCorner,&comDONEXleftYleftZright,&comDONEXrightYrightZleft);
+  communicateGhostEdge(1,vct->getCartesian_rank(),vct->getXsameYleftZright_neighbor(),vct->getXsameYrightZleft_neighbor(),5, vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXleftYleftZrightCorner,&ghostXrightYrightZleftCorner,&comDONEXleftYleftZright,&comDONEXrightYrightZleft);
+
+  // FURTHER COMMUNICATION FOR CORNERS
+  communicateGhostFace(1,vct->getCartesian_rank(),vct->getXright_neighbor(),vct->getXleft_neighbor(),0,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXrightYrightZrightCorner,&ghostXleftYrightZrightCorner,&comDONEXrightYrightZright,&comDONEXleftYrightZright);
+  communicateGhostFace(1,vct->getCartesian_rank(),vct->getXright_neighbor(),vct->getXleft_neighbor(),0,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXrightYleftZrightCorner,&ghostXleftYleftZrightCorner,&comDONEXrightYleftZright,&comDONEXleftYleftZright);
+  communicateGhostFace(1,vct->getCartesian_rank(),vct->getXright_neighbor(),vct->getXleft_neighbor(),0,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXrightYleftZleftCorner,&ghostXleftYleftZleftCorner,&comDONEXrightYleftZleft,&comDONEXleftYleftZleft);
+  communicateGhostFace(1,vct->getCartesian_rank(),vct->getXright_neighbor(),vct->getXleft_neighbor(),0,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXrightYrightZleftCorner,&ghostXleftYrightZleftCorner,&comDONEXrightYrightZleft,&comDONEXleftYrightZleft);
+  communicateGhostFace(1,vct->getCartesian_rank(),vct->getXleft_neighbor(),vct->getXright_neighbor(),0,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXleftYrightZrightCorner,&ghostXrightYrightZrightCorner,&comDONEXleftYrightZright,&comDONEXrightYrightZright);
+  communicateGhostFace(1,vct->getCartesian_rank(),vct->getXleft_neighbor(),vct->getXright_neighbor(),0,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXleftYrightZleftCorner,&ghostXrightYrightZleftCorner,&comDONEXleftYrightZleft,&comDONEXrightYrightZleft);
+  communicateGhostFace(1,vct->getCartesian_rank(),vct->getXleft_neighbor(),vct->getXright_neighbor(),0,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXleftYleftZrightCorner,&ghostXrightYleftZrightCorner,&comDONEXleftYleftZright,&comDONEXrightYleftZright);
+  communicateGhostFace(1,vct->getCartesian_rank(),vct->getXleft_neighbor(),vct->getXright_neighbor(),0,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXleftYleftZleftCorner,&ghostXrightYleftZleftCorner,&comDONEXleftYleftZleft,&comDONEXrightYleftZleft);
+
+  communicateGhostFace(1,vct->getCartesian_rank(),vct->getYright_neighbor(),vct->getYleft_neighbor(),1,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXrightYrightZrightCorner,&ghostXrightYleftZrightCorner,&comDONEXrightYrightZright,&comDONEXrightYleftZright);
+  communicateGhostFace(1,vct->getCartesian_rank(),vct->getYright_neighbor(),vct->getYleft_neighbor(),1,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXrightYrightZleftCorner,&ghostXrightYleftZleftCorner,&comDONEXrightYrightZleft,&comDONEXrightYleftZleft);
+  communicateGhostFace(1,vct->getCartesian_rank(),vct->getYright_neighbor(),vct->getYleft_neighbor(),1,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXleftYrightZrightCorner,&ghostXleftYleftZrightCorner,&comDONEXleftYrightZright,&comDONEXleftYleftZright);
+  communicateGhostFace(1,vct->getCartesian_rank(),vct->getYright_neighbor(),vct->getYleft_neighbor(),1,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXleftYrightZleftCorner,&ghostXleftYleftZleftCorner,&comDONEXleftYrightZleft,&comDONEXleftYleftZleft);
+  communicateGhostFace(1,vct->getCartesian_rank(),vct->getYleft_neighbor(),vct->getYright_neighbor(),1,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXrightYleftZrightCorner,&ghostXrightYrightZrightCorner,&comDONEXrightYleftZright,&comDONEXrightYrightZright);
+  communicateGhostFace(1,vct->getCartesian_rank(),vct->getYleft_neighbor(),vct->getYright_neighbor(),1,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXrightYleftZleftCorner,&ghostXrightYrightZleftCorner,&comDONEXrightYleftZleft,&comDONEXrightYrightZleft);
+  communicateGhostFace(1,vct->getCartesian_rank(),vct->getYleft_neighbor(),vct->getYright_neighbor(),1,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXleftYleftZrightCorner,&ghostXleftYrightZrightCorner,&comDONEXleftYleftZright,&comDONEXleftYrightZright);
+  communicateGhostFace(1,vct->getCartesian_rank(),vct->getYleft_neighbor(),vct->getYright_neighbor(),1,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXleftYleftZleftCorner,&ghostXleftYrightZleftCorner,&comDONEXleftYleftZleft,&comDONEXleftYrightZleft);
+
+  communicateGhostFace(1,vct->getCartesian_rank(),vct->getZright_neighbor(),vct->getZleft_neighbor(),2,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXrightYrightZrightCorner,&ghostXrightYrightZleftCorner,&comDONEXrightYrightZright,&comDONEXrightYrightZleft);
+  communicateGhostFace(1,vct->getCartesian_rank(),vct->getZright_neighbor(),vct->getZleft_neighbor(),2,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXrightYleftZrightCorner,&ghostXrightYleftZleftCorner,&comDONEXrightYleftZright,&comDONEXrightYleftZleft);
+  communicateGhostFace(1,vct->getCartesian_rank(),vct->getZright_neighbor(),vct->getZleft_neighbor(),2,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXleftYrightZrightCorner,&ghostXleftYrightZleftCorner,&comDONEXleftYrightZright,&comDONEXleftYrightZleft);
+  communicateGhostFace(1,vct->getCartesian_rank(),vct->getZright_neighbor(),vct->getZleft_neighbor(),2,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXleftYleftZrightCorner,&ghostXleftYleftZleftCorner,&comDONEXleftYleftZright,&comDONEXleftYleftZleft);
+  communicateGhostFace(1,vct->getCartesian_rank(),vct->getZleft_neighbor(),vct->getZright_neighbor(),2,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXrightYleftZleftCorner,&ghostXrightYleftZrightCorner,&comDONEXrightYleftZleft,&comDONEXrightYleftZright);
+  communicateGhostFace(1,vct->getCartesian_rank(),vct->getZleft_neighbor(),vct->getZright_neighbor(),2,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXrightYrightZleftCorner,&ghostXrightYrightZrightCorner,&comDONEXrightYrightZleft,&comDONEXrightYrightZright);
+  communicateGhostFace(1,vct->getCartesian_rank(),vct->getZleft_neighbor(),vct->getZright_neighbor(),2,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXleftYrightZleftCorner,&ghostXleftYrightZrightCorner,&comDONEXleftYrightZleft,&comDONEXleftYrightZright);
+  communicateGhostFace(1,vct->getCartesian_rank(),vct->getZleft_neighbor(),vct->getZright_neighbor(),2,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXleftYleftZleftCorner,&ghostXleftYleftZrightCorner,&comDONEXleftYleftZleft,&comDONEXleftYleftZright);
+
+
+  parseGhostCorner(nx,ny,nz,vector,&ghostXrightYrightZrightCorner,&ghostXleftYrightZrightCorner,&ghostXrightYleftZrightCorner,&ghostXleftYleftZrightCorner,&ghostXrightYrightZleftCorner,&ghostXleftYrightZleftCorner,&ghostXrightYleftZleftCorner,&ghostXleftYleftZleftCorner);
+  BCcorner(nx,ny,nz,vector,bcFaceXright,bcFaceXleft,bcFaceYright,bcFaceYleft,bcFaceZright,bcFaceZleft,dx,dy,dz,vct);
+  break;
+  }
+  delete[] ghostXrightFace;
+  delete[] ghostXleftFace;
+  delete[] ghostYrightFace;
+  delete[] ghostYleftFace;
+  delete[] ghostZrightFace;
+  delete[] ghostZleftFace;
+  // X EDGE
+  delete[] ghostXsameYleftZleftEdge;
+  delete[]ghostXsameYrightZleftEdge;
+  delete[] ghostXsameYleftZrightEdge;
+  delete[] ghostXsameYrightZrightEdge;
+  // Y EDGE
+  delete[] ghostXrightYsameZleftEdge;
+  delete[] ghostXleftYsameZleftEdge;
+  delete[] ghostXrightYsameZrightEdge;
+  delete[] ghostXleftYsameZrightEdge;
+  // Z EDGE
+  delete[] ghostXrightYleftZsameEdge;
+  delete[] ghostXrightYrightZsameEdge;
+  delete[] ghostXleftYleftZsameEdge;
+  delete[] ghostXleftYrightZsameEdge;
+}
+/** communicate ghost cells */
+inline void communicateGhost(int nx, int ny, int nz, int ns,double ****vector, int bcFaceXright, int bcFaceXleft, int bcFaceYright, int bcFaceYleft,int bcFaceZright,int bcFaceZleft, double dx, double dy, double dz, int DIM, VirtualTopology *vct){
+  bool comDONEXrightYright = false, comDONEXrightYleft = false, comDONEXleftYright = false, comDONEXleftYleft = false;
+  bool comDONEXrightZright = false, comDONEXrightZleft = false, comDONEXleftZright = false, comDONEXleftZleft = false;
+  bool comDONEYrightZright = false, comDONEYrightZleft = false, comDONEYleftZright = false, comDONEYleftZleft = false;
+
+  bool comDONEXrightYrightZright= false,comDONEXleftYrightZright= false,comDONEXrightYleftZright= false,comDONEXleftYleftZright= false;
+  bool comDONEXrightYrightZleft = false,comDONEXleftYrightZleft = false,comDONEXrightYleftZleft = false,comDONEXleftYleftZleft = false;
+
+  // allocate 6 ghost cell Faces
+  double *ghostXrightFace = new double[(ny-2)*(nz-2)];
+  double *ghostXleftFace  = new double[(ny-2)*(nz-2)];
+  double *ghostYrightFace = new double[(nx-2)*(nz-2)];
+  double *ghostYleftFace  = new double[(nx-2)*(nz-2)];
+  double *ghostZrightFace = new double[(nx-2)*(ny-2)];
+  double *ghostZleftFace  = new double[(nx-2)*(ny-2)];
+  // allocate 12 ghost cell Edges
+  // X EDGE
+  double *ghostXsameYleftZleftEdge   = new double[nx-2];
+  double *ghostXsameYrightZleftEdge  = new double[nx-2];
+  double *ghostXsameYleftZrightEdge  = new double[nx-2];
+  double *ghostXsameYrightZrightEdge = new double[nx-2];
+  // Y EDGE
+  double *ghostXrightYsameZleftEdge  = new double[ny-2];
+  double *ghostXleftYsameZleftEdge   = new double[ny-2];
+  double *ghostXrightYsameZrightEdge = new double[ny-2];
+  double *ghostXleftYsameZrightEdge  = new double[ny-2];
+  // Z EDGE
+  double *ghostXrightYleftZsameEdge  = new double[nz-2];
+  double *ghostXrightYrightZsameEdge = new double[nz-2];
+  double *ghostXleftYleftZsameEdge   = new double[nz-2];
+  double *ghostXleftYrightZsameEdge  = new double[nz-2];
+  // allocate 8 ghost cell corner
+  double ghostXrightYrightZrightCorner,ghostXleftYrightZrightCorner,ghostXrightYleftZrightCorner,ghostXleftYleftZrightCorner;
+  double ghostXrightYrightZleftCorner, ghostXleftYrightZleftCorner, ghostXrightYleftZleftCorner, ghostXleftYleftZleftCorner;
+  switch(DIM){
+  case 0: // 1D X-DIRECTION
+  makeGhostFaceX(nx,ny,nz,ns,vector,ghostXrightFace,ghostXleftFace);
+  communicateGhostFace((ny-2)*(nz-2),vct->getCartesian_rank(),vct->getXright_neighbor(),vct->getXleft_neighbor(),0,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXrightFace, ghostXleftFace);
+  parseGhostFaceX(nx,ny,nz,ns,vector,ghostXrightFace,ghostXleftFace);
+  BCface(nx,ny,nz,ns,vector,bcFaceXright,bcFaceXleft,bcFaceYright,bcFaceYleft,bcFaceZright,bcFaceZleft,dx,dy,dz,vct);
+  break;
+  case 1: // 1D Y-DIRECTION
+  makeGhostFaceY(nx,ny,nz,ns,vector,ghostYrightFace,ghostYleftFace);
+  communicateGhostFace((nx-2)*(nz-2),vct->getCartesian_rank(),vct->getYright_neighbor(),vct->getYleft_neighbor(),1,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostYrightFace, ghostYleftFace);
+  parseGhostFaceY(nx,ny,nz,ns,vector,ghostYrightFace,ghostYleftFace);
+  BCface(nx,ny,nz,ns,vector,bcFaceXright,bcFaceXleft,bcFaceYright,bcFaceYleft,bcFaceZright,bcFaceZleft,dx,dy,dz,vct);
+  break;
+  case 2: // 1D Z-DIRECTION
+  makeGhostFaceZ(nx,ny,nz,ns,vector,ghostZrightFace,ghostZleftFace);
+  communicateGhostFace((nx-2)*(ny-2),vct->getCartesian_rank(),vct->getZright_neighbor(),vct->getZleft_neighbor(),2,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostZrightFace, ghostZleftFace);
+  parseGhostFaceZ(nx,ny,nz,ns,vector,ghostZrightFace,ghostZleftFace);
+  BCface(nx,ny,nz,ns,vector,bcFaceXright,bcFaceXleft,bcFaceYright,bcFaceYleft,bcFaceZright,bcFaceZleft,dx,dy,dz,vct);
+  break;
+  case 3: // 2D XY PLANE
+  makeGhostFaceX(nx,ny,nz,ns,vector,ghostXrightFace,ghostXleftFace);
+  makeGhostFaceY(nx,ny,nz,ns,vector,ghostYrightFace,ghostYleftFace);
+  communicateGhostFace((ny-2)*(nz-2),vct->getCartesian_rank(),vct->getXright_neighbor(),vct->getXleft_neighbor(),0,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXrightFace, ghostXleftFace);
+  communicateGhostFace((nx-2)*(nz-2),vct->getCartesian_rank(),vct->getYright_neighbor(),vct->getYleft_neighbor(),1,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostYrightFace, ghostYleftFace);
+  parseGhostFaceX(nx,ny,nz,ns,vector,ghostXrightFace,ghostXleftFace);
+  parseGhostFaceY(nx,ny,nz,ns,vector,ghostYrightFace,ghostYleftFace);
+  BCface(nx,ny,nz,ns,vector,bcFaceXright,bcFaceXleft,bcFaceYright,bcFaceYleft,bcFaceZright,bcFaceZleft,dx,dy,dz,vct);
+  makeGhostEdgeZ(nx,ny,nz,ns,vector,ghostXrightYrightZsameEdge,ghostXleftYleftZsameEdge,ghostXrightYleftZsameEdge,ghostXleftYrightZsameEdge);
+  communicateGhostEdge(nz-2,vct->getCartesian_rank(),vct->getXrightYrightZsame_neighbor(),vct->getXleftYleftZsame_neighbor(),0, vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXrightYrightZsameEdge,ghostXleftYleftZsameEdge,&comDONEXrightYright,&comDONEXleftYleft);
+  communicateGhostEdge(nz-2,vct->getCartesian_rank(),vct->getXrightYleftZsame_neighbor(),vct->getXleftYrightZsame_neighbor(),1, vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXrightYleftZsameEdge,ghostXleftYrightZsameEdge,&comDONEXrightYleft,&comDONEXleftYright);
+  communicateGhostFace((nz-2),vct->getCartesian_rank(),vct->getXright_neighbor(),vct->getXleft_neighbor(),0,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXrightYrightZsameEdge,ghostXleftYrightZsameEdge,&comDONEXrightYright,&comDONEXleftYright);
+  communicateGhostFace((nz-2),vct->getCartesian_rank(),vct->getXright_neighbor(),vct->getXleft_neighbor(),0,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXrightYleftZsameEdge,ghostXleftYleftZsameEdge,&comDONEXrightYleft,&comDONEXleftYleft);
+  communicateGhostFace((nz-2),vct->getCartesian_rank(),vct->getYright_neighbor(),vct->getYleft_neighbor(),1,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXleftYrightZsameEdge,ghostXleftYleftZsameEdge,&comDONEXleftYright,&comDONEXleftYleft);
+  communicateGhostFace((nz-2),vct->getCartesian_rank(),vct->getYright_neighbor(),vct->getYleft_neighbor(),1,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXrightYrightZsameEdge,ghostXrightYleftZsameEdge,&comDONEXrightYright,&comDONEXrightYleft);
+  parseGhostEdgeZ(nx,ny,nz,ns,vector,ghostXrightYrightZsameEdge,ghostXleftYleftZsameEdge,ghostXrightYleftZsameEdge,ghostXleftYrightZsameEdge);
+  BCedge(nx,ny,nz,ns,vector,bcFaceXright,bcFaceXleft,bcFaceYright,bcFaceYleft,bcFaceZright,bcFaceZleft,dx,dy,dz,vct);
+  break;
+  case 4: // 2D XZ PLANE
+  makeGhostFaceX(nx,ny,nz,ns,vector,ghostXrightFace,ghostXleftFace);
+  makeGhostFaceZ(nx,ny,nz,ns,vector,ghostZrightFace,ghostZleftFace);
+  communicateGhostFace((ny-2)*(nz-2),vct->getCartesian_rank(),vct->getXright_neighbor(),vct->getXleft_neighbor(),0,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXrightFace, ghostXleftFace);
+  communicateGhostFace((nx-2)*(ny-2),vct->getCartesian_rank(),vct->getZright_neighbor(),vct->getZleft_neighbor(),2,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostZrightFace, ghostZleftFace);
+  parseGhostFaceX(nx,ny,nz,ns,vector,ghostXrightFace,ghostXleftFace);
+  parseGhostFaceZ(nx,ny,nz,ns,vector,ghostZrightFace,ghostZleftFace);
+  BCface(nx,ny,nz,ns,vector,bcFaceXright,bcFaceXleft,bcFaceYright,bcFaceYleft,bcFaceZright,bcFaceZleft,dx,dy,dz,vct);
+  makeGhostEdgeY(nx,ny,nz,ns,vector,ghostXrightYsameZrightEdge,ghostXleftYsameZleftEdge,ghostXleftYsameZrightEdge,ghostXrightYsameZleftEdge);
+  communicateGhostEdge(ny-2,vct->getCartesian_rank(),vct->getXrightYsameZright_neighbor(),vct->getXleftYsameZleft_neighbor(),2, vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXrightYsameZrightEdge,ghostXleftYsameZleftEdge,&comDONEXrightZright,&comDONEXleftZleft);
+  communicateGhostEdge(ny-2,vct->getCartesian_rank(),vct->getXrightYsameZleft_neighbor(),vct->getXleftYsameZright_neighbor(),3, vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXrightYsameZleftEdge,ghostXleftYsameZrightEdge,&comDONEXrightZleft,&comDONEXleftZright);
+  communicateGhostFace((ny-2),vct->getCartesian_rank(),vct->getXright_neighbor(),vct->getXleft_neighbor(),0,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXrightYsameZleftEdge,ghostXleftYsameZleftEdge,&comDONEXrightZleft,&comDONEXleftZleft);
+  communicateGhostFace((ny-2),vct->getCartesian_rank(),vct->getXright_neighbor(),vct->getXleft_neighbor(),0,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXrightYsameZrightEdge,ghostXleftYsameZrightEdge,&comDONEXrightZright,&comDONEXleftZright);
+  communicateGhostFace((ny-2),vct->getCartesian_rank(),vct->getZright_neighbor(),vct->getZleft_neighbor(),2,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXleftYsameZrightEdge,ghostXleftYsameZleftEdge,&comDONEXleftZright,&comDONEXleftZleft);
+  communicateGhostFace((ny-2),vct->getCartesian_rank(),vct->getZright_neighbor(),vct->getZleft_neighbor(),2,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXrightYsameZrightEdge,ghostXrightYsameZleftEdge,&comDONEXrightZright,&comDONEXrightZleft);
+  parseGhostEdgeY(nx,ny,nz,ns,vector,ghostXrightYsameZrightEdge,ghostXleftYsameZleftEdge,ghostXleftYsameZrightEdge,ghostXrightYsameZleftEdge);
+  BCedge(nx,ny,nz,ns,vector,bcFaceXright,bcFaceXleft,bcFaceYright,bcFaceYleft,bcFaceZright,bcFaceZleft,dx,dy,dz,vct);
+  break;
+  case 5: // 2D YZ PLANE
+  makeGhostFaceY(nx,ny,nz,ns,vector,ghostYrightFace,ghostYleftFace);
+  makeGhostFaceZ(nx,ny,nz,ns,vector,ghostZrightFace,ghostZleftFace);
+  communicateGhostFace((nx-2)*(nz-2),vct->getCartesian_rank(),vct->getYright_neighbor(),vct->getYleft_neighbor(),1,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostYrightFace, ghostYleftFace);
+  communicateGhostFace((nx-2)*(ny-2),vct->getCartesian_rank(),vct->getZright_neighbor(),vct->getZleft_neighbor(),2,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostZrightFace, ghostZleftFace);
+  parseGhostFaceY(nx,ny,nz,ns,vector,ghostYrightFace,ghostYleftFace);
+  parseGhostFaceZ(nx,ny,nz,ns,vector,ghostZrightFace,ghostZleftFace);
+  BCface(nx,ny,nz,ns,vector,bcFaceXright,bcFaceXleft,bcFaceYright,bcFaceYleft,bcFaceZright,bcFaceZleft,dx,dy,dz,vct);
+  makeGhostEdgeX(nx,ny,nz,ns,vector,ghostXsameYrightZrightEdge,ghostXsameYleftZleftEdge,ghostXsameYleftZrightEdge,ghostXsameYrightZleftEdge);
+  communicateGhostEdge(nx-2,vct->getCartesian_rank(),vct->getXsameYrightZright_neighbor(),vct->getXsameYleftZleft_neighbor(),4, vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXsameYrightZrightEdge,ghostXsameYleftZleftEdge,&comDONEYrightZright,&comDONEYleftZleft);
+  communicateGhostEdge(nx-2,vct->getCartesian_rank(),vct->getXsameYrightZleft_neighbor(),vct->getXsameYleftZright_neighbor(),5, vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXsameYrightZleftEdge,ghostXsameYleftZrightEdge,&comDONEYrightZleft,&comDONEYleftZright);
+  communicateGhostFace((nx-2),vct->getCartesian_rank(),vct->getYright_neighbor(),vct->getYleft_neighbor(),1,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXsameYrightZrightEdge,ghostXsameYleftZrightEdge,&comDONEYrightZright,&comDONEYleftZright);
+  communicateGhostFace((nx-2),vct->getCartesian_rank(),vct->getYright_neighbor(),vct->getYleft_neighbor(),1,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXsameYrightZleftEdge,ghostXsameYleftZleftEdge,&comDONEYrightZleft,&comDONEYleftZleft);
+  communicateGhostFace((nx-2),vct->getCartesian_rank(),vct->getZright_neighbor(),vct->getZleft_neighbor(),2,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXsameYleftZrightEdge,ghostXsameYleftZleftEdge,&comDONEYleftZright,&comDONEYleftZleft);
+  communicateGhostFace((nx-2),vct->getCartesian_rank(),vct->getZright_neighbor(),vct->getZleft_neighbor(),2,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXsameYrightZrightEdge,ghostXsameYrightZleftEdge,&comDONEYrightZright,&comDONEYrightZleft);
+  parseGhostEdgeX(nx,ny,nz,ns,vector,ghostXsameYrightZrightEdge,ghostXsameYleftZleftEdge,ghostXsameYleftZrightEdge,ghostXsameYrightZleftEdge);
+  BCedge(nx,ny,nz,ns,vector,bcFaceXright,bcFaceXleft,bcFaceYright,bcFaceYleft,bcFaceZright,bcFaceZleft,dx,dy,dz,vct);
+  break;
+  case 6: // COMMUNICATION 3D
+  // apply boundary condition to 6 Ghost Faces and communicate if necessary to 6 processors: along 3 DIRECTIONS
+  makeGhostFace(nx,ny,nz,ns,vector,ghostXrightFace,ghostXleftFace,ghostYrightFace,ghostYleftFace,ghostZrightFace,ghostZleftFace);
+  communicateGhostFace((ny-2)*(nz-2),vct->getCartesian_rank(),vct->getXright_neighbor(),vct->getXleft_neighbor(),0,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXrightFace, ghostXleftFace);
+  communicateGhostFace((nx-2)*(nz-2),vct->getCartesian_rank(),vct->getYright_neighbor(),vct->getYleft_neighbor(),1,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostYrightFace, ghostYleftFace);
+  communicateGhostFace((nx-2)*(ny-2),vct->getCartesian_rank(),vct->getZright_neighbor(),vct->getZleft_neighbor(),2,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostZrightFace, ghostZleftFace);
+  parseGhostFace(nx,ny,nz,ns,vector,ghostXrightFace,ghostXleftFace,ghostYrightFace,ghostYleftFace,ghostZrightFace,ghostZleftFace);
+  BCface(nx,ny,nz,ns,vector,bcFaceXright,bcFaceXleft,bcFaceYright,bcFaceYleft,bcFaceZright,bcFaceZleft,dx,dy,dz,vct);
+  // apply boundary condition to 12 Ghost Edges and communicate if necessary to 12 processors
+  makeGhostEdgeZ(nx,ny,nz,ns,vector,ghostXrightYrightZsameEdge,ghostXleftYleftZsameEdge,ghostXrightYleftZsameEdge,ghostXleftYrightZsameEdge);
+  makeGhostEdgeY(nx,ny,nz,ns,vector,ghostXrightYsameZrightEdge,ghostXleftYsameZleftEdge,ghostXleftYsameZrightEdge,ghostXrightYsameZleftEdge);
+  makeGhostEdgeX(nx,ny,nz,ns,vector,ghostXsameYrightZrightEdge,ghostXsameYleftZleftEdge,ghostXsameYleftZrightEdge,ghostXsameYrightZleftEdge);
+  /** communicate ghost edge along a direction; there are 6 Diagonal directions through which we exchange Ghost Edges :
+          0 = from   XrightYrightZsame to YleftZleftZsame; we exchange Z edge
+          1 = from   XrightYleftZsame to XleftYrightZsame; we exchange Z edge
+          2 = from   XrightYsameZright to XleftYsameZsame; we exchange Y edge
+          3 = from   XrightYsameZleft to XleftYsameZright; we exchange Y edge
+          4 = from   XsameYrightZright to XsameYleftZleft; we exchange X edge
+          5 = from   XsameYrightZleft to XsameYleftZright; we exchange X edge
+      */
+
+  // Direction 0: EDGE Z
+  communicateGhostEdge(nz-2,vct->getCartesian_rank(),vct->getXrightYrightZsame_neighbor(),vct->getXleftYleftZsame_neighbor(),0, vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXrightYrightZsameEdge,ghostXleftYleftZsameEdge,&comDONEXrightYright,&comDONEXleftYleft);
+  // Direction 1: EDGE Z
+  communicateGhostEdge(nz-2,vct->getCartesian_rank(),vct->getXrightYleftZsame_neighbor(),vct->getXleftYrightZsame_neighbor(),1, vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXrightYleftZsameEdge,ghostXleftYrightZsameEdge,&comDONEXrightYleft,&comDONEXleftYright);
+  // Direction 2: EDGE Y
+  communicateGhostEdge(ny-2,vct->getCartesian_rank(),vct->getXrightYsameZright_neighbor(),vct->getXleftYsameZleft_neighbor(),2, vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXrightYsameZrightEdge,ghostXleftYsameZleftEdge,&comDONEXrightZright,&comDONEXleftZleft);
+  // Direction 3: EDGE Y
+  communicateGhostEdge(ny-2,vct->getCartesian_rank(),vct->getXrightYsameZleft_neighbor(),vct->getXleftYsameZright_neighbor(),3, vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXrightYsameZleftEdge,ghostXleftYsameZrightEdge,&comDONEXrightZleft,&comDONEXleftZright);
+  // Direction 4: EDGE X
+  communicateGhostEdge(nx-2,vct->getCartesian_rank(),vct->getXsameYrightZright_neighbor(),vct->getXsameYleftZleft_neighbor(),4, vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXsameYrightZrightEdge,ghostXsameYleftZleftEdge,&comDONEYrightZright,&comDONEYleftZleft);
+  // Direction 5: EDGE X
+  communicateGhostEdge(nx-2,vct->getCartesian_rank(),vct->getXsameYrightZleft_neighbor(),vct->getXsameYleftZright_neighbor(),5, vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXsameYrightZleftEdge,ghostXsameYleftZrightEdge,&comDONEYrightZleft,&comDONEYleftZright);
+
+  // COMMUNICATE - Z EDGE if edge processors are not available
+  communicateGhostFace((nz-2),vct->getCartesian_rank(),vct->getXright_neighbor(),vct->getXleft_neighbor(),0,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXrightYrightZsameEdge,ghostXleftYrightZsameEdge,&comDONEXrightYright,&comDONEXleftYright);
+  communicateGhostFace((nz-2),vct->getCartesian_rank(),vct->getXright_neighbor(),vct->getXleft_neighbor(),0,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXrightYleftZsameEdge,ghostXleftYleftZsameEdge,&comDONEXrightYleft,&comDONEXleftYleft);
+  communicateGhostFace((nz-2),vct->getCartesian_rank(),vct->getYright_neighbor(),vct->getYleft_neighbor(),1,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXleftYrightZsameEdge,ghostXleftYleftZsameEdge,&comDONEXleftYright,&comDONEXleftYleft);
+  communicateGhostFace((nz-2),vct->getCartesian_rank(),vct->getYright_neighbor(),vct->getYleft_neighbor(),1,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXrightYrightZsameEdge,ghostXrightYleftZsameEdge,&comDONEXrightYright,&comDONEXrightYleft);
+  // COMMUNICATE - Y EDGE if edge processors are not available
+  communicateGhostFace((ny-2),vct->getCartesian_rank(),vct->getXright_neighbor(),vct->getXleft_neighbor(),0,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXrightYsameZleftEdge,ghostXleftYsameZleftEdge,&comDONEXrightZleft,&comDONEXleftZleft);
+  communicateGhostFace((ny-2),vct->getCartesian_rank(),vct->getXright_neighbor(),vct->getXleft_neighbor(),0,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXrightYsameZrightEdge,ghostXleftYsameZrightEdge,&comDONEXrightZright,&comDONEXleftZright);
+  communicateGhostFace((ny-2),vct->getCartesian_rank(),vct->getZright_neighbor(),vct->getZleft_neighbor(),2,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXleftYsameZrightEdge,ghostXleftYsameZleftEdge,&comDONEXleftZright,&comDONEXleftZleft);
+  communicateGhostFace((ny-2),vct->getCartesian_rank(),vct->getZright_neighbor(),vct->getZleft_neighbor(),2,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXrightYsameZrightEdge,ghostXrightYsameZleftEdge,&comDONEXrightZright,&comDONEXrightZleft);
+  // COMMUNICATE - X EDGE if edge processors are not available
+  communicateGhostFace((nx-2),vct->getCartesian_rank(),vct->getYright_neighbor(),vct->getYleft_neighbor(),1,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXsameYrightZrightEdge,ghostXsameYleftZrightEdge,&comDONEYrightZright,&comDONEYleftZright);
+  communicateGhostFace((nx-2),vct->getCartesian_rank(),vct->getYright_neighbor(),vct->getYleft_neighbor(),1,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXsameYrightZleftEdge,ghostXsameYleftZleftEdge,&comDONEYrightZleft,&comDONEYleftZleft);
+  communicateGhostFace((nx-2),vct->getCartesian_rank(),vct->getZright_neighbor(),vct->getZleft_neighbor(),2,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXsameYleftZrightEdge,ghostXsameYleftZleftEdge,&comDONEYleftZright,&comDONEYleftZleft);
+  communicateGhostFace((nx-2),vct->getCartesian_rank(),vct->getZright_neighbor(),vct->getZleft_neighbor(),2,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),ghostXsameYrightZrightEdge,ghostXsameYrightZleftEdge,&comDONEYrightZright,&comDONEYrightZleft);
+
+  parseGhostEdgeZ(nx,ny,nz,ns,vector,ghostXrightYrightZsameEdge,ghostXleftYleftZsameEdge,ghostXrightYleftZsameEdge,ghostXleftYrightZsameEdge);
+  parseGhostEdgeY(nx,ny,nz,ns,vector,ghostXrightYsameZrightEdge,ghostXleftYsameZleftEdge,ghostXleftYsameZrightEdge,ghostXrightYsameZleftEdge);
+  parseGhostEdgeX(nx,ny,nz,ns,vector,ghostXsameYrightZrightEdge,ghostXsameYleftZleftEdge,ghostXsameYleftZrightEdge,ghostXsameYrightZleftEdge);
+
+  BCedge(nx,ny,nz,ns,vector,bcFaceXright,bcFaceXleft,bcFaceYright,bcFaceYleft,bcFaceZright,bcFaceZleft,dx,dy,dz,vct);
+  // apply boundary condition to 8 Ghost Corners and communicate if necessary to 8 processors
+  makeGhostCorner(nx,ny,nz,ns,vector,&ghostXrightYrightZrightCorner,&ghostXleftYrightZrightCorner,&ghostXrightYleftZrightCorner,&ghostXleftYleftZrightCorner,&ghostXrightYrightZleftCorner,&ghostXleftYrightZleftCorner,&ghostXrightYleftZleftCorner,&ghostXleftYleftZleftCorner);
+  /** Communicate ghost corners along a direction; there are 4 Diagonal directions through which we exchange Ghost Corners:
+          0 =  from XrightYrightZright to XleftYleftZleft
+          1 =  from XrightYleftZright  to XleftYrightZleft
+          2 =  from XleftYrightZright  to XrightYleftZleft
+          3 =  from XleftYleftZright   to XrightYrightZleft
+  */
+
+  communicateGhostCorner(vct->getCartesian_rank(),vct->getXrightYrightZright_neighbor(),vct->getXleftYleftZleft_neighbor(),0,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXrightYrightZrightCorner,&ghostXleftYleftZleftCorner,&comDONEXrightYrightZright,&comDONEXleftYleftZleft);
+  communicateGhostCorner(vct->getCartesian_rank(),vct->getXrightYleftZright_neighbor(),vct->getXleftYrightZleft_neighbor(),1,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXrightYleftZrightCorner,&ghostXleftYrightZleftCorner,&comDONEXrightYleftZright,&comDONEXleftYrightZleft);
+  communicateGhostCorner(vct->getCartesian_rank(),vct->getXleftYrightZright_neighbor(),vct->getXrightYleftZleft_neighbor(),2,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXleftYrightZrightCorner,&ghostXrightYleftZleftCorner,&comDONEXleftYrightZright,&comDONEXrightYleftZleft);
+  communicateGhostCorner(vct->getCartesian_rank(),vct->getXleftYleftZright_neighbor(),vct->getXrightYrightZleft_neighbor(),3,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXleftYleftZrightCorner,&ghostXrightYrightZleftCorner,&comDONEXleftYleftZright,&comDONEXrightYrightZleft);
+  // FURTHER COMMUNICATION FOR CORNERS
+  // First couple of corners  from XrightYrightZright to XleftYleftZleft
+  communicateGhostEdge(1,vct->getCartesian_rank(),vct->getXrightYrightZsame_neighbor(),vct->getXleftYleftZsame_neighbor(),0, vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXrightYrightZrightCorner,&ghostXleftYleftZleftCorner,&comDONEXrightYrightZright,&comDONEXleftYleftZleft);
+  communicateGhostEdge(1,vct->getCartesian_rank(),vct->getXrightYsameZright_neighbor(),vct->getXleftYsameZleft_neighbor(),2, vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXrightYrightZrightCorner,&ghostXleftYleftZleftCorner,&comDONEXrightYrightZright,&comDONEXleftYleftZleft);
+  communicateGhostEdge(1,vct->getCartesian_rank(),vct->getXsameYrightZright_neighbor(),vct->getXsameYleftZleft_neighbor(),4, vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXrightYrightZrightCorner,&ghostXleftYleftZleftCorner,&comDONEXrightYrightZright,&comDONEXleftYleftZleft);
+  // Second couple of corners from XrightYleftZright  to XleftYrightZleft
+  communicateGhostEdge(1,vct->getCartesian_rank(),vct->getXrightYleftZsame_neighbor(),vct->getXleftYrightZsame_neighbor(),1, vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXrightYleftZrightCorner,&ghostXleftYrightZleftCorner,&comDONEXrightYleftZright,&comDONEXleftYrightZleft);
+  communicateGhostEdge(1,vct->getCartesian_rank(),vct->getXrightYsameZright_neighbor(),vct->getXleftYsameZleft_neighbor(),2, vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXrightYleftZrightCorner,&ghostXleftYrightZleftCorner,&comDONEXrightYleftZright,&comDONEXleftYrightZleft);
+  communicateGhostEdge(1,vct->getCartesian_rank(),vct->getXsameYleftZright_neighbor(),vct->getXsameYrightZleft_neighbor(),5, vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXrightYleftZrightCorner,&ghostXleftYrightZleftCorner,&comDONEXrightYleftZright,&comDONEXleftYrightZleft);
+  // Third couple of corners from XleftYrightZright  to XrightYleftZleft
+  communicateGhostEdge(1,vct->getCartesian_rank(),vct->getXleftYrightZsame_neighbor(),vct->getXrightYleftZsame_neighbor(),1, vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXleftYrightZrightCorner,&ghostXrightYleftZleftCorner,&comDONEXleftYrightZright,&comDONEXrightYleftZleft);
+  communicateGhostEdge(1,vct->getCartesian_rank(),vct->getXleftYsameZright_neighbor(),vct->getXrightYsameZleft_neighbor(),3, vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXleftYrightZrightCorner,&ghostXrightYleftZleftCorner,&comDONEXleftYrightZright,&comDONEXrightYleftZleft);
+  communicateGhostEdge(1,vct->getCartesian_rank(),vct->getXsameYrightZright_neighbor(),vct->getXsameYleftZleft_neighbor(),4, vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXleftYrightZrightCorner,&ghostXrightYleftZleftCorner,&comDONEXleftYrightZright,&comDONEXrightYleftZleft);
+  // Fourth couple of corners XleftYleftZright   to XrightYrightZleft
+  communicateGhostEdge(1,vct->getCartesian_rank(),vct->getXleftYleftZsame_neighbor(),vct->getXrightYrightZsame_neighbor(),0, vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXleftYleftZrightCorner,&ghostXrightYrightZleftCorner,&comDONEXleftYleftZright,&comDONEXrightYrightZleft);
+  communicateGhostEdge(1,vct->getCartesian_rank(),vct->getXleftYsameZright_neighbor(),vct->getXrightYsameZleft_neighbor(),3, vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXleftYleftZrightCorner,&ghostXrightYrightZleftCorner,&comDONEXleftYleftZright,&comDONEXrightYrightZleft);
+  communicateGhostEdge(1,vct->getCartesian_rank(),vct->getXsameYleftZright_neighbor(),vct->getXsameYrightZleft_neighbor(),5, vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXleftYleftZrightCorner,&ghostXrightYrightZleftCorner,&comDONEXleftYleftZright,&comDONEXrightYrightZleft);
+
+  // FURTHER COMMUNICATION FOR CORNERS
+  communicateGhostFace(1,vct->getCartesian_rank(),vct->getXright_neighbor(),vct->getXleft_neighbor(),0,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXrightYrightZrightCorner,&ghostXleftYrightZrightCorner,&comDONEXrightYrightZright,&comDONEXleftYrightZright);
+  communicateGhostFace(1,vct->getCartesian_rank(),vct->getXright_neighbor(),vct->getXleft_neighbor(),0,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXrightYleftZrightCorner,&ghostXleftYleftZrightCorner,&comDONEXrightYleftZright,&comDONEXleftYleftZright);
+  communicateGhostFace(1,vct->getCartesian_rank(),vct->getXright_neighbor(),vct->getXleft_neighbor(),0,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXrightYleftZleftCorner,&ghostXleftYleftZleftCorner,&comDONEXrightYleftZleft,&comDONEXleftYleftZleft);
+  communicateGhostFace(1,vct->getCartesian_rank(),vct->getXright_neighbor(),vct->getXleft_neighbor(),0,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXrightYrightZleftCorner,&ghostXleftYrightZleftCorner,&comDONEXrightYrightZleft,&comDONEXleftYrightZleft);
+  communicateGhostFace(1,vct->getCartesian_rank(),vct->getXleft_neighbor(),vct->getXright_neighbor(),0,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXleftYrightZrightCorner,&ghostXrightYrightZrightCorner,&comDONEXleftYrightZright,&comDONEXrightYrightZright);
+  communicateGhostFace(1,vct->getCartesian_rank(),vct->getXleft_neighbor(),vct->getXright_neighbor(),0,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXleftYrightZleftCorner,&ghostXrightYrightZleftCorner,&comDONEXleftYrightZleft,&comDONEXrightYrightZleft);
+  communicateGhostFace(1,vct->getCartesian_rank(),vct->getXleft_neighbor(),vct->getXright_neighbor(),0,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXleftYleftZrightCorner,&ghostXrightYleftZrightCorner,&comDONEXleftYleftZright,&comDONEXrightYleftZright);
+  communicateGhostFace(1,vct->getCartesian_rank(),vct->getXleft_neighbor(),vct->getXright_neighbor(),0,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXleftYleftZleftCorner,&ghostXrightYleftZleftCorner,&comDONEXleftYleftZleft,&comDONEXrightYleftZleft);
+
+  communicateGhostFace(1,vct->getCartesian_rank(),vct->getYright_neighbor(),vct->getYleft_neighbor(),1,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXrightYrightZrightCorner,&ghostXrightYleftZrightCorner,&comDONEXrightYrightZright,&comDONEXrightYleftZright);
+  communicateGhostFace(1,vct->getCartesian_rank(),vct->getYright_neighbor(),vct->getYleft_neighbor(),1,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXrightYrightZleftCorner,&ghostXrightYleftZleftCorner,&comDONEXrightYrightZleft,&comDONEXrightYleftZleft);
+  communicateGhostFace(1,vct->getCartesian_rank(),vct->getYright_neighbor(),vct->getYleft_neighbor(),1,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXleftYrightZrightCorner,&ghostXleftYleftZrightCorner,&comDONEXleftYrightZright,&comDONEXleftYleftZright);
+  communicateGhostFace(1,vct->getCartesian_rank(),vct->getYright_neighbor(),vct->getYleft_neighbor(),1,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXleftYrightZleftCorner,&ghostXleftYleftZleftCorner,&comDONEXleftYrightZleft,&comDONEXleftYleftZleft);
+  communicateGhostFace(1,vct->getCartesian_rank(),vct->getYleft_neighbor(),vct->getYright_neighbor(),1,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXrightYleftZrightCorner,&ghostXrightYrightZrightCorner,&comDONEXrightYleftZright,&comDONEXrightYrightZright);
+  communicateGhostFace(1,vct->getCartesian_rank(),vct->getYleft_neighbor(),vct->getYright_neighbor(),1,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXrightYleftZleftCorner,&ghostXrightYrightZleftCorner,&comDONEXrightYleftZleft,&comDONEXrightYrightZleft);
+  communicateGhostFace(1,vct->getCartesian_rank(),vct->getYleft_neighbor(),vct->getYright_neighbor(),1,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXleftYleftZrightCorner,&ghostXleftYrightZrightCorner,&comDONEXleftYleftZright,&comDONEXleftYrightZright);
+  communicateGhostFace(1,vct->getCartesian_rank(),vct->getYleft_neighbor(),vct->getYright_neighbor(),1,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXleftYleftZleftCorner,&ghostXleftYrightZleftCorner,&comDONEXleftYleftZleft,&comDONEXleftYrightZleft);
+
+  communicateGhostFace(1,vct->getCartesian_rank(),vct->getZright_neighbor(),vct->getZleft_neighbor(),2,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXrightYrightZrightCorner,&ghostXrightYrightZleftCorner,&comDONEXrightYrightZright,&comDONEXrightYrightZleft);
+  communicateGhostFace(1,vct->getCartesian_rank(),vct->getZright_neighbor(),vct->getZleft_neighbor(),2,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXrightYleftZrightCorner,&ghostXrightYleftZleftCorner,&comDONEXrightYleftZright,&comDONEXrightYleftZleft);
+  communicateGhostFace(1,vct->getCartesian_rank(),vct->getZright_neighbor(),vct->getZleft_neighbor(),2,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXleftYrightZrightCorner,&ghostXleftYrightZleftCorner,&comDONEXleftYrightZright,&comDONEXleftYrightZleft);
+  communicateGhostFace(1,vct->getCartesian_rank(),vct->getZright_neighbor(),vct->getZleft_neighbor(),2,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXleftYleftZrightCorner,&ghostXleftYleftZleftCorner,&comDONEXleftYleftZright,&comDONEXleftYleftZleft);
+  communicateGhostFace(1,vct->getCartesian_rank(),vct->getZleft_neighbor(),vct->getZright_neighbor(),2,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXrightYleftZleftCorner,&ghostXrightYleftZrightCorner,&comDONEXrightYleftZleft,&comDONEXrightYleftZright);
+  communicateGhostFace(1,vct->getCartesian_rank(),vct->getZleft_neighbor(),vct->getZright_neighbor(),2,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXrightYrightZleftCorner,&ghostXrightYrightZrightCorner,&comDONEXrightYrightZleft,&comDONEXrightYrightZright);
+  communicateGhostFace(1,vct->getCartesian_rank(),vct->getZleft_neighbor(),vct->getZright_neighbor(),2,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXleftYrightZleftCorner,&ghostXleftYrightZrightCorner,&comDONEXleftYrightZleft,&comDONEXleftYrightZright);
+  communicateGhostFace(1,vct->getCartesian_rank(),vct->getZleft_neighbor(),vct->getZright_neighbor(),2,vct->getXLEN(),vct->getYLEN(),vct->getZLEN(),&ghostXleftYleftZleftCorner,&ghostXleftYleftZrightCorner,&comDONEXleftYleftZleft,&comDONEXleftYleftZright);
+
+
+  parseGhostCorner(nx,ny,nz,ns,vector,&ghostXrightYrightZrightCorner,&ghostXleftYrightZrightCorner,&ghostXrightYleftZrightCorner,&ghostXleftYleftZrightCorner,&ghostXrightYrightZleftCorner,&ghostXleftYrightZleftCorner,&ghostXrightYleftZleftCorner,&ghostXleftYleftZleftCorner);
+  BCcorner(nx,ny,nz,ns,vector,bcFaceXright,bcFaceXleft,bcFaceYright,bcFaceYleft,bcFaceZright,bcFaceZleft,dx,dy,dz,vct);
+  break;
+  }
+  delete[] ghostXrightFace;
+  delete[] ghostXleftFace;
+  delete[] ghostYrightFace;
+  delete[] ghostYleftFace;
+  delete[] ghostZrightFace;
+  delete[] ghostZleftFace;
+  // X EDGE
+  delete[] ghostXsameYleftZleftEdge;
+  delete[]ghostXsameYrightZleftEdge;
+  delete[] ghostXsameYleftZrightEdge;
+  delete[] ghostXsameYrightZrightEdge;
+  // Y EDGE
+  delete[] ghostXrightYsameZleftEdge;
+  delete[] ghostXleftYsameZleftEdge;
+  delete[] ghostXrightYsameZrightEdge;
+  delete[] ghostXleftYsameZrightEdge;
+  // Z EDGE
+  delete[] ghostXrightYleftZsameEdge;
+  delete[] ghostXrightYrightZsameEdge;
+  delete[] ghostXleftYleftZsameEdge;
+  delete[] ghostXleftYrightZsameEdge;
+
+}
+
+
+#endif

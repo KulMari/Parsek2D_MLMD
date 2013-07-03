@@ -1,0 +1,118 @@
+// INPUT FILE for simple vacuum test
+// 0 Species: 
+
+
+// DIRECTORIES WITHOUT  / at the end !!!!!
+//Create them yourself before run time !!
+SaveDirName = "/ccc/scratch/cont005/ra0747/innocenm/MLMD/TimeStamp/LightWave_NewInt_NewProj_LongerMarch6";
+RestartDirName = "/ccc/scratch/cont005/ra0747/innocenm/MLMD/TimeStamp/LightWave_NewInt_NewProj_LongerMarch6"; //"/home/beck/results/maxwell1grid/restart";
+
+// set the maximum number of particles allocated  
+NpMaxNpRatio = 3.0;
+
+//  %%%%%%%%%%%%%%%%%%% Magnetic Reconnection %%%%%%%%%%%%%%%%%%
+B0x = 0.0;
+B0y = 0.0;
+B0z = 0.0;
+delta = 0.5;
+rhoINIT = {0.0, 0.0, 0.0, 0.0};
+    
+//  %%%%%%%%%%%%%%%%%%% TIME %%%%%%%%%%%%%%%%%%
+dt = 0.01125; // dt = time step  Be careful to choose an adapted timestep with regards to ngrids and ratio.
+ncycles= 500;  // # cycles
+th = 0.5; // th =   decentering parameter
+c = 1;    // c = light speed 
+//  %%%%%%%%%%%%%%%%%%% SMOOTH %%%%%%%%%%%%%%%%%%
+Smooth =0.0; // Smoothing value (5-points stencil)
+Nvolte =0; // Number of times smoothing is done
+// %%%%%%%%%%%%%%%%%% BOX SIZE %%%%%%%%%%%%%%%
+XLEN = 4;   //XLEN = number of procs - x direction
+YLEN = 4;   //YLEN = number of procs - y direction
+ngrids = 2; // ngrids = total number of grids
+ratio = 4; // ratio = size ratio between two consecutive levels
+Lx = 1;   // Lx = simulation box length - x direction   
+Ly = 1;   // Ly = simulation box length - y direction   
+nxc = 52; // nxc = number of cells - x direction        
+nyc = 52; // nyc = number of cells - y direction        
+// %%%%%%%%%%%%%% PARTICLES %%%%%%%%%%%%%%%%%
+//    ns = number of species
+//    0 = electrons
+//    1 = protons
+//    2,3,4,5,... = ions
+ns = 0;
+// TrackParticleID[species] =true, false --> Assign ID to particles */
+TrackParticleID={1,1,1,1};
+// npcelx = number of particles per cell - Direction X 
+npcelx = {10,10,14,14};  
+// npcely = number of particles per cell - Direction Y */
+npcely = {10,10,14,14};  
+// qom = charge to mass ratio for different species */
+qom = {-1.0,0.000545,-256.0,1.0};
+// uth = thermal velocity for different species - Direction X  */
+uth  = {0.2,0.0047,0.045,0.0063};
+// vth = thermal velocity for different species - Direction Y */
+vth  = {0.2,0.0047,0.045,0.0063};
+// wth = thermal velocity for different species - Direction Z */
+wth  = {0.2,0.0047,0.045,0.0063};
+// u0 = drift velocity   - Direction X    */
+u0 = {0.0,0.0,0.0,0.0};
+// v0 = drift velocity   - Direction Y    */
+v0 = {0.0,0.0,0.0,0.0};
+// w0 = drift velocity   - Direction Z    */
+w0 = {0.0,0.0,0.0,0.0};
+
+// &&&&&&&&&&&& boundary conditions &&&&&&&&&&&&&&&
+// PHI Electrostatic Potential     
+// 0 = Dirichilet boundary condition | PHI is set to 0, suits magnetic mirror case ;     
+// 1   = Neumann boundary condition | Continuous PHI, suits perfect conductor case
+//    Caveat: if your processor topology is set to be periodic in a direction, automatically the boundary condition in that direction will be periodic*/
+
+    bcPHIfaceXright = 0;
+    bcPHIfaceXleft  = 1;
+    bcPHIfaceYright = 1;
+    bcPHIfaceYleft  = 0;
+    
+//    EM field boundary condition
+//    0 = perfect conductor
+//    1 = magnetic mirror
+//    Caveat: if your processor topology is set to be periodic in a direction, automatically the boundary condition in that direction will be periodic*/
+    bcEMfaceXright = 1;
+    bcEMfaceXleft =  0;
+    bcEMfaceYright = 0;
+    bcEMfaceYleft =  1;
+//    Particles Boundary condition
+//    0 = exit
+//    1 = perfect mirror
+//    2 = riemission
+//    Caveat: if your processor topology is set to be periodic in a direction, automatically the boundary condition in that direction will be periodic*/
+    bcPfaceXright = 1;
+    bcPfaceXleft =  1;
+    bcPfaceYright = 1;
+    bcPfaceYleft =  1;
+
+//  print to video results */
+    verbose = 1;
+// velocity of the injection from the wall
+    Vinj= 0.0;
+
+// CG solver stopping criterium tolerance
+    CGtol = 1E-8;
+// GMRES solver stopping criterium tolerance
+    GMREStol = 1E-8;
+// mover predictor corrector iteration
+    NiterMover = 3;
+// Output for field
+   FieldOutputCycle=2;
+// Output for particles if 1 it doesnt save particles data
+   ParticlesOutputCycle =10000;
+// restart cycle
+   RestartOutputCycle = 10000;
+// %%%%%%%%%%%%%%%%%%%%% AMR variables, ME %%%%%%%%%%%%%%%%%%%% //
+//**number of cells, ghost cell INCLUDED, for particle repopulation; x left*/
+   PRA_Xleft=2; //2;         // must be >=1
+//**number of cells, ghost cell INCLUDED, for particle repopulation; x right*/
+   PRA_Xright=2; //2;     // must be >=1
+//**number of cells, ghost cell INCLUDED, for particle repopulation; y left*/
+   PRA_Yleft=2; //2;         // must be >=1
+//**number of cells, ghost cell INCLUDED, for particle repopulation; y right*/
+   PRA_Yright=2;//2;     // must be >=1

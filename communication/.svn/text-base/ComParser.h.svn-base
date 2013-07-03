@@ -1,0 +1,350 @@
+/***********************************************************************************
+ComParser.h  -  series of functions to 1) swap buffers in 1D cases 2)prepare ghost cells in communication buffers 3)parse the communication to ghost cells
+                            -------------------
+ developers: Stefano Markidis, Giovanni Lapenta
+***************************************************************************/
+
+#ifndef ComParser_H
+#define ComParser_H
+
+#include "../utility/Alloc.h"
+/**
+* 
+* Prepare the ghost cells with nodes values, communicate the ghost cells, and replace the values on the ghost cells
+* @date Fri Jun 4 2008
+* @author Stefano Markidis, Giovanni Lapenta
+* @version 4.0
+*
+*/
+
+
+/** swap the communication buffer instead of communicating, useful if you have 1 processor in one direction*/
+inline void swapBuffer(int buffer_size, double *b_left,double *b_right){
+   double *temp = new double[buffer_size];
+  
+   for (register int i=0;i < buffer_size;i++){
+      temp[i] = b_left[i];
+      b_left[i] = b_right[i];
+      b_right[i] = temp[i];
+   }
+  
+   delete[] temp;
+}
+/** swap the communication buffer instead of communicating, useful if you have 1 processor in one direction*/
+inline void swapBuffer(double *b_left,double *b_right){
+  double temp = *b_left;
+  *b_left = *b_right;
+  *b_right = temp;
+
+}/** swap the ghost cell face instead of communicating, useful if you have 1 processor in one direction*/
+inline void swapGhostFace(int n1, int n2, double **ghostFaceLeft, double **ghostFaceRight){
+   double **temp = newArr(double,n1,n2);
+   for (register int i=0;i < n1;i++){
+     for (register int j=0;j < n2;j++){
+        temp[i][j] = ghostFaceLeft[i][j];
+        ghostFaceLeft[i][j] = ghostFaceRight[i][j];
+        ghostFaceRight[i][j] = temp[i][j];
+      }
+   }
+   delArr(temp,n1);
+}
+
+/** NODE SOLVER: prepare node ghost cells in a buffer for communication - X direction*/
+inline void makeNodeFaceX(int nxn, int nyn, double ***vector, double *ghostXrightFace, double *ghostXleftFace, VirtualTopology *vct){
+   for (register int j=1; j < nyn-1; j++){
+        ghostXleftFace[j-1]  = vector[2][j][0];
+        ghostXrightFace[j-1] = vector[nxn-3][j][0];
+    }
+}
+
+/** prepare center  ghost cells in a buffer for communication - X direction*/
+inline void makeCenterFaceX(int nxc, int nyc, double ***vector, double *ghostXrightFace, double *ghostXleftFace, VirtualTopology *vct){
+   for (register int j=1; j < nyc-1; j++){
+		ghostXleftFace[j-1]  = vector[1][j][0];
+		ghostXrightFace[j-1] = vector[nxc-2][j][0];
+	}
+}
+
+/** NODE SOLVER prepare node ghost cells in a buffer for communication - Y direction*/
+inline void makeNodeFaceY(int nxn, int nyn, double ***vector, double *ghostYrightFace, double *ghostYleftFace,VirtualTopology *vct){
+   // YLEFT
+   if (vct->getYleft_neighbor()== -1){
+      for (register int j=1; j < nxn-1; j++)
+        ghostYleftFace[j-1] = vector[j][0][0];
+	} else {
+	   for (register int j=1; j < nxn-1; j++)
+        ghostYleftFace[j-1] = vector[j][2][0];
+	}
+	// YRIGHT
+   if (vct->getYright_neighbor()== -1){
+     for (register int j=1; j < nxn-1; j++)
+	   ghostYrightFace[j-1]  = vector[j][nyn-1][0];
+   } else {
+      for (register int j=1; j < nxn-1; j++)
+	   ghostYrightFace[j-1]  = vector[j][nyn-3][0];
+   }
+}
+
+/** prepare center ghost cells in a buffer for communication - Y direction*/
+inline void makeCenterFaceY(int nxc, int nyc, double ***vector, double *ghostYrightFace, double *ghostYleftFace,VirtualTopology *vct){
+   for (register int j=1; j < nxc-1; j++){
+		ghostYleftFace[j-1] = vector[j][1][0];
+		ghostYrightFace[j-1]  = vector[j][nyc-2][0];
+   }
+}
+
+/** NODE SPECIES: prepare node ghost cells in a buffer for communication - X direction*/
+inline void makeNodeFaceX(int nxn, int nyn, double ****vector,  int ns, double *ghostXrightFace, double *ghostXleftFace,VirtualTopology *vct){
+	for (register int j=1; j < nyn-1; j++){
+		ghostXleftFace[j-1]  = vector[ns][2][j][0];
+		ghostXrightFace[j-1] = vector[ns][nxn-3][j][0];
+	}
+}
+/** SPECIES: prepare center  ghost cells in a buffer for communication - X direction*/
+inline void makeCenterFaceX(int nxc, int nyc, double ****vector, int ns, double *ghostXrightFace, double *ghostXleftFace,VirtualTopology *vct){
+	for (register int j=1; j < nyc-1; j++){
+		ghostXleftFace[j-1]  = vector[ns][1][j][0];
+		ghostXrightFace[j-1] = vector[ns][nxc-2][j][0];
+	}
+}
+
+/** SPECIES: prepare node ghost cells in a buffer for communication - Y direction*/
+inline void makeNodeFaceY(int nxn, int nyn, double ****vector, int ns,double *ghostYrightFace, double *ghostYleftFace,VirtualTopology *vct){
+   for (register int j=1; j < nxn-1; j++){
+	    ghostYleftFace[j-1] = vector[ns][j][2][0];
+        ghostYrightFace[j-1]  = vector[ns][j][nyn-3][0];
+   }
+}
+
+/** SPECIES: prepare center ghost cells in a buffer for communication - Y direction*/
+inline void makeCenterFaceY(int nxc, int nyc, double ****vector, int ns, double *ghostYrightFace, double *ghostYleftFace,VirtualTopology *vct){
+   for (register int j=1; j < nxc-1; j++){
+		ghostYleftFace[j-1] = vector[ns][j][1][0];
+		ghostYrightFace[j-1]  = vector[ns][j][nyc-2][0];
+	}
+}
+
+/** SOLVER NODES: prepare ghost Node corners for communication*/
+inline void makeNodeCorner(int nxn, int nyn, double ***vector, double *ghostXrightYrightCorner, double *ghostXleftYrightCorner, double *ghostXrightYleftCorner, double *ghostXleftYleftCorner,VirtualTopology *vct){
+ // YRIGHT
+ if (vct->getYright_neighbor()== -1){
+	*ghostXrightYrightCorner = vector[nxn-1][nyn-1][0];
+	*ghostXleftYrightCorner  = vector[0][nyn-1][0];
+ } else {
+    *ghostXrightYrightCorner = vector[nxn-3][nyn-3][0];
+	*ghostXleftYrightCorner  = vector[2][nyn-3][0];
+ }
+ // YLEFT
+ if (vct->getYleft_neighbor()== -1){
+    *ghostXrightYleftCorner  = vector[nxn-1][0][0];
+	*ghostXleftYleftCorner   = vector[0][0][0];
+ } else {
+    *ghostXrightYleftCorner  = vector[nxn-3][2][0];
+	*ghostXleftYleftCorner   = vector[2][2][0];
+ }
+	
+}
+
+/** prepare ghost center corners for communication*/
+inline void makeCenterCorner(int nxc, int nyc, double ***vector, double *ghostXrightYrightCorner, double *ghostXleftYrightCorner, double *ghostXrightYleftCorner, double *ghostXleftYleftCorner,VirtualTopology *vct){
+    *ghostXrightYrightCorner = vector[nxc-2][nyc-2][0];
+	*ghostXleftYrightCorner  = vector[1][nyc-2][0];
+	*ghostXrightYleftCorner  = vector[nxc-2][1][0];
+	*ghostXleftYleftCorner   = vector[1][1][0];
+}
+
+/** SPECIES: prepare ghost Node corners for communication*/
+inline void makeNodeCorner(int nxn, int nyn, double ****vector, int ns, double* ghostXrightYrightCorner, double* ghostXleftYrightCorner, double* ghostXrightYleftCorner, double* ghostXleftYleftCorner,VirtualTopology *vct){
+    *ghostXrightYrightCorner = vector[ns][nxn-3][nyn-3][0];
+	*ghostXleftYrightCorner  = vector[ns][2][nyn-3][0];
+    *ghostXrightYleftCorner  = vector[ns][nxn-3][2][0];
+	*ghostXleftYleftCorner   = vector[ns][2][2][0];
+}
+
+/** SPECIES: prepare ghost Center corners for communication*/
+inline void makeCenterCorner(int nxc, int nyc, double ****vector, int ns, double *ghostXrightYrightCorner, double *ghostXleftYrightCorner, double *ghostXrightYleftCorner, double *ghostXleftYleftCorner,VirtualTopology *vct){
+    *ghostXrightYrightCorner = vector[ns][nxc-2][nyc-2][0];
+	*ghostXleftYrightCorner  = vector[ns][1][nyc-2][0];
+	*ghostXrightYleftCorner  = vector[ns][nxc-2][1][0];
+	*ghostXleftYleftCorner   = vector[ns][1][1][0];
+}
+
+
+/** SPECIES: prepare Node ghost cells for interpolation  when there is periodicity*/
+inline void makeNodeFaceInterp(int nx, int ny, double ****vector, int ns, double *ghostXrightFace, double *ghostXleftFace, double *ghostYrightFace, double *ghostYleftFace){
+   for (register int j=1; j < ny-1; j++){
+        ghostXleftFace[j-1]  = vector[ns][1][j][0];
+        ghostXrightFace[j-1] = vector[ns][nx-2][j][0];
+    }
+    for (register int j=1; j < nx-1; j++){
+        ghostYleftFace[j-1] = vector[ns][j][1][0];
+        ghostYrightFace[j-1] = vector[ns][j][ny-2][0];
+    }
+}
+
+/** SPECIES: prepare Corner node ghost cells for interpolation  when there is periodicity*/
+inline void makeNodeCornerInterp(int nxn, int nyn, double ****vector, int ns, double* ghostXrightYrightCorner, double* ghostXleftYrightCorner, double* ghostXrightYleftCorner, double* ghostXleftYleftCorner){
+	*ghostXrightYrightCorner = vector[ns][nxn-2][nyn-2][0];
+	*ghostXleftYrightCorner  = vector[ns][1][nyn-2][0];
+	*ghostXrightYleftCorner  = vector[ns][nxn-2][1][0];
+	*ghostXleftYleftCorner   = vector[ns][1][1][0];
+}
+
+
+/** take the communication buffer and parse it to ghost cell - DIRECTION X*/
+inline void parseFaceX(int nxn, int nyn, double ***vector, double *ghostXrightFace, double *ghostXleftFace){
+  // parse ghost: ghostXrightFace(last X column) and ghostXleftFace (first X column)
+    for (register int j=1; j < nyn-1; j++){
+        vector[nxn-1][j][0] = ghostXrightFace[j-1];
+        vector[0][j][0]    = ghostXleftFace[j-1];
+    }
+
+}
+/** take the communication buffer and parse it to ghost cell - DIRECTION Y*/
+inline void parseFaceY(int nxn, int nyn, double ***vector,  double *ghostYrightFace, double *ghostYleftFace){
+  // parse ghost: ghostYrightFace(last Y column) and ghostYleftFace (first Y column)
+    for (register int j=1; j < nxn-1; j++){
+        vector[j][nyn-1][0] = ghostYrightFace[j-1];
+        vector[j][0][0] = ghostYleftFace[j-1];
+    }
+
+}
+
+
+/** SPECIES: take the communication buffer and parse it to ghost cell - DIRECTION X*/
+inline void parseFaceX(int nxn, int nyn, double ****vector, int ns, double *ghostXrightFace, double *ghostXleftFace){
+  // parse ghost: ghostXrightFace(last X column) and ghostXleftFace (first X column)
+	for (register int j=1; j < nyn-1; j++){
+		vector[ns][nxn-1][j][0] = ghostXrightFace[j-1];
+		vector[ns][0][j][0]     = ghostXleftFace[j-1];
+	}
+
+}
+/** SPECIES: take the communication buffer and parse it to ghost cell - DIRECTION Y*/
+inline void parseFaceY(int nxn, int nyn, double ****vector,  int ns, double *ghostYrightFace, double *ghostYleftFace){
+  // parse ghost: ghostYrightFace(last Y column) and ghostYleftFace (first Y column)
+	for (register int j=1; j < nxn-1; j++){
+		vector[ns][j][nyn-1][0] = ghostYrightFace[j-1];
+		vector[ns][j][0][0] = ghostYleftFace[j-1];
+	}
+
+}
+
+
+/** SPECIES: add ghost cells values for corner values (FOR INTERPOLATION)*/
+inline void addGhostCorner(int nx, int ny, int ns, double ****vector, double *ghostXrightYrightCorner, double *ghostXleftYrightCorner, double *ghostXrightYleftCorner,double *ghostXleftYleftCorner, VirtualTopology *vct){
+	if (vct->getXrightYright_neighbor() != -1 )	
+	  vector[ns][nx-2][ny-2][0]               += *ghostXrightYrightCorner;
+	if (vct->getXleftYright_neighbor() != -1 )	
+	  vector[ns][1][ny-2][0]    		     += *ghostXleftYrightCorner;
+	if (vct->getXrightYleft_neighbor() != -1 )	
+	  vector[ns][nx-2][1][0]           	     += *ghostXrightYleftCorner;
+	if (vct->getXleftYleft_neighbor() != -1 )	
+	  vector[ns][1][1][0]                        += *ghostXleftYleftCorner;
+}
+
+
+/** take the communication buffer and parse it to corner cells*/
+inline void parseCorner(int nxn, int nyn, double ***vector, double *ghostXrightYrightCorner, double *ghostXleftYrightCorner, double *ghostXrightYleftCorner, double *ghostXleftYleftCorner){
+	vector[nxn-1][nyn-1][0]         = *ghostXrightYrightCorner;
+	vector[0][nyn-1][0]             = *ghostXleftYrightCorner;
+	vector[nxn-1][0][0]             = *ghostXrightYleftCorner;
+	vector[0][0][0]                 = *ghostXleftYleftCorner;
+
+}
+
+/** SPECIES: take the communication buffer and parse it to corner cells*/
+inline void parseCorner(int nxn, int nyn, double ****vector, int ns,double *ghostXrightYrightCorner, double *ghostXleftYrightCorner, double *ghostXrightYleftCorner, double *ghostXleftYleftCorner){
+	vector[ns][nxn-1][nyn-1][0]         = *ghostXrightYrightCorner;
+	vector[ns][0][nyn-1][0]             = *ghostXleftYrightCorner;
+	vector[ns][nxn-1][0][0]             = *ghostXrightYleftCorner;
+	vector[ns][0][0][0]                 = *ghostXleftYleftCorner;
+}
+
+/** SPECIES:  add ghost center cells values for corner values (FOR INTERPOLATION)*/
+inline void addGhostFace(int nx, int ny,int ns, double ****vector, double *ghostXrightFace, double *ghostXleftFace, double *ghostYrightFace, double *ghostYleftFace,VirtualTopology *vct){
+  // add ghost values: ghostXrightFace(last X column) and ghostXleftFace (first X column)
+	if (vct->getXright_neighbor() != -1 ){
+		for (register int j=1; j < ny-1; j++)
+			vector[ns][nx-2][j][0]   += ghostXrightFace[j-1];
+
+	}
+  
+	if (vct->getXleft_neighbor() != -1){
+		for (register int j=1; j < ny-1; j++)
+			vector[ns][1][j][0]      += ghostXleftFace[j-1];
+   
+	}
+  
+  // add ghost value: ghostYrightFace(last Y column) and ghostYleftFace (first Y column)
+	if (vct->getYright_neighbor() != -1){
+		for (register  int j=1; j <nx-1; j++)
+			vector[ns][j][ny-2][0] += ghostYrightFace[j-1];
+
+	}
+	if (vct->getYleft_neighbor() != -1 ){
+		for (register  int j=1; j < nx-1; j++)
+			vector[ns][j][1][0] += ghostYleftFace[j-1];
+	}
+
+}
+
+/** prepare ghost Node corners for communication in 1D*/
+inline void makeNodeCorner(int nxn,double ***vector, double *ghostXright, double *ghostXleft){
+        *ghostXright = vector[nxn-3][0][0];
+	    *ghostXleft  = vector[2][0][0];
+}
+/** prepare ghost center corners for communication in 1D, only for interpolation*/
+inline void makeCenterCornerInterp(int nxn,double ****vector, int ns, double *ghostXright, double *ghostXleft){
+        *ghostXright = vector[ns][nxn-2][0][0];
+	    *ghostXleft  = vector[ns][1][0][0];
+}
+/** prepare ghost center corners for communication in 1D*/
+inline void makeCenterCorner(int nxc,double ***vector, double *ghostXright, double *ghostXleft){
+        *ghostXright = vector[nxc-2][0][0];
+	    *ghostXleft  = vector[1][0][0];
+}
+/** SPECIES: prepare ghost Node corners for communication in 1D*/
+inline void makeNodeCorner(int nxn,double ****vector, int ns, double* ghostXright,double* ghostXleft){
+	*ghostXright = vector[ns][nxn-2][0][0];
+	*ghostXleft  = vector[ns][1][0][0];
+}
+/** SPECIES: prepare ghost Center corners for communication in 1D*/
+inline void makeCenterCorner(int nxc, double ****vector, int ns, double *ghostXright, double *ghostXleft){
+	*ghostXright = vector[ns][nxc-2][0][0];
+	*ghostXleft  = vector[ns][1][0][0];
+}
+/** SPECIES: prepare Corner node ghost cells for interpolation  in 1D*/
+inline void makeNodeCornerInterp(int nxn,double ****vector, int ns, double* ghostXright, double* ghostXleft){
+    *ghostXright = vector[ns][nxn-2][0][0];
+	*ghostXleft  = vector[ns][1][0][0];
+}
+/** SPECIES: add ghost cells values for corner values (FOR INTERPOLATION) in 1D*/
+inline void addGhostCorner(int nx,int ns,double ****vector,double *ghostXright,double *ghostXleft,VirtualTopology *vct){
+	if (vct->getXright_neighbor() != -1)	
+	  vector[ns][nx-2][0][0]+= *ghostXright;
+	if (vct->getXleft_neighbor() != -1)	
+	  vector[ns][1][0][0]   += *ghostXleft;
+        
+}
+/** SPECIES: add ghost cells values for corner values (FOR INTERPOLATION) in 1D*/
+inline void addGhostCornerCenter(int nx,int ns,double ****vector,double *ghostXright,double *ghostXleft,VirtualTopology *vct){
+	if (vct->getXright_neighbor() != -1 )	
+	  vector[ns][nx-2][0][0]+= *ghostXright;
+	if (vct->getXleft_neighbor() != -1 )	
+	  vector[ns][1][0][0]   += *ghostXleft;
+        
+}
+/** take the communication buffer and parse it to corner cells in 1D*/
+inline void parseCorner(int nxn,double ***vector, double *ghostXright, double *ghostXleft){
+	vector[nxn-1][0][0]         = *ghostXright;
+	vector[0][0][0]             = *ghostXleft;
+}
+/** SPECIES: take the communication buffer and parse it to corner cells in 1D*/
+inline void parseCorner(int nxn,double ****vector, int ns,double *ghostXright,double *ghostXleft){
+	vector[ns][nxn-1][0][0]             = *ghostXright;
+	vector[ns][0][0][0]                 = *ghostXleft;
+}
+
+
+#endif

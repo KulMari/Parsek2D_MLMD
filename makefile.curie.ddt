@@ -1,0 +1,92 @@
+#makefile for PARSEK PROJECT
+CPP=    mpicxx
+OPTFLAGS=  -g -O0 -Wl,-z,muldefs #-g for debugging -trace to generate trace for itac
+#compile with -g -O0 for DDT
+# include files
+##INC_MPI = -I/apps/leuven/intel/impi/4.0.0.028/include64
+INC_KVF = -I${PWD}/kvf/src
+# libs
+LIB_KVF = -L${PWD}/kvf/src
+# HDF5
+INC_HDF5 = -I/usr/local/hdf5-1.8.8/include
+# libs
+LIB_HDF5 = -L/usr/local/hdf5-1.8.8/lib
+
+
+HDF5LIBS = -lhdf5 -lhdf5_hl
+KVFLIB = -lkvf
+
+#parsek2D
+parsek2D: ParsekEM.cpp  ParsekEM.o Collective.o VCtopology.o VCtopologyparticles.o Particles2Dcomm.o Particles2D.o
+	${CPP} ${OPTFLAGS} -o  ParsekEM ${INC_HDF5} ${INC_MPI} ${INC_KVF}\
+	ParsekEM.cpp ParsekEM.o Collective.o VCtopology.o VCtopologyparticles.o Particles2Dcomm.o Particles2D.o ${LIB_KVF} ${LIB_HDF5} ${LIB_KVF} \
+ ${HDF5LIBS}	${KVFLIB}	
+
+ParsekEM.o:	ParsekEM.cpp
+	${CPP}  ${OPTFLAGS}	${INC_HDF5}	${INC_MPI} -c ParsekEM.cpp
+
+Collective.o:	./inputoutput/Collective.cpp
+	${CPP}	${OPTFLAGS}	${INC_KVF}	${INC_HDF5} ${INC_MPI} -c ./inputoutput/Collective.cpp
+
+VCtopology.o:	./processtopology/VCtopology.cpp
+	${CPP}	${OPTFLAGS}  ${INC_MPI}	-c ./processtopology/VCtopology.cpp
+
+VCtopologyparticles.o:	./processtopology/VCtopologyparticles.cpp
+	${CPP}	${OPTFLAGS}  ${INC_MPI}	-c ./processtopology/VCtopologyparticles.cpp
+
+Particles2Dcomm.o:	./particles/Particles2Dcomm.cpp
+	${CPP}	${OPTFLAGS}  ${INC_MPI}	${INC_HDF5} 	-c ./particles/Particles2Dcomm.cpp
+
+Particles2D.o:	./particles/Particles2D.cpp
+	${CPP}	${OPTFLAGS}  ${INC_MPI}	${INC_HDF5}		-c ./particles/Particles2D.cpp
+
+Particles1Dcomm.o:	./particles/Particles1Dcomm.cpp
+	${CPP}	${OPTFLAGS}  ${INC_MPI}	${INC_HDF5} 	-c ./particles/Particles1Dcomm.cpp
+
+Particles1D.o:	./particles/Particles1D.cpp
+	${CPP}	${OPTFLAGS}  ${INC_MPI}	${INC_HDF5} 	-c ./particles/Particles1D.cpp
+
+Particles2DcommOPT.o:	./particles/Particles2DcommOPT.cpp
+	${CPP}	${OPTFLAGS}  ${INC_MPI}	${INC_HDF5} 	-c ./particles/Particles2DcommOPT.cpp
+
+Particles2DOPT.o:	./particles/Particles2DOPT.cpp
+	${CPP}	${OPTFLAGS}  ${INC_MPI}	${INC_HDF5}		-c ./particles/Particles2DOPT.cpp
+
+##ParsekEMOPT.o:	ParsekEMOPT.cpp
+##	${CPP}	${OPTFLAGS}	${INC_HDF5}	${INC_MPI} -c ParsekEMOPT.cpp
+##
+##ParsekES.o:	ParsekES.cpp
+##	${CPP}	${OPTFLAGS}	${INC_HDF5}	${INC_MPI} -c ParsekES.cpp
+##
+##ParsekINJ.o:	ParsekINJ.cpp
+##	${CPP}  ${OPTFLAGS}	${INC_HDF5}	${INC_MPI} -c ParsekINJ.cpp
+##
+##ParsekNDCX.o:	ParsekNDCX.cpp
+##	${CPP}  ${OPTFLAGS}	${INC_HDF5}	${INC_MPI} -c ParsekNDCX.cpp
+
+##parsek1D
+#parsek1D: ParsekES.cpp ParsekES.o Collective.o VCtopology.o Particles1Dcomm.o Particles1D.o
+#	${CPP}	${OPTFLAGS} -o  ParsekES ${INC_HDF5} ${INC_MPI} ${INC_KVF}\
+#	ParsekES.cpp ParsekES.o Collective.o VCtopology.o Particles1Dcomm.o Particles1D.o ${LIB_KVF}\
+# 	${LIB_HDF5} ${LIB_KVF} ${LIB_MPI} \${HDF5LIBS}	${KVFLIB}	${MPELIB}
+#
+##parsekINJ
+#parsekINJ: ParsekINJ.cpp  ParsekINJ.o Collective.o VCtopology.o Particles2Dcomm.o Particles2D.o
+#	${CPP}	${OPTFLAGS} -o  ParsekINJ ${INC_HDF5} ${INC_MPI} ${INC_KVF}\
+#	ParsekINJ.cpp ParsekINJ.o Collective.o VCtopology.o Particles2Dcomm.o Particles2D.o ${LIB_KVF} ${LIB_HDF5} ${LIB_KVF} ${LIB_MPI} \
+#${HDF5LIBS}	${KVFLIB}	${MPELIB}
+#
+##parsekNDCX
+#parsekNDCX: ParsekNDCX.cpp  ParsekNDCX.o Collective.o VCtopology.o Particles2Dcomm.o Particles2D.o
+#	${CPP}	${OPTFLAGS} -o  ParsekINJ ${INC_HDF5} ${INC_MPI} ${INC_KVF}\
+#	ParsekNDCX.cpp ParsekNDCX.o Collective.o VCtopology.o Particles2Dcomm.o Particles2D.o ${LIB_KVF} ${LIB_HDF5} ${LIB_KVF} ${LIB_MPI} \
+#${HDF5LIBS}	${KVFLIB}	${MPELIB}
+#
+##parsekEMOPT
+#parsekEMOPT: ParsekEMOPT.cpp  ParsekEMOPT.o Collective.o VCtopology.o Particles2DOPTcomm.o Particles2DOPT.o
+#	${CPP}	${OPTFLAGS} -o  ParsekEMOPT ${INC_HDF5} ${INC_MPI} ${INC_KVF}\
+#	ParsekEMOPT.cpp ParsekEMOPT.o Collective.o VCtopology.o Particles2DcommOPT.o Particles2DOPT.o ${LIB_KVF} ${LIB_HDF5} ${LIB_KVF} ${LIB_MPI} \
+#${HDF5LIBS}	${KVFLIB}	${MPELIB}
+
+clean:
+	rm -rf *.o ParsekEM ParsekES ParsekINJ ParsekNDCX ParsekEMOPT results/*

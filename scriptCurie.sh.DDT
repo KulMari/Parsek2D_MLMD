@@ -1,0 +1,20 @@
+#!/bin/bash
+#MSUB -r inputfile.maxwellTimestamp               # Request name
+#MSUB -n 128  #128 #128 #2048 #512                        # Number of tasks to use
+#####MSUB -N 2 
+#MSUB -T 1800 #1800                      # Elapsed time limit in seconds
+#MSUB -o $HOME/OUTPUT_MLMD/TimeStamping/inputfile.maxwellTimestamp.o            # Standard output. %I is the job id
+#MSUB -e $HOME/OUTPUT_MLMD/TimeStamping/inputfile.maxwellTimestamp.e       # Error output. %I is the job id
+#MSUB -q xlarge
+#MSUB -Q test
+#MSUB -@ mariaelena.innocenti@gmail.com: begin,end
+#MSUB 
+
+BRIDGE_MSUB_PWD='/ccc/cont005/home/ra0747/innocenm/Parsek2D-multilevel_TimeStamping'
+export BRIDGE_MSUB_PWD
+#module load valgrind
+set -x
+cd ${BRIDGE_MSUB_PWD}
+##ccc_mprun ./iPIC3D inputfiles/GEM.inp   #Test1.inp
+ccc_mprun -d ddt ./ParsekEM INPUTFILE_Mari/inputfile.maxwellTimestamp # for DDT
+#valgrind --tool=memcheck --track-origins=yes  --leak-check=full ccc_mprun ./ParsekEM INPUTFILE_Mari/inputfile.maxwell2grids #put a comment or a new line, otherwise a string is added here and it makes you go into restart

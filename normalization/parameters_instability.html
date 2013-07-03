@@ -1,0 +1,54 @@
+<html>
+<head>
+</head>
+<body>
+<h1>Calculate the normalization factor for Parsek</h1>
+
+<script src="normalization.js"></script>
+<form name="density">
+Density <i>n</i>(1/cm^3):<br>
+<input type="text" name="text1">
+
+<P>
+Magnetic Field <i>B<sub>0</sub></i> (Gauss, 1nT = 10^-5 gauss):<br>
+<input type="text" name="text2">
+
+<P>
+Temperature <i>T</i>:<br>
+<input type="text" name="text3">
+
+<P>
+Proton Electron Mass Ratio <i>m<sub>i</sub>/m<sub>e</sub> </i>:<br>
+<input type="text" name="text4">
+
+<P>
+N<sub>k</sub> amplitude:<br>
+<input type="text" name="text5">
+
+<P>
+N<sub>k</sub> phase:<br>
+<input type="text" name="text6">
+
+<P>
+N<sub>cell</sub>:<br>
+<input type="text" name="text7">
+
+<P>
+N growth rate:<br>
+<input type="text" name="text8">
+
+<P>
+&gamma growth rate (times &omega<sub>ci</sub>):<br>
+<input type="text" name="text9">
+
+<P>
+time steps for electron gyromotion:<br>
+<input type="text" name="text10">
+<br>
+<br>
+<input type="button" name="button1" value="Calculate" onClick="calculate(this.form)">
+
+
+</body>
+</html>
+
