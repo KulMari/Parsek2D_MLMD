@@ -1,31 +1,27 @@
-/***************************************************************************                     
- Collective.h  -  Stefano Markidis, Giovanni Lapenta                                              
- -------------------                                                                              
-                                                                                              
-                                                                                                  
- /**                                                                                              
- *  Collective properties. Input physical parameters for the simulation.                          
- *  Use ConfigFile to parse the input file                                                        
- *                                                                                                
- * @date Wed Jun 8 2011                                                                           
- * @par Copyright:                                                                                
- * (C) 2013 K.U. LEUVEN                                                 
- * @author Maria Elena Innocenti, Pierre Henri, Stefano Markidis     
- * @version 1.0 
- */
+/***************************************************************************
+                          Collective.h  -  description
+                             -------------------
+    begin                : Wed Jun 2 2004
+    copyright            : (C) 2004 Los Alamos National Laboratory
+    developers           : Stefano Markidis, Giovanni Lapenta
+    email                : markidis@lanl.gov, lapenta@lanl.gov
+ ***************************************************************************/
 
+
+
+/**
+*  Collective properties. Input physical parameters for simulation.
+*
+* @date Fri Jun 4 2004
+* @par Copyright:
+* (C) 2004 Los Alamos National Laboratory
+* @author Stefano Markidis, Giovanni Lapenta
+* @version 1.0
+*/
 #ifndef Collective_H
 #define Collective_H
 
 #include "CollectiveIO.h"
-
-#include "../ConfigFile/src/ConfigFile.h"
-#include "../ConfigFile/src/input_array.h"
-
-using std::cout;
-using std::endl;
-using std::ofstream;
-using namespace std;
 
 class Collective : public CollectiveIO {
   public:

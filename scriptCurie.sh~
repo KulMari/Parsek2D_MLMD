@@ -1,10 +1,10 @@
 #!/bin/bash
 
-#MSUB -r TestNewInputCentered               # Request name
+#MSUB -r TestNewInput               # Request name
 #MSUB -n 128  #512  #128 #128 #2048 #512                        # Number of tasks to use
 #MSUB -T 1800# 72000 #1800 #86300 #72000 #1800                       # Elapsed time limit in seconds
-#MSUB -o $SCRATCHDIR/MLMD/TestNewInput/prova/TestNewInputCentered.o            # Standard output. %I is the job id
-#MSUB -e $SCRATCHDIR/MLMD/TestNewInput/prova/TestNewInputCentered.e        # Error output. %I is the job id
+#MSUB -o $SCRATCHDIR/MLMD/TestNewInput/prova/TestNewInput.o            # Standard output. %I is the job id
+#MSUB -e $SCRATCHDIR/MLMD/TestNewInput/prova/TestNewInput.e        # Error output. %I is the job id
 #MSUB -q standard #xlarge
 #MSUB -Q test
 #MSUB -@ mariaelena.innocenti@wis.kuleuven.be: begin,end

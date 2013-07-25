@@ -236,14 +236,14 @@ inline Grid2DCU::Grid2DCU(CollectiveIO* col, VirtualTopology* vct, int GridLevel
        }
    for (i=1;i<col->getNgrids();i++){
      // refined grid centered
-     //ox[i] = col->getLx()/(double)2.*(double)pow(ratio,-i+1)*((double)1.-(double)1./ratio);
-     //oy[i] = col->getLy()/(double)2.*(double)pow(ratio,-i+1)*((double)1.-(double)1./ratio);
+     ox[i] = col->getLx()/(double)2.*(double)pow(ratio,-i+1)*((double)1.-(double)1./ratio);
+     oy[i] = col->getLy()/(double)2.*(double)pow(ratio,-i+1)*((double)1.-(double)1./ratio);
        // For a centered refined grid along x and shifted up along y
      //ox[i] = col->getLx()/(double)2.*(double)pow(ratio,-i+1)*((double)1.-(double)1./ratio);
      //oy[i] = col->getLy()/(double)2.*(double)pow(ratio,-i+1)*((double)1.-(double)1./ratio)*1.5;
        //Manually tuned
-     ox[i] = 15-col->getLx()/pow(ratio,i)/2.;
-     oy[i] = 15-col->getLx()/pow(ratio,i)/2.;
+     //ox[i] = 15-col->getLx()/pow(ratio,i)/2.;
+     //oy[i] = 15-col->getLx()/pow(ratio,i)/2.;
 
      //ox[i] = col->getLx()*(0.25+1./(double)2.*(double)pow(ratio,-i+1)*((double)1.-(double)1./ratio))-1;
      //oy[i] = col->getLy()*(0.25+1./(double)2.*(double)pow(ratio,-i+1)*((double)1.-(double)1./ratio))-1;

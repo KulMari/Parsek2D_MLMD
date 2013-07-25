@@ -30,9 +30,9 @@ using std::endl;
 /**
 * 
  * Class for particles of the same species, in a 2D space and 3component velocity
- * @date Fri Jun 4 2007
- * @author Stefano Markidis, Giovanni Lapenta
- * @version 2.0
+ * @date 2013
+ * @author Maria Elena Innocenti, Stefano Markidis, Giovanni Lapenta
+ * @version 3.0
  *
  */
 
@@ -151,7 +151,7 @@ void Particles2D::DoubleHarris(Grid* grid,Field* EMf,VirtualTopology* vct){
 					else if (grid->getLevel()==1)
 					  shaperz = tanh((y[counter] - Ly)/delta) ;
 					else
-					  cout <<"This init will work only for 2 grids, with refined grid in the uèpper half\n";
+					  cout <<"This init will work only for 2 grids, with refined grid in the upper half\n";
 					  
 					shaperx = 1.0;
 					shapery = 1.0;

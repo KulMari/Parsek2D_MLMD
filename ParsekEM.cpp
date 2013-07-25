@@ -72,7 +72,6 @@ int main (int argc, char **argv) {
  Collective *col = new Collective(argc,argv); // Every proc loads the parameters of simulation from class Collective
  bool verbose = col->getVerbose();
  string SaveDirName = col->getSaveDirName();
- cout << "col->getSaveDirName() " << col->getSaveDirName() <<endl;
  string RestartDirName = col->getRestartDirName();
  int level; //Level of the grid the process is living on
  const int restart = col->getRestart_status();
@@ -86,7 +85,6 @@ int main (int argc, char **argv) {
  vct->setXLEN(col->getXLEN());
  vct->setYLEN(col->getYLEN());
  vct->setNgrids(ngrids);
- cout << "vct->getNgrids() " << vct->getNgrids() <<endl;
  vct->setDivisions();
  vct->setNprocs();
  vct->setPeriodicity(col->getBcEMfaceXleft(),col->getBcEMfaceXright(),col->getBcEMfaceYleft(),col->getBcEMfaceYright());
@@ -139,8 +137,8 @@ if (coord[0] != coord_particles[0]) {
   EMfields *EMf = new EMfields(col, grid, vct); // Create Electromagnetic Fields Object
   cout << "Grids and fields constructions done"<<endl;
   // Initial Condition for FIELD if you are not starting from RESTART
-  //EMf->initUniform(vct,grid); // initialize with constant values
-  EMf->initDoubleHarris(vct,grid); // initialize with constant values 
+  EMf->initUniform(vct,grid); // initialize with constant values
+  //EMf->initDoubleHarris(vct,grid); // initialize with constant values 
   //EMf->initLightwave(vct,grid); // initialize with a dipole
   cout << "vct->getNgrids() " << vct->getNgrids() <<endl;
   cout << "interp " << interp <<endl;
@@ -208,8 +206,8 @@ if (coord[0] != coord_particles[0]) {
   {
     for (int i=0; i < ns; i++)
       {
-	//part[i].maxwellian(grid,EMf,vctparticles);  // all the species have Maxwellian distribution in the velocity
-	part[i].DoubleHarris(grid,EMf,vctparticles);
+	part[i].maxwellian(grid,EMf,vctparticles);  // all the species have Maxwellian distribution in the velocity
+	//part[i].DoubleHarris(grid,EMf,vctparticles);
 	//int out;
 	//out =part[i].maxwellian_sameParticleInit(grid,EMf,vctparticles);
 	//if (out<0)

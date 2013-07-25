@@ -11,12 +11,11 @@
 
 /**
 *  Collective properties. Input physical parameters for the simulation.
-*  Use KVF to parse the input file
 *
-* @date Fri Jun 4 2004
+* @date July 2013
 * @par Copyright:
-* (C) 2004 Los Alamos National Laboratory
-* @author Stefano Markidis, Giovanni Lapenta
+* (C) KULeuven
+* @author Maria Elena Innocenti, Pierre Henry, Stefano Markidis, Giovanni Lapenta
 * @version 1.0
 */
 #include <iostream>
@@ -25,12 +24,11 @@
 
 #include <math.h>
 #include "Collective.h"
-#include "kvfDataSource.h"
 // use hdf5 for the restart file
 #include "hdf5.h"
 
-
-
+//#include "../ConfigFile/src/ConfigFile.h"
+//#include "../ConfigFile/src/input_array.h"
 
 using std::cout;
 using std::endl;
@@ -39,76 +37,74 @@ using std::endl;
     from restart file */
 void Collective::ReadInput(string inputfile){
   using namespace std;
-  using namespace KVF;
+  int test_verbose;
 
-  int i_val;
-  vector<int> i_vvals;
-  vector<double> d_vvals;
-
-  try{
-    //cout << "About to open file: "<< inputfile << endl;
-   KVFDataSource kv_file(inputfile );
-
-   if( kv_file.num_parse_errors() != 0 )
-   {
-	cout << "THERE WERE ERRORS READING THE FILE!! " << endl;
-	kv_file.diag_print_errors() ;
-	exit(1);
-   }
-
-
+  //Loading the input file 
+  ConfigFile config(inputfile);
+  
    // the following variables are ALWAYS taken from inputfile, even if restarting
    {
-        kv_file.get_data( "dt", dt );
-	    kv_file.get_data( "ncycles", ncycles );
-	    kv_file.get_data( "th", th );
-	    kv_file.get_data( "Smooth", Smooth );
-	    kv_file.get_data( "Nvolte", Nvolte );
-	    kv_file.get_data( "XLEN", XLEN );
-	    kv_file.get_data( "YLEN", YLEN );
-	    kv_file.get_data( "ngrids", ngrids );
-	    kv_file.get_data( "ratio", ratio );
-        kv_file.get_data( "SaveDirName",  SaveDirName );
-	cout << "From within Collective: SaveDirName: " << SaveDirName <<endl;
-	    kv_file.get_data( "RestartDirName",  RestartDirName );
-		kv_file.get_data( "ns", ns );
-	    kv_file.get_data( "NpMaxNpRatio", NpMaxNpRatio);
-	    // GEM Challenge
-	    kv_file.get_data( "B0x", B0x );
-	    kv_file.get_data( "B0y", B0y );
-	    kv_file.get_data( "B0z", B0z );
-        kv_file.get_data( "delta", delta );
-	    rhoINIT = new double[ns];
-		kv_file.get_data( "rhoINIT", d_vvals );
-	    for (register int i=0; i<ns; i++)
-		   rhoINIT[i]=d_vvals[i];
-	    // take the tolerance of the solvers
-		kv_file.get_data( "CGtol", CGtol);
-		kv_file.get_data( "GMREStol", GMREStol);
-		kv_file.get_data( "NiterMover", NiterMover);
-		// take the injection of the particless
-		kv_file.get_data( "Vinj", Vinj);
-		// take the output cycles
-		kv_file.get_data( "FieldOutputCycle",FieldOutputCycle);
-		kv_file.get_data( "ParticlesOutputCycle",ParticlesOutputCycle);
-		kv_file.get_data( "RestartOutputCycle",RestartOutputCycle);
+	dt = config.read<double>( "dt" );
+	ncycles = config.read<int>( "ncycles" );
+	th = config.read<double>( "th" );
+	config.readInto(Smooth, "Smooth" ) ;
 
+	Nvolte = config.read<int>( "Nvolte" ); // MP kv_file.get_data( "Nvolte", Nvolte );
+	XLEN = config.read<int>( "XLEN" ); // MP kv_file.get_data( "XLEN", XLEN );
+	YLEN = config.read<int>( "YLEN" ); // MP kv_file.get_data( "YLEN", YLEN );
+	ngrids = config.read<int>( "ngrids" ); // MP kv_file.get_data( "ngrids", ngrids );
+	ratio = config.read<int>( "ratio" ); // MP kv_file.get_data( "ratio", ratio );
+	
+	SaveDirName = config.read<string>( "SaveDirName" );
+	RestartDirName = config.read<string>( "RestartDirName" );
+	ns = config.read<int>( "ns" );
+	NpMaxNpRatio = config.read<double>( "NpMaxNpRatio" );
+	// GEM Challenge
+	B0x = config.read<double>( "B0x" );
+	B0y = config.read<double>( "B0y" );
+	B0z = config.read<double>( "B0z" );
+	delta = config.read<double>( "delta" );
+
+	rhoINIT = new double[ns];
+	array_double rhoINIT0 = config.read<array_double>( "rhoINIT" );
+	rhoINIT[0]=rhoINIT0.a;
+	if (ns > 1)
+	  rhoINIT[1]=rhoINIT0.b;
+	if (ns > 2)
+	  rhoINIT[2]=rhoINIT0.c;
+	if (ns > 3)
+	  rhoINIT[3]=rhoINIT0.d;
+	if (ns > 4)
+	  rhoINIT[4]=rhoINIT0.e;
+	if (ns > 5)
+	  rhoINIT[5]=rhoINIT0.f;
+	// take the tolerance of the solvers
+	CGtol = config.read<double>( "CGtol" );
+	GMREStol = config.read<double>( "GMREStol" );
+	NiterMover = config.read<int>( "NiterMover" );
+	
+	// take the injection of the particless
+	Vinj = config.read<double>( "Vinj" );
+
+	// take the output cycles
+	FieldOutputCycle = config.read<int>( "FieldOutputCycle" );
+	ParticlesOutputCycle = config.read<int>( "ParticlesOutputCycle" );
+	RestartOutputCycle = config.read<int>( "RestartOutputCycle" );
     }
 
     if (RESTART1){    // you are restarting
-       kv_file.get_data( "RestartDirName",  RestartDirName );
+      RestartDirName = config.read<string>( "RestartDirName" );
        ReadRestart(RestartDirName);
     }
     else
     {
        restart_status=0;
        last_cycle=-1;
-       kv_file.get_data( "c", c );
-       kv_file.get_data( "Lx", Lx );
-       kv_file.get_data( "Ly", Ly );
-       kv_file.get_data( "nxc", nxc );
-       kv_file.get_data( "nyc", nyc );
-
+       c = config.read<double>( "c" );
+       Lx = config.read<double>( "Lx" );
+       Ly = config.read<double>( "Ly" );
+       nxc = config.read<int>( "nxc" );
+       nyc = config.read<int>( "nyc" );
 
        npcelx = new int[ns];
        npcely = new int[ns];
@@ -120,80 +116,129 @@ void Collective::ReadInput(string inputfile){
        v0 = new double[ns];
        w0 = new double[ns];
 
-	   kv_file.get_data( "npcelx", i_vvals );
-	   for (register int i=0; i<ns; i++)
-		  npcelx[i]=i_vvals[i];
-	   kv_file.get_data( "npcely", i_vvals );
-	   for (register int i=0; i<ns; i++)
-		  npcely[i]=i_vvals[i];
-	   kv_file.get_data( "qom", d_vvals );
-	   for (register int i=0; i<ns; i++)
-		 qom[i]=d_vvals[i];
-	   kv_file.get_data( "uth", d_vvals );
-	   for (register int i=0; i<ns; i++)
-		 uth[i]=d_vvals[i];
-	   kv_file.get_data( "vth", d_vvals );
-	   for (register int i=0; i<ns; i++)
-		 vth[i]=d_vvals[i];
-	kv_file.get_data( "wth", d_vvals );
-	for (register int i=0; i<ns; i++)
-		wth[i]=d_vvals[i];
-	kv_file.get_data( "u0", d_vvals );
-	for (register int i=0; i<ns; i++)
-		u0[i]=d_vvals[i];
-	kv_file.get_data( "v0", d_vvals );
-	for (register int i=0; i<ns; i++)
-		v0[i]=d_vvals[i];
-	kv_file.get_data( "w0", d_vvals );
-	for (register int i=0; i<ns; i++)
-		w0[i]=d_vvals[i];
+       array_int npcelx0 = config.read<array_int>( "npcelx" );
+       array_int npcely0 = config.read<array_int>( "npcely" );
+       array_double qom0 = config.read<array_double>( "qom" );
+       array_double uth0 = config.read<array_double>( "uth" );
+       array_double vth0 = config.read<array_double>( "vth" );
+       array_double wth0 = config.read<array_double>( "wth" );
+       array_double u00 = config.read<array_double>( "u0" );
+       array_double v00 = config.read<array_double>( "v0" );
+       array_double w00 = config.read<array_double>( "w0" );
 
-	kv_file.get_data( "verbose", i_val);
+       npcelx[0]=npcelx0.a;
+       npcely[0]=npcely0.a;
+       qom[0]=qom0.a;
+       uth[0]=uth0.a;
+       vth[0]=vth0.a;
+       wth[0]=wth0.a;
+       u0[0]=u00.a;
+       v0[0]=v00.a;
+       w0[0]=w00.a;
 
+       if (ns > 1){
+	 npcelx[1]=npcelx0.b;
+	 npcely[1]=npcely0.b;
+	 qom[1]=qom0.b;
+	 uth[1]=uth0.b;
+	 vth[1]=vth0.b;
+	 wth[1]=wth0.b;
+	 u0[1]=u00.b;
+	 v0[1]=v00.b;
+	 w0[1]=w00.b;
+       }
 
-	if (i_val==0)
-		verbose=false;
-		else
-		verbose=true;
-	kv_file.get_data( "bcPHIfaceXright", bcPHIfaceXright );
-	kv_file.get_data( "bcPHIfaceXleft" , bcPHIfaceXleft );
-	kv_file.get_data( "bcPHIfaceYright", bcPHIfaceYright );
-	kv_file.get_data( "bcPHIfaceYleft",  bcPHIfaceYleft );
-	kv_file.get_data( "bcEMfaceXright", bcEMfaceXright );
-	kv_file.get_data( "bcEMfaceXleft" , bcEMfaceXleft );
-	kv_file.get_data( "bcEMfaceYright", bcEMfaceYright );
-	kv_file.get_data( "bcEMfaceYleft",  bcEMfaceYleft );
-	kv_file.get_data( "bcPfaceXright", bcPfaceXright );
-	kv_file.get_data( "bcPfaceXleft" , bcPfaceXleft );
-	kv_file.get_data( "bcPfaceYright", bcPfaceYright );
-	kv_file.get_data( "bcPfaceYleft",  bcPfaceYleft );
+       if (ns > 2){
+	 npcelx[2]=npcelx0.c;
+	 npcely[2]=npcely0.c;
+	 qom[2]=qom0.c;
+	 uth[2]=uth0.c;
+	 vth[2]=vth0.c;
+	 wth[2]=wth0.c;
+	 u0[2]=u00.c;
+	 v0[2]=v00.c;
+	 w0[2]=w00.c;
+       }
 
+       if (ns > 3){
+	 npcelx[3]=npcelx0.d;
+	 npcely[3]=npcely0.d;
+	 qom[3]=qom0.d;
+	 uth[3]=uth0.d;
+	 vth[3]=vth0.d;
+	 wth[3]=wth0.d;
+	 u0[3]=u00.d;
+	 v0[3]=v00.d;
+	 w0[3]=w00.d;
+       }
 
-      }
+       if (ns > 4){
+	 npcelx[4]=npcelx0.e;
+	 npcely[4]=npcely0.e;
+	 qom[4]=qom0.e;
+	 uth[4]=uth0.e;
+	 vth[4]=vth0.e;
+	 wth[4]=wth0.e;
+	 u0[4]=u00.e;
+	 v0[4]=v00.e;
+	 w0[4]=w00.e;
+       }
 
-	TrackParticleID =  new bool[ns];
-	kv_file.get_data( "TrackParticleID", i_vvals);
-	for (register int i=0; i<ns; i++){
-		if (i_vvals[i]==0)
-		TrackParticleID[i]=false;
-		else
-		TrackParticleID[i]=true;}
+       if (ns > 5){
+	 npcelx[5]=npcelx0.f;
+	 npcely[5]=npcely0.f;
+	 qom[5]=qom0.f;
+	 uth[5]=uth0.f;
+	 vth[5]=vth0.f;
+	 wth[5]=wth0.f;
+	 u0[5]=u00.f;
+	 v0[5]=v00.f;
+	 w0[1]=w00.f;
+       }
 
-        /**AMR variables, ME*/
-        kv_file.get_data( "PRA_Xleft",  PRA_Xleft );
-        kv_file.get_data( "PRA_Xright",  PRA_Xright );
-        kv_file.get_data( "PRA_Yleft",  PRA_Yleft );
-        kv_file.get_data( "PRA_Yright",  PRA_Yright );
+       verbose = config.read<bool>( "verbose" );
+       
+       // PHI Electrostatic Potential  
+       bcPHIfaceXright = config.read<int>( "bcPHIfaceXright" );
+       bcPHIfaceXleft  = config.read<int>( "bcPHIfaceXleft" );
+       bcPHIfaceYright = config.read<int>( "bcPHIfaceYright" );
+       bcPHIfaceYleft  = config.read<int>( "bcPHIfaceYleft" );
 
+       // EM field boundary condition 
+       bcEMfaceXright = config.read<int>( "bcEMfaceXright" );
+       bcEMfaceXleft =  config.read<int>( "bcEMfaceXleft" );
+       bcEMfaceYright = config.read<int>( "bcEMfaceYright" );
+       bcEMfaceYleft =  config.read<int>( "bcEMfaceYleft" );
+
+       // Particles Boundary condition                                                  
+       bcPfaceXright = config.read<int>( "bcPfaceXright" );
+       bcPfaceXleft =  config.read<int>( "bcPfaceXleft" );
+       bcPfaceYright = config.read<int>( "bcPfaceYright" );
+       bcPfaceYleft =  config.read<int>( "bcPfaceYleft" );
+    }
+
+    TrackParticleID =  new bool[ns];
+    array_bool TrackParticleID0 = config.read<array_bool>( "TrackParticleID" );
+    TrackParticleID[0]=TrackParticleID0.a;
+    if (ns > 1)
+      TrackParticleID[1]=TrackParticleID0.b;
+    if (ns > 2)
+      TrackParticleID[2]=TrackParticleID0.c;
+    if (ns > 3)
+      TrackParticleID[3]=TrackParticleID0.d;
+    if (ns > 4)
+      TrackParticleID[4]=TrackParticleID0.e;
+    if (ns > 5)
+      TrackParticleID[5]=TrackParticleID0.f;
+
+    /**AMR variables, ME*/
+    PRA_Xleft = config.read<int>( "PRA_Xleft" ); //MP kv_file.get_data( "PRA_Xleft",  PRA_Xleft );
+    PRA_Xright = config.read<int>( "PRA_Xright" ); //MP kv_file.get_data( "PRA_Xright",  PRA_Xright );
+    PRA_Yleft = config.read<int>( "PRA_Yleft" ); //MP kv_file.get_data( "PRA_Yleft",  PRA_Yleft );
+    PRA_Yright = config.read<int>( "PRA_Yright" ); //MP kv_file.get_data( "PRA_Yright",  PRA_Yright );
 
 }
-catch( KVFException& e )
-{
-	cout << "Collective::ReadInput() Caught exception " << endl;
-	e.diag_cout();
-}
 
-}
 /**
 *  Read the collective information from the RESTART file in HDF5 format
 *
@@ -205,208 +250,210 @@ catch( KVFException& e )
 */
 int Collective::ReadRestart(string inputfile){
 
-    restart_status=1;
-    // hdf stuff
-    hid_t    file_id;
-    hid_t    dataset_id;
-    herr_t   status;
-    /*
-     * Open the  setting file for the restart.
-     */
-     file_id = H5Fopen((inputfile+"/settings.hdf").c_str(), H5F_ACC_RDWR, H5P_DEFAULT);
-     if (file_id < 0){
-        cout << "couldn't open file: " << inputfile << endl;\
-	return -1;}
-
-     // read c
-    dataset_id = H5Dopen1(file_id, "/collective/c");
-    status = H5Dread(dataset_id, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT,&c);
+  cout << "Restart has never been properly adapted to the MLMD case... Exiting..." << endl;
+  cerr << "Restart has never been properly adapted to the MLMD case... Exiting..." << endl;
+  return -1;
+  
+  restart_status=1;
+  // hdf stuff
+  hid_t    file_id;
+  hid_t    dataset_id;
+  herr_t   status;
+  /*
+   * Open the  setting file for the restart.
+   */
+  file_id = H5Fopen((inputfile+"/settings.hdf").c_str(), H5F_ACC_RDWR, H5P_DEFAULT);
+  if (file_id < 0){
+    cout << "couldn't open file: " << inputfile << endl;	\
+    return -1;}
+  
+  // read c
+  dataset_id = H5Dopen1(file_id, "/collective/c");
+  status = H5Dread(dataset_id, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT,&c);
+  status = H5Dclose(dataset_id);
+  
+  // read Lx
+  dataset_id = H5Dopen1(file_id, "/collective/Lx");
+  status = H5Dread(dataset_id, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT,&Lx);
+  status = H5Dclose(dataset_id);
+  // read Ly
+  dataset_id = H5Dopen1(file_id, "/collective/Ly");
+  status = H5Dread(dataset_id, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT,&Ly);
+  status = H5Dclose(dataset_id);
+  // read nxc
+  dataset_id = H5Dopen1(file_id, "/collective/Nxc");
+  status = H5Dread(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,&nxc);
+  status = H5Dclose(dataset_id);
+  // read nyc
+  dataset_id = H5Dopen1(file_id, "/collective/Nyc");
+  status = H5Dread(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,&nyc);
+  status = H5Dclose(dataset_id);
+  // read ns
+  dataset_id = H5Dopen1(file_id, "/collective/Ns");
+  status = H5Dread(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,&ns);
+  status = H5Dclose(dataset_id);
+  // read ngrids
+  dataset_id = H5Dopen1(file_id, "/collective/Ngrids");
+  status = H5Dread(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,&ngrids);
+  status = H5Dclose(dataset_id);
+  // read XLEN
+  dataset_id = H5Dopen1(file_id, "/collective/XLEN");
+  status = H5Dread(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,&XLEN);
+  status = H5Dclose(dataset_id);
+  // read YLEN
+  dataset_id = H5Dopen1(file_id, "/collective/YLEN");
+  status = H5Dread(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,&YLEN);
+  status = H5Dclose(dataset_id);
+  
+  
+  /** Boundary condition information */
+  // read EMfaceXleft
+  dataset_id = H5Dopen1(file_id, "/collective/bc/EMfaceXleft");
+  status = H5Dread(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,&bcEMfaceXleft);
+  status = H5Dclose(dataset_id);
+  // read EMfaceXright
+  dataset_id = H5Dopen1(file_id, "/collective/bc/EMfaceXright");
+  status = H5Dread(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,&bcEMfaceXright);
+  status = H5Dclose(dataset_id);
+  // read EMfaceYleft
+  dataset_id = H5Dopen1(file_id, "/collective/bc/EMfaceYleft");
+  status = H5Dread(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,&bcEMfaceYleft);
+  status = H5Dclose(dataset_id);
+  // read EMfaceYright
+  dataset_id = H5Dopen1(file_id, "/collective/bc/EMfaceYright");
+  status = H5Dread(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,&bcEMfaceYright);
+  status = H5Dclose(dataset_id);
+  
+  // read PHIfaceXleft
+  dataset_id = H5Dopen1(file_id, "/collective/bc/PHIfaceXleft");
+  status = H5Dread(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,&bcPHIfaceXleft);
+  status = H5Dclose(dataset_id);
+  // read PHIfaceXright
+  dataset_id = H5Dopen1(file_id, "/collective/bc/PHIfaceXright");
+  status = H5Dread(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,&bcPHIfaceXright);
+  status = H5Dclose(dataset_id);
+  // read PHIfaceYleft
+  dataset_id = H5Dopen1(file_id, "/collective/bc/PHIfaceYleft");
+  status = H5Dread(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,&bcPHIfaceYleft);
+  status = H5Dclose(dataset_id);
+  // read PHIfaceYright
+  dataset_id = H5Dopen1(file_id, "/collective/bc/PHIfaceYright");
+  status = H5Dread(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,&bcPHIfaceYright);
+  status = H5Dclose(dataset_id);
+  
+  // read PfaceXleft
+  dataset_id = H5Dopen1(file_id, "/collective/bc/PfaceXleft");
+  status = H5Dread(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,&bcPfaceXleft);
+  status = H5Dclose(dataset_id);
+  // read PfaceXright
+  dataset_id = H5Dopen1(file_id, "/collective/bc/PfaceXright");
+  status = H5Dread(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,&bcPfaceXright);
+  status = H5Dclose(dataset_id);
+  // read PfaceYleft
+  dataset_id = H5Dopen1(file_id, "/collective/bc/PfaceYleft");
+  status = H5Dread(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,&bcPfaceYleft);
+  status = H5Dclose(dataset_id);
+  // read PfaceYright
+  dataset_id = H5Dopen1(file_id, "/collective/bc/PfaceYright");
+  status = H5Dread(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,&bcPfaceYright);
+  status = H5Dclose(dataset_id);
+  
+  
+  // allocate fields depending on species
+  npcelx = new int[ns];
+  npcely = new int[ns];
+  qom = new double[ns];
+  uth = new double[ns];
+  vth = new double[ns];
+  wth = new double[ns];
+  u0 = new double[ns];
+  v0 = new double[ns];
+  w0 = new double[ns];
+  
+  // read data  from species0, species 1, species2,...
+  string* name_species = new string[ns];
+  
+  stringstream *ss = new stringstream[ns];
+  
+  for (int i=0;i <ns;i++){
+    ss[i] << i;
+    name_species[i] = "/collective/species_"+ ss[i].str() +"/";
+    
+  }
+  
+  // npcelx for different species
+  for(int i=0;i < ns;i++){
+    dataset_id = H5Dopen1(file_id, (name_species[i]+"Npcelx").c_str());
+    status = H5Dread(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,&npcelx[i]);
     status = H5Dclose(dataset_id);
-
-     // read Lx
-     dataset_id = H5Dopen1(file_id, "/collective/Lx");
-     status = H5Dread(dataset_id, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT,&Lx);
-     status = H5Dclose(dataset_id);
-     // read Ly
-     dataset_id = H5Dopen1(file_id, "/collective/Ly");
-     status = H5Dread(dataset_id, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT,&Ly);
-     status = H5Dclose(dataset_id);
-     // read nxc
-     dataset_id = H5Dopen1(file_id, "/collective/Nxc");
-     status = H5Dread(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,&nxc);
-     status = H5Dclose(dataset_id);
-     // read nyc
-     dataset_id = H5Dopen1(file_id, "/collective/Nyc");
-     status = H5Dread(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,&nyc);
-     status = H5Dclose(dataset_id);
-     // read ns
-     dataset_id = H5Dopen1(file_id, "/collective/Ns");
-     status = H5Dread(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,&ns);
-     status = H5Dclose(dataset_id);
-     // read ngrids
-     dataset_id = H5Dopen1(file_id, "/collective/Ngrids");
-     status = H5Dread(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,&ngrids);
-     status = H5Dclose(dataset_id);
-     // read XLEN
-     dataset_id = H5Dopen1(file_id, "/collective/XLEN");
-     status = H5Dread(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,&XLEN);
-     status = H5Dclose(dataset_id);
-     // read YLEN
-     dataset_id = H5Dopen1(file_id, "/collective/YLEN");
-     status = H5Dread(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,&YLEN);
-     status = H5Dclose(dataset_id);
-
-
-     /** Boundary condition information */
-     // read EMfaceXleft
-     dataset_id = H5Dopen1(file_id, "/collective/bc/EMfaceXleft");
-     status = H5Dread(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,&bcEMfaceXleft);
-     status = H5Dclose(dataset_id);
-     // read EMfaceXright
-     dataset_id = H5Dopen1(file_id, "/collective/bc/EMfaceXright");
-     status = H5Dread(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,&bcEMfaceXright);
-     status = H5Dclose(dataset_id);
-     // read EMfaceYleft
-     dataset_id = H5Dopen1(file_id, "/collective/bc/EMfaceYleft");
-     status = H5Dread(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,&bcEMfaceYleft);
-     status = H5Dclose(dataset_id);
-     // read EMfaceYright
-     dataset_id = H5Dopen1(file_id, "/collective/bc/EMfaceYright");
-     status = H5Dread(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,&bcEMfaceYright);
-     status = H5Dclose(dataset_id);
-
-     // read PHIfaceXleft
-     dataset_id = H5Dopen1(file_id, "/collective/bc/PHIfaceXleft");
-     status = H5Dread(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,&bcPHIfaceXleft);
-     status = H5Dclose(dataset_id);
-     // read PHIfaceXright
-     dataset_id = H5Dopen1(file_id, "/collective/bc/PHIfaceXright");
-     status = H5Dread(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,&bcPHIfaceXright);
-     status = H5Dclose(dataset_id);
-     // read PHIfaceYleft
-     dataset_id = H5Dopen1(file_id, "/collective/bc/PHIfaceYleft");
-     status = H5Dread(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,&bcPHIfaceYleft);
-     status = H5Dclose(dataset_id);
-     // read PHIfaceYright
-     dataset_id = H5Dopen1(file_id, "/collective/bc/PHIfaceYright");
-     status = H5Dread(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,&bcPHIfaceYright);
-     status = H5Dclose(dataset_id);
-
-     // read PfaceXleft
-     dataset_id = H5Dopen1(file_id, "/collective/bc/PfaceXleft");
-     status = H5Dread(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,&bcPfaceXleft);
-     status = H5Dclose(dataset_id);
-     // read PfaceXright
-     dataset_id = H5Dopen1(file_id, "/collective/bc/PfaceXright");
-     status = H5Dread(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,&bcPfaceXright);
-     status = H5Dclose(dataset_id);
-     // read PfaceYleft
-     dataset_id = H5Dopen1(file_id, "/collective/bc/PfaceYleft");
-     status = H5Dread(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,&bcPfaceYleft);
-     status = H5Dclose(dataset_id);
-     // read PfaceYright
-     dataset_id = H5Dopen1(file_id, "/collective/bc/PfaceYright");
-     status = H5Dread(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,&bcPfaceYright);
-     status = H5Dclose(dataset_id);
-
-
-     // allocate fields depending on species
-     npcelx = new int[ns];
-     npcely = new int[ns];
-     qom = new double[ns];
-     uth = new double[ns];
-     vth = new double[ns];
-     wth = new double[ns];
-     u0 = new double[ns];
-     v0 = new double[ns];
-     w0 = new double[ns];
-
-     // read data  from species0, species 1, species2,...
-     string* name_species = new string[ns];
-
-     stringstream *ss = new stringstream[ns];
-
-
-
-     for (int i=0;i <ns;i++){
-        ss[i] << i;
-	name_species[i] = "/collective/species_"+ ss[i].str() +"/";
-
-     }
-
-     // npcelx for different species
-     for(int i=0;i < ns;i++){
-         dataset_id = H5Dopen1(file_id, (name_species[i]+"Npcelx").c_str());
-         status = H5Dread(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,&npcelx[i]);
-         status = H5Dclose(dataset_id);
-     }
-
-     // npcely for different species
-     for(int i=0;i < ns;i++){
-         dataset_id = H5Dopen1(file_id, (name_species[i]+"Npcely").c_str());
-         status = H5Dread(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,&npcely[i]);
-         status = H5Dclose(dataset_id);
-     }
-
-     // qom for different species
-     for(int i=0;i < ns;i++){
-         dataset_id = H5Dopen1(file_id, (name_species[i]+"qom").c_str());
-         status = H5Dread(dataset_id, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT,&qom[i]);
-         status = H5Dclose(dataset_id);
-     }
-     /** not needed for restart **/
-     for (int i=0; i<ns; i++)
-		uth[i]=0.0;
-     for (int i=0; i<ns; i++)
-		vth[i]=0.0;
-     for (int i=0; i<ns; i++)
-		wth[i]=0.0;
-     for (int i=0; i<ns; i++)
-		u0[i]=0.0;
-     for (int i=0; i<ns; i++)
-		v0[i]=0.0;
-     for (int i=0; i<ns; i++)
-		w0[i]=0.0;
-     // verbose on
-     verbose = 1;
-
-
-     // if RestartDirName == SaveDirName overwrite dt,Th,Smooth (append to old hdf files)
-     if (RestartDirName == SaveDirName){
-         restart_status=2;
-         // read dt
-         dataset_id = H5Dopen1(file_id, "/collective/Dt");
-         status = H5Dread(dataset_id, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT,&dt);
-         status = H5Dclose(dataset_id);
-         // read th
-         dataset_id = H5Dopen1(file_id, "/collective/Th");
-         status = H5Dread(dataset_id, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT,&th);
-         status = H5Dclose(dataset_id);
-         // read Smooth
-         dataset_id = H5Dopen1(file_id, "/collective/Smooth");
-         status = H5Dread(dataset_id, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT,&Smooth);
-         status = H5Dclose(dataset_id);
-         // read Nvolte
-         dataset_id = H5Dopen1(file_id, "/collective/Nvolte");
-         status = H5Dread(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,&Nvolte);
-         status = H5Dclose(dataset_id);
-      }
-
-     status = H5Fclose(file_id);
-     delete[] name_species;
-
-     // read last cycle (not from settings, but from restart0.hdf)
-
-     file_id = H5Fopen((inputfile+"/restart0.hdf").c_str(), H5F_ACC_RDWR, H5P_DEFAULT);
-     if (file_id < 0){
-        cout << "couldn't open file: " << inputfile << endl;\
-	return -1;}
-
-    dataset_id = H5Dopen1(file_id, "/last_cycle");
-    status = H5Dread(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,&last_cycle);
+  }
+  
+  // npcely for different species
+  for(int i=0;i < ns;i++){
+    dataset_id = H5Dopen1(file_id, (name_species[i]+"Npcely").c_str());
+    status = H5Dread(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,&npcely[i]);
     status = H5Dclose(dataset_id);
-    status = H5Fclose(file_id);
+  }
+  
+  // qom for different species
+  for(int i=0;i < ns;i++){
+    dataset_id = H5Dopen1(file_id, (name_species[i]+"qom").c_str());
+    status = H5Dread(dataset_id, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT,&qom[i]);
+    status = H5Dclose(dataset_id);
+  }
+  /** not needed for restart **/
+  for (int i=0; i<ns; i++)
+    uth[i]=0.0;
+  for (int i=0; i<ns; i++)
+    vth[i]=0.0;
+  for (int i=0; i<ns; i++)
+    wth[i]=0.0;
+  for (int i=0; i<ns; i++)
+    u0[i]=0.0;
+  for (int i=0; i<ns; i++)
+    v0[i]=0.0;
+  for (int i=0; i<ns; i++)
+    w0[i]=0.0;
+  // verbose on
+  verbose = 1;
+  
+  if (RestartDirName == SaveDirName){
+    restart_status=2;
+    // read dt
+    dataset_id = H5Dopen1(file_id, "/collective/Dt");
+    status = H5Dread(dataset_id, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT,&dt);
+    status = H5Dclose(dataset_id);
+    // read th
+    dataset_id = H5Dopen1(file_id, "/collective/Th");
+    status = H5Dread(dataset_id, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT,&th);
+    status = H5Dclose(dataset_id);
+    // read Smooth
+    dataset_id = H5Dopen1(file_id, "/collective/Smooth");
+    status = H5Dread(dataset_id, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT,&Smooth);
+    status = H5Dclose(dataset_id);
+    // read Nvolte
+    dataset_id = H5Dopen1(file_id, "/collective/Nvolte");
+    status = H5Dread(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,&Nvolte);
+    status = H5Dclose(dataset_id);
+  }
+  
+  status = H5Fclose(file_id);
+  delete[] name_species;
+  
+  // read last cycle (not from settings, but from restart0.hdf)
+  
+  file_id = H5Fopen((inputfile+"/restart0.hdf").c_str(), H5F_ACC_RDWR, H5P_DEFAULT);
+  if (file_id < 0){
+    cout << "couldn't open file: " << inputfile << endl;	\
+    return -1;}
+  
+  dataset_id = H5Dopen1(file_id, "/last_cycle");
+  status = H5Dread(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,&last_cycle);
+  status = H5Dclose(dataset_id);
+  status = H5Fclose(file_id);
 
+  return 0;
+  
 }
 
 Collective::Collective(int argc, char** argv) {
@@ -499,6 +546,8 @@ void Collective::Print(){
   cout << "Number of cells (y)      = " << nyc     << endl;
   cout << "Number of processors in X = " << XLEN << endl;
   cout << "Number of processors in Y = " << YLEN << endl;
+  cout << "Number of grids = " << ngrids << endl;
+  cout << "Ratio between the grids = " << ratio << endl;
   cout << "Time step                = " << dt      << endl;
   cout << "Number of cycles         = " << ncycles << endl;
   cout << "Results saved in: "<< SaveDirName <<endl;
@@ -534,7 +583,10 @@ void Collective::Print(){
      cout << "WARNING. v_th*dt/dy (species "<< is << ") = "<< vth[is]*dt/dy << " < .1" << endl;
 
   }
+  cout << "PRA dimensions: " <<endl;
+  cout << "PRA_Xleft: " << PRA_Xleft << ", PRA_Xright: "<< PRA_Xright << "PRA_Yleft: "<< PRA_Yleft << ", PRA_Yright: "<< PRA_Yright << endl;
 
+  
 }
 /** get the physical space dimensions            */
 int Collective::getDim(){
@@ -739,7 +791,6 @@ double Collective::getDelta(){
  }
  /** get SaveDirName  */
  string Collective::getSaveDirName(){
-   cout << "From inside getSaveDirName: "<< SaveDirName <<endl;
  return(SaveDirName);
  }
  /** get RestartDirName  */
