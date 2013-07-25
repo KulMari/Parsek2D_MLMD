@@ -1,8 +1,0 @@
-TARNAME=$1
-
-echo storing in $TARNAME
-
-rm $TARNAME 
-
-tar zcvf $TARNAME inputfiles/inputfile.prit512ubuntu results/set* results/proc*
-

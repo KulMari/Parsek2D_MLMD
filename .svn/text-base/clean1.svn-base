@@ -1,4 +1,0 @@
-/bin/rm ~/parsek.o*
-/bin/rm prova/*
-/bin/rm prova/restart/*
-/bin/rm results/*
