@@ -7,14 +7,14 @@
 #MSUB -e $HOME/OUTPUT_MLMD/TimeStamping/inputfile.maxwellTimestamp.e       # Error output. %I is the job id
 #MSUB -q xlarge
 #MSUB -Q test
-#MSUB -@ mariaelena.innocenti@gmail.com: begin,end
-#MSUB 
+#MSUB -@ mariaelena.innocenti@wis.kuelueven.be: begin,end #does not recognize gmail
+#MSUB -X #for X11 forwarding  
 
 BRIDGE_MSUB_PWD='/ccc/cont005/home/ra0747/innocenm/Parsek2D-multilevel_TimeStamping'
 export BRIDGE_MSUB_PWD
-#module load valgrind
+module load ddt
 set -x
 cd ${BRIDGE_MSUB_PWD}
-##ccc_mprun ./iPIC3D inputfiles/GEM.inp   #Test1.inp
+
 ccc_mprun -d ddt ./ParsekEM INPUTFILE_Mari/inputfile.maxwellTimestamp # for DDT
 #valgrind --tool=memcheck --track-origins=yes  --leak-check=full ccc_mprun ./ParsekEM INPUTFILE_Mari/inputfile.maxwell2grids #put a comment or a new line, otherwise a string is added here and it makes you go into restart
