@@ -2,7 +2,7 @@
 EMfields.h  -  Electromagnetic Field with 3 components(x,y,z) defined on a 2-D grid. Solved
 using the implicit Maxwell solver.
 -------------------
-developers: Stefano Markidis,  Giovanni Lapenta, Arnaud Beck
+developers: Stefano Markidis,  Giovanni Lapenta, Arnaud Beck, Maria Elena Innocenti
 ********************************************************************************************/
 
 #ifndef EMfields_H
@@ -1354,12 +1354,13 @@ inline void EMfields::calculateB(Grid *grid, VirtualTopology *vct){
   eqValue (0.0,tempYC,nxc,nyc);
   eqValue (0.0,tempZC,nxc,nyc);
 
-  // calculate the curl of Eth
+   // calculate the curl of Eth
   if (grid->getLevel() > 0) {
     grid->curlN2C(tempXC,tempYC,tempZC,Exth,Eyth,Ezth);
   } else {
-    grid->curlN2C_withghost(tempXC,tempYC,tempZC,Exth,Eyth,Ezth);
+     grid->curlN2C_withghost(tempXC,tempYC,tempZC,Exth,Eyth,Ezth);
   }
+ 
   // update the magnetic field
   addscale(-c*dt,1,Bxc,tempXC,nxc,nyc);
   addscale(-c*dt,1,Byc,tempYC,nxc,nyc);
@@ -1368,6 +1369,7 @@ inline void EMfields::calculateB(Grid *grid, VirtualTopology *vct){
   communicateCenter(nxc,nyc,Bxc,vct);
   communicateCenter(nxc,nyc,Byc,vct);
   communicateCenter(nxc,nyc,Bzc,vct);
+ 
   //BC are applied only on coarsest grid
   if (grid->getLevel() == 0) {
     // apply boundary conditions on B
@@ -1394,7 +1396,7 @@ inline void EMfields::calculateB(Grid *grid, VirtualTopology *vct){
     } else if (vct->getYright_neighbor()==MPI_PROC_NULL && bcEMfaceYright==1){
       BmagneticMirrorRight(1,grid,vct);
     }
-  }
+    }
   if (grid->getLevel() > 0) {
     if (nmessagerecuBC > 0){
       magneticfieldBC(Bxn,grid,Bxn_new,vct); 
@@ -1457,8 +1459,8 @@ inline void EMfields::calculateB(Grid *grid, VirtualTopology *vct){
     }
 
   }
-        
-  // interpolate C2N to update the active nodes. Ghost nodes have just been updated by the BCs.
+  
+    // interpolate C2N to update the active nodes. Ghost nodes have just been updated by the BCs.
   grid->interpC2N(Bxn,Bxc,vct);
   grid->interpC2N(Byn,Byc,vct);
   grid->interpC2N(Bzn,Bzc,vct);
@@ -5053,7 +5055,7 @@ MPI_Request request;
 int i,j,k,ix,iy,step;
 double Ox,Oy,finelx,finely;
 
- int ID= vct->getCartesian_rank_COMMTOTAL();   // just for DDT
+//int ID= vct->getCartesian_rank_COMMTOTAL();   // just for DDT
 
 Ox = grid->getOx(grid->getLevel()+1); //Origin x of finer grid
 Oy = grid->getOy(grid->getLevel()+1); //Origin y of finer grid
@@ -5251,11 +5253,9 @@ eqValue (0.0, Bzn_recvbufferproj, nxn,nyn);
         }
     }
 
-
 if (nmessagerecvProj>0) {
     //Average between the current fields and the projected ones stores in the recvbufferproj and normalization
             //cout << "receive ixrecvfirstProjglobal= "<<ixrecvfirstProjglobal<<" iyrecvfirstProjglobal= "<< iyrecvfirstProjglobal<<" ixrecvlastProjglobal= "<< ixrecvlastProjglobal<<" iyrecvlastProjglobal= "<<iyrecvlastProjglobal<<endl;
-            
     for (i=ixrecvfirstProjglobal ;i<ixrecvlastProjglobal+1;i++){
         for (j=iyrecvfirstProjglobal;j<iyrecvlastProjglobal+1;j++){
 	  Ex[i][j][0] = ( Ex[i][j][0] + Ex_recvbufferproj[i][j][0]/normalizerecvProj[i][j][0] )/2.;
@@ -5272,29 +5272,82 @@ if (nmessagerecvProj>0) {
 	  //// Byn[i][j][0] =  Byn_recvbufferproj[i][j][0]/normalizerecvProj[i][j][0] ;               
 	  //// Bzn[i][j][0] =  Bzn_recvbufferproj[i][j][0]/normalizerecvProj[i][j][0] ;
 	   
-	  //cout << "R" <<vct->getCartesian_rank_COMMTOTAL()<<" i " << i <<" j " <<j <<" normalizerecvProj[i][j][0]" << normalizerecvProj[i][j][0] <<endl;
+	  //cout << "R" <<vct->getCartesian_rank_COMMTOTAL()<<" i " << i <<" j " <<j <<" normalizerecvProj[i][j][0]" << normalizerecvProj[i][j][0] << " coords x and y " << grid->getXN(i, j, 0) << " and " << grid->getYN(i, j, 0)  <<endl;
        }
     }
-}
-communicateNode(nxn,nyn,Ex,vct);
-communicateNode(nxn,nyn,Ey,vct);
-communicateNode(nxn,nyn,Ez,vct);
-communicateNode(nxn,nyn,Bxn,vct);
-communicateNode(nxn,nyn,Byn,vct);
-communicateNode(nxn,nyn,Bzn,vct);
+ } // edn if (nmessagerecvProj>0)
+ 
+// this part is useful to fix the first active node of the coarse grid in case it falls in the PM / MP / PP area of the corresponding refined proc
+// it just copies it from the proc to the left
+// It is done on the entire coarse grid to simplify the if conditions and alson in the hope it helps with mischievous BC
 
-//At the end, reinterpolate B on centers from the B on nodes received
-grid->interpN2C_alsoGC(Bxc,Bxn);
-grid->interpN2C_alsoGC(Byc,Byn);
-grid->interpN2C_alsoGC(Bzc,Bzn);
-
-// ME
-
-// communicateNode(nxn,nyn,Ex,vct);
-// communicateNode(nxn,nyn,Ey,vct);
-// communicateNode(nxn,nyn,Ez,vct);
-calculateB_afterProj(grid, vct);
-//cout <<"END RECEIVE PROJ" << endl;
+// X dir
+ 
+      if (vct->getXright_neighbor()!= MPI_PROC_NULL)
+       {
+	 //cout << "R" << vct->getCartesian_rank_COMMTOTAL() <<" wants to send to R" << vct->getXright_neighbor() << endl; 
+	 for (int j=0; j<nyn; j++)
+	   {
+	     bufferProjsend[3*j]=   Ex[nxn-2][j][0];
+	     bufferProjsend[3*j+1]= Ey[nxn-2][j][0];
+	     bufferProjsend[3*j+2]= Ez[nxn-2][j][0];
+	   }
+	 
+	 ierr= MPI_Isend(bufferProjsend,3*nyn,MPI_DOUBLE,vct->getXright_neighbor(),666,MPI_COMM_WORLD, &request); 
+	 MPI_Wait(&request, &status); 
+	 //cout <<"R" << vct->getCartesian_rank_COMMTOTAL()<< " ended send to R" << vct->getXright_neighbor() <<endl;
+       }
+     
+     if (vct->getXleft_neighbor()!= MPI_PROC_NULL) 
+       {
+	 //cout <<"R" << vct->getCartesian_rank_COMMTOTAL() <<" wants to receive from R" << vct->getXleft_neighbor() <<endl;
+	 ierr = MPI_Recv(bufferProjrecv,3*nyn,MPI_DOUBLE,vct->getXleft_neighbor(),666,MPI_COMM_WORLD, &status);      
+	 //cout <<"R" << vct->getCartesian_rank_COMMTOTAL() <<" ended receive from R" << vct->getXleft_neighbor() <<endl;
+	 for (int j=0; j<nyn; j++)
+	   {
+	     Ex[1][j][0] = bufferProjrecv[3*j];
+	     Ey[1][j][0] = bufferProjrecv[3*j+1];
+	     Ez[1][j][0] = bufferProjrecv[3*j+2];
+	   }
+	 
+       }
+     // Y dir
+      if (vct->getYright_neighbor()!= MPI_PROC_NULL)
+       {
+	 //cout <<"R" << vct->getCartesian_rank_COMMTOTAL() <<" wants to send to R" << vct->getYright_neighbor() <<endl;
+	 for (int i=0; i<nxn; i++)
+	   {
+	     bufferProjsend[3*i]=   Ex[i][nyn-2][0];
+	     bufferProjsend[3*i+1]= Ey[i][nyn-2][0];
+	     bufferProjsend[3*i+2]= Ez[i][nyn-2][0];
+	   }
+	 ierr = MPI_Isend(bufferProjsend,3*nxn,MPI_DOUBLE,vct->getYright_neighbor(),667,MPI_COMM_WORLD, &request);
+	 MPI_Wait(&request, &status);
+	 //cout <<"R" << vct->getCartesian_rank_COMMTOTAL() <<" ended send to R" << vct->getYright_neighbor() <<endl;
+       }
+ 
+     if (vct->getYleft_neighbor()!= MPI_PROC_NULL)
+       {
+	 //cout <<"R" << vct->getCartesian_rank_COMMTOTAL()<< " wants to receive from R" << vct->getYleft_neighbor() <<endl;
+	 ierr = MPI_Recv(bufferProjrecv,3*nxn,MPI_DOUBLE,vct->getYleft_neighbor(),667,MPI_COMM_WORLD, &status);
+	 //cout <<"R" << vct->getCartesian_rank_COMMTOTAL() <<" ended receive from R" << vct->getYleft_neighbor() <<endl;
+	 for (int i=0; i<nxn; i++)
+	   {
+	     Ex[i][1][0] = bufferProjrecv[3*i];
+	     Ey[i][1][0] = bufferProjrecv[3*i+1];
+	     Ez[i][1][0] = bufferProjrecv[3*i+2];
+	   }
+	 
+       }
+ 
+ // up to now, the ghost nodes have not been modified
+ communicateNode(nxn,nyn,Ex,vct);
+ communicateNode(nxn,nyn,Ey,vct);
+ communicateNode(nxn,nyn,Ez,vct);
+ 
+ calculateB_afterProj(grid, vct);
+ 
+ //cout <<"END RECEIVE PROJ" << endl;
 }
 /** Receive the boundary conditions from coarser level*/
 inline void EMfields::receiveBC(Grid *grid, VirtualTopology *vct, CollectiveIO *col){
@@ -6247,39 +6300,52 @@ inline void EMfields::printPxxsn(int ns, VirtualTopology *vct)
 inline void EMfields::calculateB_afterProj(Grid *grid, VirtualTopology *vct){
   int i,j;
 
+
   //Recalculate the new Eth
   for (i=0;i<nxn;i++){
       for (j=0;j<nyn;j++){
-          Exth[i][j][0] = (1-th)*Ex_old[i][j][0]+th*Ex[i][j][0];
-          Eyth[i][j][0] = (1-th)*Ey_old[i][j][0]+th*Ey[i][j][0];
-          Ezth[i][j][0] = (1-th)*Ez_old[i][j][0]+th*Ez[i][j][0];
+	
+	Exth[i][j][0] = (1-th)*Ex_old[i][j][0]+th*Ex[i][j][0];
+	Eyth[i][j][0] = (1-th)*Ey_old[i][j][0]+th*Ey[i][j][0];
+	Ezth[i][j][0] = (1-th)*Ez_old[i][j][0]+th*Ez[i][j][0];
+
       }
   }        
+
+
   //Go back to the old B at centers
   for (i=0;i<nxc;i++){
-       for (j=0;j<nyc;j++){
-           Bxc[i][j][0] = Bxc_old[i][j][0];
-           Byc[i][j][0] = Byc_old[i][j][0];
-           Bzc[i][j][0] = Bzc_old[i][j][0];
-       }
-   }        
-   //Recalculate B
-  //calculateB(grid,vct);
-
+     for (j=0;j<nyc;j++){
+	 Bxc[i][j][0] = Bxc_old[i][j][0];
+	 Byc[i][j][0] = Byc_old[i][j][0];
+	 Bzc[i][j][0] = Bzc_old[i][j][0];
+     }
+  }        
+  
+  //Recalculate B
   eqValue (0.0,tempXC,nxc,nyc);
   eqValue (0.0,tempYC,nxc,nyc);
   eqValue (0.0,tempZC,nxc,nyc);
+
   // calculate the curl of Eth                                                                                     
   grid->curlN2C(tempXC,tempYC,tempZC,Exth,Eyth,Ezth); // I don't care about BC; just about the internal domain
+
   // update the magnetic field                                                                                     
   addscale(-c*dt,1,Bxc,tempXC,nxc,nyc);
   addscale(-c*dt,1,Byc,tempYC,nxc,nyc);
   addscale(-c*dt,1,Bzc,tempZC,nxc,nyc);
+
   // communicate ghost                                                                           
   communicateCenter(nxc,nyc,Bxc,vct);
   communicateCenter(nxc,nyc,Byc,vct);
   communicateCenter(nxc,nyc,Bzc,vct);
-  // do nto touch nodes anymore!!!
+  
+
+  // update nodes, which are not received by projection
+  // communicateNode is already in the intepolation
+  grid->interpC2N(Bxn, Bxc, vct);
+  grid->interpC2N(Byn, Byc, vct);
+  grid->interpC2N(Bzn, Bzc, vct);
 
 }
 
@@ -6983,8 +7049,6 @@ inline int EMfields::initWeightProj(VirtualTopology *vct, Grid *grid, Collective
 
   int *ProjCoarseGrid= new int[vct->getXLEN()*vct->getYLEN()];
   int *TOTALProjCoarseGrid= new int[vct->getXLEN()*vct->getYLEN()];
-  //int *coordXproj= new int[nxn*nyn];
-  //int *coordYproj= new int[nxn*nyn];
   int coordXprojMM, coordYprojMM; 
   int coordXprojMP, coordYprojMP;
   int coordXprojPM, coordYprojPM;
@@ -7025,17 +7089,17 @@ inline int EMfields::initWeightProj(VirtualTopology *vct, Grid *grid, Collective
     targetProj[3] = (X+1)*vct->getYLEN()+Y+1+vct->getXLEN()*vct->getYLEN()*(grid->getLevel()-1);
     if (vct->getXright_neighbor()==MPI_PROC_NULL){
       xlast = ceil((grid->getXend()+Ox)/coarsedx)*coarsedx;
-      lastindicex = grid->getNXN()-2;
+      lastindicex = grid->getNXN()-2; 
     } else {
       xlast = ceil((grid->getXend()+Ox)/coarsedx-1./col->getRatio())*coarsedx;
-      lastindicex = grid->getNXN()-3;
+      lastindicex = grid->getNXN()-3; 
     }
     if (vct->getYright_neighbor()==MPI_PROC_NULL){
       ylast = ceil((grid->getYend()+Oy)/coarsedy)*coarsedy;
-      lastindicey = grid->getNYN()-2;
+      lastindicey = grid->getNYN()-2; 
     } else {
       ylast = ceil((grid->getYend()+Oy)/coarsedy-1./col->getRatio())*coarsedy;
-      lastindicey = grid->getNYN()-3;
+      lastindicey = grid->getNYN()-3; 
     }
     xstop = (X+1)*(grid->getNXC()-2)*coarsedx; //End of domain of processor whith coordinate X
     ystop = (Y+1)*(grid->getNYC()-2)*coarsedy; //End of domain of processor with coordinate Y
@@ -7043,8 +7107,8 @@ inline int EMfields::initWeightProj(VirtualTopology *vct, Grid *grid, Collective
 
     if (xstop < xlast){
       nmessageProj=nmessageProj*2;
-      nxpsend = floor((xlast-xstop)/coarsedx+0.5) + 1;
-      nxmsend = floor((xlast-xfirst)/coarsedx+0.5)+1-nxpsend;
+      nxpsend = floor((xlast-xstop)/coarsedx+0.5) ; 
+      nxmsend = floor((xlast-xfirst)/coarsedx+0.5)+1-nxpsend; // the common node is assigned to the first core; the node on the right core is fixed at the end of receiveProj
     } else {
       nxmsend = floor((xlast-xfirst)/coarsedx+0.5)+1;
       nxpsend = 0;
@@ -7052,8 +7116,8 @@ inline int EMfields::initWeightProj(VirtualTopology *vct, Grid *grid, Collective
     //nym is the number of points sent in the y direction to the lower part of y=ystop, and nxp to the upper part of y=ystop
     if (ystop < ylast){
       nmessageProj=nmessageProj*2;
-      nypsend = floor((ylast-ystop)/coarsedy+0.5) + 1;
-      nymsend = floor((ylast-yfirst)/coarsedy+0.5)+1-nypsend;
+      nypsend = floor((ylast-ystop)/coarsedy+0.5) ; 
+      nymsend = floor((ylast-yfirst)/coarsedy+0.5)+1-nypsend; // the common node is assigned to the first core; the node on the right core is fixed at the end of receiveProj
     } else {
       nymsend = floor((ylast-yfirst)/coarsedy+0.5) + 1;
       nypsend = 0 ;
@@ -7067,15 +7131,20 @@ inline int EMfields::initWeightProj(VirtualTopology *vct, Grid *grid, Collective
     // xfirst, x last are physical coords, I need the indexes
     double CoarseXLen= coarselx/ vct->getXLEN();
     double CoarseYLen= coarsely/ vct->getYLEN();
-    coordXprojMM= floor((xfirst-X*CoarseXLen)/coarsedx+0.5)+1; // +1 to take into account the ghost node; without the +1 it's a disaster, keep it here
+
+    coordXprojMM= floor((xfirst-X*CoarseXLen)/coarsedx+0.5)+1; // +1 to take into account the ghost node; without the +1 it's a disaster, keep it here     
     coordYprojMM= floor((yfirst-Y*CoarseYLen)/coarsedy+0.5)+1;
     coordXprojMP= floor((xfirst-X*CoarseXLen)/coarsedx+0.5)+1;
-    coordYprojMP=1; // this never tested: 0 or 1? Arnaud?
-    coordXprojPM=1; 
+    coordYprojMP=2; 
+    coordXprojPM=2; 
+    coordYprojMP=2; 
+    coordXprojPM=2; 
     coordYprojPM= floor((yfirst-Y*CoarseYLen)/coarsedy+0.5)+1;
-    coordXprojPP=1; 
-    coordYprojPP=1;
+    coordXprojPP=2; 
+    coordYprojPP=2; 
 
+    //cout << "R" << vct->getCartesian_rank_COMMTOTAL() << ", coordXprojMM "<< coordXprojMM << ", coordYprojMM "<< coordYprojMM << ", coordXprojMP "<< coordXprojMP << ", coordYprojMP "<< coordYprojMP << ", coordXprojPM "<< coordXprojPM << ", coordYprojPM "<< coordYprojPM << ", coordXprojPP "<< coordXprojPP << ", coordYprojPP "<< coordYprojPP <<endl;
+    
     for (i =0;i<lastindicex;i++) {
       xloc = grid->getXstart() + i * grid->getDX() + Ox -xfirst;
       ixsentProj[i] = int(floor(xloc/coarsedx));
@@ -7102,7 +7171,7 @@ inline int EMfields::initWeightProj(VirtualTopology *vct, Grid *grid, Collective
             cout << endl;
         }
 	}*/
-    cout<< vct->getCartesian_rank_COMMTOTAL() << " sends to target0 = " << targetProj[0]<<" nmessageProj= "<<nmessageProj<<" nxmsend= "<<nxmsend<<" nxpsend= "<<nxpsend<<" nymsend= "<<nymsend<<" nypsend= "<<nypsend<< "xfirst = "<<xfirst<<"xlast = "<<xlast<<" yfirst= "<<yfirst<<" ylast = "<<ylast<<" xstop= "<<xstop <<" lastindicey "<< lastindicey << "lastindicex  "<<lastindicex <<endl;
+    //cout<< vct->getCartesian_rank_COMMTOTAL() << " sends to target0 = " << targetProj[0]<<" nmessageProj= "<<nmessageProj<<" nxmsend= "<<nxmsend<<" nxpsend= "<<nxpsend<<" nymsend= "<<nymsend<<" nypsend= "<<nypsend<< "xfirst = "<<xfirst<<"xlast = "<<xlast<<" yfirst= "<<yfirst<<" ylast = "<<ylast<<" xstop= "<<xstop <<" lastindicey "<< lastindicey << "lastindicex  "<<lastindicex <<endl;
     
     ProjCoarseGrid[targetProj[0]]++;   
 
@@ -7173,7 +7242,7 @@ inline int EMfields::initWeightProj(VirtualTopology *vct, Grid *grid, Collective
       INFObufferProjsend[3]= (double)(nxmsend*nymsend); // total number of points
       INFObufferProjsend[4]= (double)coordXprojMM; // x index of the first point
       INFObufferProjsend[5]= (double)coordYprojMM; // y index of the first point 
-      cout << "R" << vct->getCartesian_rank_COMMTOTAL() << " targetProj[0]  " << targetProj[0] << " coordXprojMM " << coordXprojMM <<" coordYprojMM " << coordYprojMM << endl;
+      //cout << "R" << vct->getCartesian_rank_COMMTOTAL() << " targetProj[0]  " << targetProj[0] << " coordXprojMM " << coordXprojMM <<" coordYprojMM " << coordYprojMM << endl;
       INFObufferProjsend[6]= (double)xleft;
       INFObufferProjsend[7]= (double)xright;
       INFObufferProjsend[8]= (double)yleft;
@@ -7197,7 +7266,7 @@ inline int EMfields::initWeightProj(VirtualTopology *vct, Grid *grid, Collective
 	INFObufferProjsend[3]= (double)(nxpsend*nymsend); // total number of points 
 	INFObufferProjsend[4]= (double)coordXprojPM; // x index of the first point 
 	INFObufferProjsend[5]= (double)coordYprojPM; // y index of the first point   
-	cout << "R" << vct->getCartesian_rank_COMMTOTAL() << " targetProj[1]  " << targetProj[1] << " coordXprojPM " << coordXprojPM <<" coordYprojPM " << coordYprojPM << endl;
+	//cout << "R" << vct->getCartesian_rank_COMMTOTAL() << " targetProj[1]  " << targetProj[1] << " coordXprojPM " << coordXprojPM <<" coordYprojPM " << coordYprojPM << endl;
 	INFObufferProjsend[6]= (double)xleft;
 	INFObufferProjsend[7]= (double)xright;
 	INFObufferProjsend[8]= (double)yleft;
@@ -7223,7 +7292,7 @@ inline int EMfields::initWeightProj(VirtualTopology *vct, Grid *grid, Collective
         INFObufferProjsend[3]= (double)(nxmsend*nypsend); // total number of points     
         INFObufferProjsend[4]= (double)coordXprojMP; // x index of the first point     
         INFObufferProjsend[5]= (double)coordYprojMP; // y index of the first point        
-	cout << "R" << vct->getCartesian_rank_COMMTOTAL() << " targetProj[2]  " << targetProj[2] << " coordXprojMP " << coordXprojMP <<" coordYprojMP " << coordYprojMP << endl;
+	//cout << "R" << vct->getCartesian_rank_COMMTOTAL() << " targetProj[2]  " << targetProj[2] << " coordXprojMP " << coordXprojMP <<" coordYprojMP " << coordYprojMP << endl;
 	INFObufferProjsend[6]= (double)xleft;
 	INFObufferProjsend[7]= (double)xright;
 	INFObufferProjsend[8]= (double)yleft;
@@ -7247,7 +7316,7 @@ inline int EMfields::initWeightProj(VirtualTopology *vct, Grid *grid, Collective
         INFObufferProjsend[3]= (double)(nxpsend*nypsend); // total number of points        
         INFObufferProjsend[4]= (double)coordXprojPP; // x index of the first point     
         INFObufferProjsend[5]= (double)coordYprojPP; // y index of the first point          
-	cout << "R" << vct->getCartesian_rank_COMMTOTAL() << " targetProj[3]  " << targetProj[3] << " coordXprojPP " << coordXprojPP <<" coordYprojPP " << coordYprojPP << endl;
+	//cout << "R" << vct->getCartesian_rank_COMMTOTAL() << " targetProj[3]  " << targetProj[3] << " coordXprojPP " << coordXprojPP <<" coordYprojPP " << coordYprojPP << endl;
 	INFObufferProjsend[6]= (double)xleft;
 	INFObufferProjsend[7]= (double)xright;
 	INFObufferProjsend[8]= (double)yleft;
@@ -7271,7 +7340,7 @@ inline int EMfields::initWeightProj(VirtualTopology *vct, Grid *grid, Collective
       finely = col->getLy()/pow(col->getRatio(),grid->getLevel()+1);
       finedx = grid->getDX()/col->getRatio();
       finedy = grid->getDY()/col->getRatio();
-      // March 6
+      
       bool skip_startX= false;
       bool skip_endX=false;
       bool skip_startY=false;
@@ -7299,26 +7368,22 @@ inline int EMfields::initWeightProj(VirtualTopology *vct, Grid *grid, Collective
 	  max_endX= max(max_endX, ixrecvfirstProj[i]+ nxrecvProj[i]-1);
 	  min_startY= min(min_startY, iyrecvfirstProj[i]);
 	  max_endY= max(max_endY, iyrecvfirstProj[i]+ nyrecvProj[i]-1);
-	  cout << "R" << vct->getCartesian_rank_COMMTOTAL() << " num message " << i <<" of " << nmessagerecvProj << " ixrecvfirstProj[i]  " <<  ixrecvfirstProj[i] << " iyrecvfirstProj[i] "<< iyrecvfirstProj[i] << " nxrecvProj[i] " << nxrecvProj[i] << " nyrecvProj[i] " << nyrecvProj[i] << " npointsreceivedProj[i] " << npointsreceivedProj[i] << endl;
+	  //cout << "R" << vct->getCartesian_rank_COMMTOTAL() << " num message " << i <<" of " << nmessagerecvProj << " ixrecvfirstProj[i]  " <<  ixrecvfirstProj[i] << " iyrecvfirstProj[i] "<< iyrecvfirstProj[i] << " nxrecvProj[i] " << nxrecvProj[i] << " nyrecvProj[i] " << nyrecvProj[i] << " npointsreceivedProj[i] " << npointsreceivedProj[i] << endl;
 
 	  if (fabs(INFObufferProj[6] -1.)<0.1  ) // to avoid mess with the conversion int / double
 	    {
-	      //ixrecvfirstProjglobal+=5; // wrong
 	      skip_startX= true;
 	    }
 	  if (fabs(INFObufferProj[7] -1.)<0.1  )// to avoid mess with the conversion int / double 
             {
-	      //ixrecvlastProjglobal-=5; // wrong
 	      skip_endX= true;
 	    }
 	  if (fabs(INFObufferProj[8] -1.)<0.1  )// to avoid mess with the conversion int / double    
 	    {
-	      //iyrecvfirstProjglobal+=5; //wrong
 	      skip_startY= true;
 	    }
           if (fabs(INFObufferProj[9] -1.)<0.1  )// to avoid mess with the conversion int / double 
 	    {
-	      //iyrecvlastProjglobal-=5; //wrong
 	      skip_endY= true;
 	    }
 	  memcpy (bufferProj, INFObufferProj+10, npointsreceivedProj[i]*sizeof(double)); // bufferProj
@@ -7329,13 +7394,22 @@ inline int EMfields::initWeightProj(VirtualTopology *vct, Grid *grid, Collective
 	    ix = ixrecvfirstProj[i] + j/nyrecvProj[i];
 	    iy = iyrecvfirstProj[i] + j%nyrecvProj[i];
 	    normalizerecvProj[ix][iy][0] += bufferProj[j];
+	    if (vct->getCartesian_rank_COMMTOTAL() == 27)
+	      {
+		cout << "test27 " << "ix " << ix << " iy " << iy << " normalizerecvProj[ix][iy][0] " << normalizerecvProj[ix][iy][0] <<endl;
+	      }
+	    if (vct->getCartesian_rank_COMMTOTAL() == 35)
+              {
+                cout << "test35 " << "ix " << ix << " iy " << iy << " normalizerecvProj[ix][iy][0] " << normalizerecvProj[ix][iy][0] <<endl;
+              }
 	    }
+
 	  
 
 	}// end cycle on messages to receive
 
       // for global
-      int Skip=0;
+      int Skip=1;
       if (nmessagerecvProj>0)
 	{
 	  ixrecvfirstProjglobal= min_startX;
@@ -7354,11 +7428,12 @@ inline int EMfields::initWeightProj(VirtualTopology *vct, Grid *grid, Collective
           if (skip_endY)
             iyrecvlastProjglobal-= Skip;
 
-	  cout <<"R" << vct->getCartesian_rank_COMMTOTAL()<< " ixrecvfirstProjglobal " <<ixrecvfirstProjglobal << " iyrecvfirstProjglobal " <<iyrecvfirstProjglobal << " ixrecvlastProjglobal " <<ixrecvlastProjglobal << " iyrecvlastProjglobal " <<iyrecvlastProjglobal <<endl;
+	  //cout <<"R" << vct->getCartesian_rank_COMMTOTAL()<< " ixrecvfirstProjglobal " <<ixrecvfirstProjglobal << " iyrecvfirstProjglobal " <<iyrecvfirstProjglobal << " ixrecvlastProjglobal " <<ixrecvlastProjglobal << " iyrecvlastProjglobal " <<iyrecvlastProjglobal <<endl;
 	}
 
 
-      // still the coarse grid internal exchanges
+      // still the coarse grid internal exchanges: the first/ last active node is shared among two processors:
+      // sum the contributions from both
       // Completing normalizerecvProj with the normalization gathered by the other coarse procs
       if (Ox <=grid->getXstart() && Ox+finelx >= grid->getXstart()) {
         //Send a message to proc  coorinateX-1
@@ -7367,18 +7442,18 @@ inline int EMfields::initWeightProj(VirtualTopology *vct, Grid *grid, Collective
 	}
         if (Ox <=grid->getXend() && Ox+finelx >= grid->getXend()) {
 	  //also receive a message
-	  cout << vct->getCartesian_rank_COMMTOTAL() << "SENd RECEIVE" <<endl;
+	  //cout << vct->getCartesian_rank_COMMTOTAL() << "SENd RECEIVE" <<endl;
 	  ierr = MPI_Sendrecv(bufferProjsend,nyn-2,MPI_DOUBLE,vct->getXleft_neighbor(),1,bufferProjrecv,nyn-2,MPI_DOUBLE,vct->getXright_neighbor(),1,vct->getCART_COMM(), &status);
         } else {
 	  //send only
-	  cout << vct->getCartesian_rank_COMMTOTAL() << "SENd only" <<endl;
+	  //cout << vct->getCartesian_rank_COMMTOTAL() << "SENd only" <<endl;
 	  ierr = MPI_Send(bufferProjsend,nyn-2,MPI_DOUBLE,vct->getXleft_neighbor(),1,vct->getCART_COMM());
         }
       } else {
         //Do not send ...
 	if (Ox <=grid->getXend() && Ox+finelx >= grid->getXend()) {
           //... but receive only
-	  cout  << "RECEIVE only" <<endl;
+	  //cout  << "RECEIVE only" <<endl;
 	  ierr = MPI_Recv(bufferProjrecv,nyn-2,MPI_DOUBLE,vct->getXright_neighbor(),1,vct->getCART_COMM(), &status);
 	}
       }
@@ -7396,7 +7471,7 @@ inline int EMfields::initWeightProj(VirtualTopology *vct, Grid *grid, Collective
 	  ierr = MPI_Sendrecv(bufferProjsend,nyn-2,MPI_DOUBLE,vct->getXright_neighbor(),1,bufferProjrecv,nyn-2,MPI_DOUBLE,vct->getXleft_neighbor(),1,vct->getCART_COMM(), &status);
         } else {
 	  //send only
-	  cout << vct->getCartesian_rank_COMMTOTAL() <<" send to "<< vct->getXright_neighbor() << endl;
+	  //cout << vct->getCartesian_rank_COMMTOTAL() <<" send to "<< vct->getXright_neighbor() << endl;
 	  ierr = MPI_Send(bufferProjsend,nyn-2,MPI_DOUBLE,vct->getXright_neighbor(),1,vct->getCART_COMM());
         }
     
@@ -7404,7 +7479,7 @@ inline int EMfields::initWeightProj(VirtualTopology *vct, Grid *grid, Collective
 	//Do not send ...
 	if (Ox <=grid->getXstart() && Ox+finelx >= grid->getXstart()) {
 	  //...receive only
-	  cout << vct->getCartesian_rank_COMMTOTAL() <<" receive from "<< vct->getXleft_neighbor() << endl;
+	  //cout << vct->getCartesian_rank_COMMTOTAL() <<" receive from "<< vct->getXleft_neighbor() << endl;
 	  ierr = MPI_Recv(bufferProjrecv,nyn-2,MPI_DOUBLE,vct->getXleft_neighbor(),1,vct->getCART_COMM(), &status);
 	}
       }
@@ -7413,6 +7488,12 @@ inline int EMfields::initWeightProj(VirtualTopology *vct, Grid *grid, Collective
         for (i=1;i<nyn-1;i++){
 	  normalizerecvProj[1][i][0] =  bufferProjrecv[i-1];
         }
+	/*if (vct->getCartesian_rank_COMMTOTAL() == 35)
+          {
+	    for (i=1;i<nyn-1;i++){
+	      cout << "R35, i and j " << 1 <<"  and " << i <<" normalizerecvProj[1][j][0] " << normalizerecvProj[1][i][0] <<endl;
+	    }
+	    }*/
       }
 
       // In the Y direction now
@@ -7442,7 +7523,7 @@ inline int EMfields::initWeightProj(VirtualTopology *vct, Grid *grid, Collective
         }
 	//Send a message to proc coordinateY+1
         for(i=1;i<nxn-1;i++){
-	  bufferProjsend[i-1] = normalizerecvProj[i][nyn-2][0];
+	  bufferProjsend[i-1] =  normalizerecvProj[i][nyn-2][0];
         }
         if (Oy <=grid->getYstart() && Oy+finely >= grid->getYstart()) {
 	  //also receive a message
@@ -7467,12 +7548,21 @@ inline int EMfields::initWeightProj(VirtualTopology *vct, Grid *grid, Collective
 	  normalizerecvProj[i][1][0] =  bufferProjrecv[i-1];
         }
       }
-	
+
+
+      /*cout <<"R" << vct->getCartesian_rank_COMMTOTAL() << ", normalizerecvProj: " << endl;
+      for (int i=0; i< nxn; i++)
+	{
+	  cout << "R" << vct->getCartesian_rank_COMMTOTAL() ;
+	  for (int j=0; j< nyn; j++)
+	    {
+	      cout << " i, j : " << i << " " << j << ": " << normalizerecvProj[i][j][0] <<endl;
+	    }
+	  cout <<endl;
+	  }*/
+
     }// end coarse grid
-
-
-
-  
+    
 
   MPI_Barrier(vct->getCART_COMM_TOTAL());
   if (vct->getCartesian_rank_COMMTOTAL()==0)
