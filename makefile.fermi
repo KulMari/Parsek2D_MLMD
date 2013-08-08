@@ -1,0 +1,57 @@
+#makefile for PARSEK PROJECT
+CPP=    mpixlcxx_r #_r for thread safe compiling
+#OPTFLAGS=  -g -Wl,-z,muldefs #-g for debugging -trace to generate trace for itac #these were the options for Curie
+OPTFLAGS=  -g -Wl,-z,muldefs #you may need to enforce some HDF options like -DH5_USE_16_API, which forces hdf5 functions to the 1.6.8, "1" version
+# include files
+##INC_MPI = -I/apps/leuven/intel/impi/4.0.0.028/include64
+# libs
+# HDF5
+INC_HDF5 = -I${HDF5_INC}
+# libs
+LIB_HDF5 = -L${HDF5_LIB} -L${ZLIB_LIB} -L${SZIP_LIB} #they built hdf5 with szip compression
+
+
+HDF5LIBS = -lhdf5_hl -lhdf5 -lsz -lz #seems the order is important for Fermi
+ 
+#parsek2D
+parsek2D: ParsekEM.cpp  ParsekEM.o ConfigFile.o Collective.o VCtopology.o VCtopologyparticles.o Particles2Dcomm.o Particles2D.o
+	${CPP} ${OPTFLAGS} -o  ParsekEM ${INC_HDF5} ${INC_MPI}\
+	ParsekEM.cpp ParsekEM.o ConfigFile.o Collective.o VCtopology.o VCtopologyparticles.o Particles2Dcomm.o Particles2D.o ${LIB_HDF5} \
+ ${HDF5LIBS}	
+
+ParsekEM.o:	ParsekEM.cpp
+	${CPP}  ${OPTFLAGS}	${INC_HDF5}	${INC_MPI} -c ParsekEM.cpp
+
+ConfigFile.o: ./ConfigFile/src/ConfigFile.cpp
+	${CPP} ${OPTFLAGS} -c ./ConfigFile/src/ConfigFile.cpp
+
+Collective.o:	./inputoutput/Collective.cpp
+	${CPP}	${OPTFLAGS}	${INC_HDF5} ${INC_MPI} -c ./inputoutput/Collective.cpp
+
+VCtopology.o:	./processtopology/VCtopology.cpp
+	${CPP}	${OPTFLAGS}  ${INC_MPI}	-c ./processtopology/VCtopology.cpp
+
+VCtopologyparticles.o:	./processtopology/VCtopologyparticles.cpp
+	${CPP}	${OPTFLAGS}  ${INC_MPI}	-c ./processtopology/VCtopologyparticles.cpp
+
+Particles2Dcomm.o:	./particles/Particles2Dcomm.cpp
+	${CPP}	${OPTFLAGS}  ${INC_MPI}	${INC_HDF5} 	-c ./particles/Particles2Dcomm.cpp
+
+Particles2D.o:	./particles/Particles2D.cpp
+	${CPP}	${OPTFLAGS}  ${INC_MPI}	${INC_HDF5}		-c ./particles/Particles2D.cpp
+
+Particles1Dcomm.o:	./particles/Particles1Dcomm.cpp
+	${CPP}	${OPTFLAGS}  ${INC_MPI}	${INC_HDF5} 	-c ./particles/Particles1Dcomm.cpp
+
+Particles1D.o:	./particles/Particles1D.cpp
+	${CPP}	${OPTFLAGS}  ${INC_MPI}	${INC_HDF5} 	-c ./particles/Particles1D.cpp
+
+Particles2DcommOPT.o:	./particles/Particles2DcommOPT.cpp
+	${CPP}	${OPTFLAGS}  ${INC_MPI}	${INC_HDF5} 	-c ./particles/Particles2DcommOPT.cpp
+
+Particles2DOPT.o:	./particles/Particles2DOPT.cpp
+	${CPP}	${OPTFLAGS}  ${INC_MPI}	${INC_HDF5}		-c ./particles/Particles2DOPT.cpp
+
+
+clean:
+	rm -rf *.o ParsekEM ParsekES ParsekINJ ParsekNDCX ParsekEMOPT results/*

@@ -1,0 +1,16 @@
+#!/bin/bash
+# @ job_type = bluegene 
+#put comments on a new line
+# @ job_name = provaFermi.$(jobid)
+# @ output = /gpfs/scratch/userexternal/minnocen/InitialTests/prova2/prova2.out  
+# @ error = /gpfs/scratch/userexternal/minnocen/InitialTests/prova2/prova2.err 
+# @ shell = /bin/bash
+# @ wall_clock_limit = 20:00:00
+# @ notification = always
+# @ notify_user=mariaelena.innocenti@gmail.com
+# @ bg_size = 64  
+#bg_size is the number of compute nodes; each node has 16 cores; the n of cores is bg_size* ranks-per-node
+# @ account_no = Pra06_1254
+# @ queue
+
+runjob --np 1024 --ranks-per-node 16 --exe ./ParsekEM --args INPUTFILE_Mari_NewFormat/DoubleHarris_NewFormat
