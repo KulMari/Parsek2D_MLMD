@@ -51,6 +51,10 @@ inline void writeRESTART(string SaveDirName, int myrank, int cycle, int ns, MPId
   output_mgr.output("Eall + Ball + rhos",0);
   output_mgr.output("position + velocity + q ",0, 0);
   output_mgr.output("last_cycle",cycle);
+  
+  if (vct->getCartesian_rank_COMMTOTAL()==0)
+    cout << "In restart, real last cycle = " << cycle <<", printed last cycle =  " << cycle +1 <<endl;
+  
   hdf5_agent.close();
      
 }

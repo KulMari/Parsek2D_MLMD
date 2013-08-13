@@ -90,6 +90,13 @@ void Collective::ReadInput(string inputfile){
 	FieldOutputCycle = config.read<int>( "FieldOutputCycle" );
 	ParticlesOutputCycle = config.read<int>( "ParticlesOutputCycle" );
 	RestartOutputCycle = config.read<int>( "RestartOutputCycle" );
+
+	//AMR variables, ME       	
+	PRA_Xleft = config.read<int>( "PRA_Xleft" ); 
+	PRA_Xright = config.read<int>( "PRA_Xright" ); 
+	PRA_Yleft = config.read<int>( "PRA_Yleft" ); 
+	PRA_Yright = config.read<int>( "PRA_Yright" ); 
+	
     }
 
     if (RESTART1){    // you are restarting
@@ -97,7 +104,7 @@ void Collective::ReadInput(string inputfile){
        ReadRestart(RestartDirName);
     }
     else
-    {
+      { // this is not done if restarting
        restart_status=0;
        last_cycle=-1;
        c = config.read<double>( "c" );
@@ -215,7 +222,7 @@ void Collective::ReadInput(string inputfile){
        bcPfaceXleft =  config.read<int>( "bcPfaceXleft" );
        bcPfaceYright = config.read<int>( "bcPfaceYright" );
        bcPfaceYleft =  config.read<int>( "bcPfaceYleft" );
-    }
+      } // end this is not done if restarting
 
     TrackParticleID =  new bool[ns];
     array_bool TrackParticleID0 = config.read<array_bool>( "TrackParticleID" );
@@ -230,13 +237,6 @@ void Collective::ReadInput(string inputfile){
       TrackParticleID[4]=TrackParticleID0.e;
     if (ns > 5)
       TrackParticleID[5]=TrackParticleID0.f;
-
-    /**AMR variables, ME*/
-    PRA_Xleft = config.read<int>( "PRA_Xleft" ); //MP kv_file.get_data( "PRA_Xleft",  PRA_Xleft );
-    PRA_Xright = config.read<int>( "PRA_Xright" ); //MP kv_file.get_data( "PRA_Xright",  PRA_Xright );
-    PRA_Yleft = config.read<int>( "PRA_Yleft" ); //MP kv_file.get_data( "PRA_Yleft",  PRA_Yleft );
-    PRA_Yright = config.read<int>( "PRA_Yright" ); //MP kv_file.get_data( "PRA_Yright",  PRA_Yright );
-
 }
 
 /**
@@ -250,9 +250,11 @@ void Collective::ReadInput(string inputfile){
 */
 int Collective::ReadRestart(string inputfile){
 
+  /*  working on the restart case right now...
   cout << "Restart has never been properly adapted to the MLMD case... Exiting..." << endl;
   cerr << "Restart has never been properly adapted to the MLMD case... Exiting..." << endl;
   return -1;
+  */
   
   restart_status=1;
   // hdf stuff
@@ -296,15 +298,6 @@ int Collective::ReadRestart(string inputfile){
   dataset_id = H5Dopen1(file_id, "/collective/Ngrids");
   status = H5Dread(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,&ngrids);
   status = H5Dclose(dataset_id);
-  // read XLEN
-  dataset_id = H5Dopen1(file_id, "/collective/XLEN");
-  status = H5Dread(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,&XLEN);
-  status = H5Dclose(dataset_id);
-  // read YLEN
-  dataset_id = H5Dopen1(file_id, "/collective/YLEN");
-  status = H5Dread(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,&YLEN);
-  status = H5Dclose(dataset_id);
-  
   
   /** Boundary condition information */
   // read EMfaceXleft

@@ -1,7 +1,7 @@
 /*******************************************************************************************
 Particles2Dcomm.cpp  -  Class for particles of the same species, in a 2D space and 3component velocity
 -------------------
-developers: Stefano Markidis, Enrico Camporeale, Giovanni Lapenta, David Burgess
+developers: Stefano Markidis, Enrico Camporeale, Giovanni Lapenta, David Burgess, Maria Elena Innocenti
 ********************************************************************************************/
 
 #include "mpi.h"
@@ -323,8 +323,10 @@ void Particles2Dcomm::allocate(int species, CollectiveIO* col, VirtualTopology* 
     if (vct->getCartesian_rank()==0 && ns==0)
       cout << "LOADING PARTICLES FROM RESTART FILE in " + col->getRestartDirName() + "/restart.hdf" << endl;
     stringstream ss;
-    ss << vct->getCartesian_rank();
+    //ss << vct->getCartesian_rank(); // this before MLMD
+    ss << vct->getCartesian_rank_COMMTOTAL(); 
     string name_file = col->getRestartDirName() + "/restart" + ss.str() + ".hdf";
+    //cout << "R" << vct->getCartesian_rank_COMMTOTAL() << "is opening " << name_file << endl;
     // hdf stuff 
     hid_t    file_id, dataspace;
     hid_t    datatype, dataset_id;

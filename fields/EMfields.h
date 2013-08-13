@@ -4,7 +4,7 @@ using the implicit Maxwell solver.
 -------------------
 developers: Stefano Markidis,  Giovanni Lapenta, Arnaud Beck, Maria Elena Innocenti
 ********************************************************************************************/
-
+//restart
 #ifndef EMfields_H
 #define EMfields_H
 
@@ -37,7 +37,7 @@ using std::endl;
 *  Electromagnetic fields and sources defined for each local grid, and for an implicit Maxwell's solver
  *
  * @date Fri Jun 4 2007 KUL
- * @author Stefano Markidis, Giovanni Lapenta, Arnaud Beck
+ * @author Stefano Markidis, Giovanni Lapenta, Arnaud Beck, Maria Elena Innocenti
  * @version 2.0
  *
  */
@@ -1527,9 +1527,10 @@ inline void EMfields::init(VirtualTopology *vct, Grid *grid){
 			cout << "LOADING EM FIELD FROM RESTART FILE in " + RestartDirName + "/restart.hdf" << endl;
 		string name_file;
         stringstream ss;
-	    ss << vct->getCartesian_rank();
+	//ss << vct->getCartesian_rank(); //this before MLMD
+	ss << vct->getCartesian_rank_COMMTOTAL();  
 		name_file = RestartDirName + "/restart" + ss.str() + ".hdf";
-		cout << "nome file che apre: " << name_file << endl;
+		//cout << "R" << vct->getCartesian_rank_COMMTOTAL() << "nome file che apre: " << name_file << endl;
 		// hdf stuff
 		hid_t    file_id, dataspace;
 		hid_t    datatype, dataset_id;
@@ -1691,7 +1692,9 @@ inline void EMfields::init(VirtualTopology *vct, Grid *grid){
 	//communicateCenter(nxc,nyc,Bzc,vct);
 
 
-	cout << "fine initialization restart fields" << endl;
+	//cout << "R" << vct->getCartesian_rank_COMMTOTAL() << "fine initialization restart fields" << endl;
+	//MPI_Barrier(vct->getCART_COMM_TOTAL());
+	//cout << "All levels finished restart EMfields\n";
 }
 
 
