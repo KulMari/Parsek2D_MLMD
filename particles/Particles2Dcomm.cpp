@@ -104,13 +104,19 @@ Particles2Dcomm::~Particles2Dcomm(){
 }
 /** constructors fo a single species*/
 void Particles2Dcomm::allocate(int species, CollectiveIO* col, VirtualTopology* vct, Grid* grid){
+
+  bool PrintSize= false; // memory prints useful for estimating memory consumption
+
   // info from collectiveIO
   ns = species;
   npcel  = col->getNpcel(species);
   npcelx = col->getNpcelx(species);
   npcely = col->getNpcely(species);
-  nop   = col->getNp(species)/(vct->getNprocs());
-  npmax =  col->getNpMax(species)/(vct->getNprocs());  
+  nop   = col->getNp(species)/(vct->getNprocs());  
+  //now, the division by the number of cores is done in Collective already to prevent the int to go out of boundaries
+  //npmax =  col->getNpMax(species)/(vct->getNprocs());  
+  npmax =  (int) col->getNpMax(species); 
+  //cout <<"col->getNpMax(species) " << col->getNpMax(species)  << " npmax " << npmax <<endl;
   //npmax =  2*col->getNpMax(species); // for maxwellian test
   qom   = col->getQOM(species);
   uth   = col->getUth(species);
@@ -157,6 +163,10 @@ void Particles2Dcomm::allocate(int species, CollectiveIO* col, VirtualTopology* 
   ////////////////////////////////////////////////////////////////
   ////////////////     ALLOCATE ARRAYS   /////////////////////////
   ////////////////////////////////////////////////////////////////
+
+  //if (vct->getCartesian_rank_COMMTOTAL() == 0 || vct->getCartesian_rank_COMMTOTAL()==3000)
+  //  cout <<"Starting allocating particle vectors" <<endl;
+
   // positions
   x = new double[npmax];
   y = new double[npmax];
@@ -191,8 +201,18 @@ void Particles2Dcomm::allocate(int species, CollectiveIO* col, VirtualTopology* 
       return ;
     }
   }
+
+  //Debug1-1
+  if (PrintSize)
+    {
+      MPI_Barrier(vct->getCART_COMM());
+      if (! (vct->getCartesian_rank_COMMTOTAL()%(vct->getXLEN()*vct->getYLEN()))   )
+	cout <<"Each core of level " << grid->getLevel() <<" allocated 13 vectors of size npmax= " <<npmax << " for basic particle info"<<endl; 
+      if (vct->getCartesian_rank_COMMTOTAL() == 0 || vct->getCartesian_rank_COMMTOTAL()==3000)
+	cout <<"Each core of level " << grid->getLevel() <<" allocated 13 vectors of size npmax= " <<npmax << " for basic particle info"<<endl;
+    }
+
   // BUFFERS
-  // the buffer size should be decided depending on number of particles
   // the buffer size should be decided depending on number of particles
   if (TrackParticleID)
     nVar=12;
@@ -217,11 +237,20 @@ void Particles2Dcomm::allocate(int species, CollectiveIO* col, VirtualTopology* 
   for (int i=0; i< MAX_BUFFER_SIZE; i++)
     {MIN_VAL_VEC_COMM[i]=MIN_VAL;}
   
+  //Debug1-2
+  if (PrintSize)
+    {
+      MPI_Barrier(vct->getCART_COMM());
+      if (! (vct->getCartesian_rank_COMMTOTAL()%(vct->getXLEN()*vct->getYLEN()))   )
+        cout <<"Each core of level " << grid->getLevel() <<" allocated 4 vectors of size buffer_size= " <<buffer_size << " and 1 vector of size MAX_BUFFER_SIZE= " << MAX_BUFFER_SIZE << " for communication within the grid; alias ptr for resizing"<<endl;
+    }
+
   // AMR, ME
   // allocate buffers for the AMR repopulation of particles
   // with size MAX_REPOP_SIZE
 
-  MAX_NP_REPOP_SIZE= (int) (npmax*0.5);
+  //MAX_NP_REPOP_SIZE= (int) (0.1*nop);  // attempt9, working
+  MAX_NP_REPOP_SIZE= (int) (nop);  // attempt9    
   //cout << "MAX_NP_REPOP_SIZE: " << MAX_NP_REPOP_SIZE <<endl;
   //cout << "npmax " <<npmax <<endl;
 
@@ -245,7 +274,15 @@ void Particles2Dcomm::allocate(int species, CollectiveIO* col, VirtualTopology* 
   REPOP_b_RIGHT = new double[MAX_NP_REPOP_SIZE* nVar];
   REPOP_b_RIGHT_ptr = REPOP_b_RIGHT; // alias for resize                         
   np_REPOP_b_RIGHT = 0; // to do also at the beginning of each time step
-	
+
+  //Debug1-3
+  if (PrintSize)
+    {
+      MPI_Barrier(vct->getCART_COMM());
+      if (! (vct->getCartesian_rank_COMMTOTAL()%(vct->getXLEN()*vct->getYLEN()))   )
+        cout <<"Each core of level " << grid->getLevel() <<" allocated 5 vectors of size MAX_NP_REPOP_SIZE* nVar= " <<MAX_NP_REPOP_SIZE* nVar << " for particle repopulation; alias for resizing"<<endl;
+    }
+
 
   // if FinerLevels_PRAOps==1,  PRA particles are stored to be passed to finer grids
   if (grid->getLevel()< col->getNgrids()-1)
@@ -254,9 +291,10 @@ void Particles2Dcomm::allocate(int species, CollectiveIO* col, VirtualTopology* 
     {FinerLevels_PRAOps=0;}
 
   // to receive and split PRA particles, if level >0
-  
-  max_np_SplitPartComm= (int ) nxn*vct->getXLEN() *col->GetPRA_Xleft()*4*npcelx*npcely /(vct->getXLEN()*vct->getYLEN()-1 );  // try and guess the number of PRA particles to avoid time-consuming resizes                           
-  MAX_NP_SPLIPARTCOMM =  max_np_SplitPartComm* 10*10; 
+  //max_np_SplitPartComm= (int) (nop*0.5); //attempt9, working
+  max_np_SplitPartComm= (int) (nop);
+  //cout << "max_np_SplitPartComm " << max_np_SplitPartComm <<", nop " << nop <<endl;
+  MAX_NP_SPLIPARTCOMM =  max_np_SplitPartComm* 10; // *10; 
                                                      
   if (grid->getLevel()>0)
     {
@@ -276,6 +314,17 @@ void Particles2Dcomm::allocate(int species, CollectiveIO* col, VirtualTopology* 
 	{MIN_VAL_VEC_SP[i]= MIN_VAL;}
     }
   
+  //Debug1-4                                                                                                                                                                      
+  if (PrintSize)
+    {
+      MPI_Barrier(vct->getCART_COMM());
+      if (! (vct->getCartesian_rank_COMMTOTAL()%(vct->getXLEN()*vct->getYLEN()))   )
+	{
+	  cout <<"Each core of the refined grid allocated 4 vectors of size max_np_SplitPartComm* nVar= " <<max_np_SplitPartComm* nVar <<" and 1 vector of size MAX_NP_SPLIPARTCOMM* nVar= " << MAX_NP_SPLIPARTCOMM* nVar << " for split particles, alias for resize "<<endl;
+	  cout << "I am level " << grid->getLevel()<<endl;
+	}
+    }
+
   // to save particle with contribute to the first/last ghost node, if level>0 && RefLevelAdj ==1
   if  (grid->getLevel()>0 && vct->getRefLevelAdj()==1)
     {

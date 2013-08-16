@@ -5891,33 +5891,36 @@ inline EMfields::EMfields(CollectiveIO *col,Grid *grid, VCtopology *vct){
 	// FLAG ON POISSON CORRECTION
 	// make always the divergence cleaning
 
+	// expSR is the number of cores on the other grid with which each core is expected to interacted
+	// fail-safe value: col->getXLEN()*col->getYLEN(); 
+	int expSR= col->getXLEN()*col->getYLEN();
 
 	qom = new double[ns];
-	targetBC  = new int[col->getXLEN()*col->getYLEN()];
+	targetBC  = new int[expSR];
 	// AMR, ME
-	BCSide  = new int[col->getXLEN()*col->getYLEN()];
-	BCSidecu= new int[col->getXLEN()*col->getYLEN()];
-	xfirst_COARSE= new double[4*col->getXLEN()*col->getYLEN()];// 4 are the sides
-	yfirst_COARSE= new double[4*col->getXLEN()*col->getYLEN()];// 4 are the sides 
+	BCSide  = new int[expSR];
+        BCSidecu= new int[expSR];
+	xfirst_COARSE= new double[4*expSR];// 4 are the sides  
+	yfirst_COARSE= new double[4*expSR];// 4 are the sides  
 	// end AMR, ME
         targetProj = new int[4];
-	npointssent  = new int[col->getXLEN()*col->getYLEN()];
-	fromBC  = new int[col->getXLEN()*col->getYLEN()];//int[4];
-        fromProj = new int[col->getXLEN()*col->getYLEN()];
+	npointssent  = new int[expSR];
+        fromBC  = new int[expSR];
+        fromProj = new int[expSR];
 	xmrecv  = new int[4];
 	xprecv  = new int[4];
 	ymrecv  = new int[4];
 	yprecv  = new int[4];
-	nxrecvProj  = new int[col->getXLEN()*col->getYLEN()];// Number of points received during Proj phase in the x direction by each of the finer grid process
-	nyrecvProj  = new int[col->getXLEN()*col->getYLEN()];// Number of points received during Proj phase in the y direction by each of the finer grid process
+	nxrecvProj  = new int[expSR];// Number of points received during Proj phase in the x direction by each of the finer grid process                  
+        nyrecvProj  = new int[expSR];// Number of points received during Proj phase in the y direction by each of the finer grid process 
 	ixmrecvfirst  = new int[4];
 	ixprecvfirst  = new int[4];
 	iymrecvfirst  = new int[4];
 	iyprecvfirst  = new int[4];
 	npointsreceived  = new int[4];
-        npointsreceivedProj = new int[col->getXLEN()*col->getYLEN()];
-	ixrecvfirstProj  = new int[col->getXLEN()*col->getYLEN()];
-	iyrecvfirstProj  = new int[col->getXLEN()*col->getYLEN()];
+	npointsreceivedProj = new int[expSR];
+        ixrecvfirstProj  = new int[expSR];
+        iyrecvfirstProj  = new int[expSR];
         ixsent = new int[2*(nxn+nyn-2)*(int)ceil(ratio)];
         iysent = new int[2*(nxn+nyn-2)*(int)ceil(ratio)];
         ixsentProj = new int[nxn];

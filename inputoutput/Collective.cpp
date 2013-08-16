@@ -497,8 +497,14 @@ Collective::Collective(int argc, char** argv) {
     for (int i=0; i<ns; i++){
       npcel[i] = npcelx[i]*npcely[i];
       np[i] = npcel[i]*nxc*nyc;
-      npMax[i] = (int) (NpMaxNpRatio*np[i]);
-    }
+      npMax[i] = (int) (NpMaxNpRatio*np[i]/ (XLEN*YLEN) );  // without this, risks to go out of boundaries for int
+      //npMax[i] = (int) (NpMaxNpRatio*np[i]);
+      //Debug6
+      /*cout <<"Debug6, species " << i <<endl;
+      cout <<"npcelx[i] "<<npcelx[i] <<" npcely[i] " << npcely[i] << " npcel[i] " << npcel[i];
+      cout <<"nxc " << nxc << " nyc " << nyc << " np[i] " << np[i] << endl;
+      cout <<"NpMaxNpRatio " << NpMaxNpRatio << " npMax[i] "<< npMax[i] <<endl;*/
+     }
 
 
 
