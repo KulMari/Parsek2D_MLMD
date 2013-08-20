@@ -105,7 +105,7 @@ Particles2Dcomm::~Particles2Dcomm(){
 /** constructors fo a single species*/
 void Particles2Dcomm::allocate(int species, CollectiveIO* col, VirtualTopology* vct, Grid* grid){
 
-  bool PrintSize= false; // memory prints useful for estimating memory consumption
+  bool PrintSize= true; // memory prints useful for estimating memory consumption
 
   // info from collectiveIO
   ns = species;
@@ -219,9 +219,10 @@ void Particles2Dcomm::allocate(int species, CollectiveIO* col, VirtualTopology* 
   else 
     nVar=11;
   //buffer_size =(int) (10*nop*nVar+1); // max test    
-  buffer_size=(int) (.1*nop*nVar+1);//normal //(int) (10*nop*nVar+1); // maxwellian test
-  //buffer_size = 10;
-  MAX_BUFFER_SIZE = (int)(2*nop*nVar+1) ;//max dimension of the comm buffers
+  //buffer_size=(int) (.1*nop*nVar+1);//normal //(int) (10*nop*nVar+1); // maxwellian test
+  buffer_size=(int) (nop*nVar+1);
+  //MAX_BUFFER_SIZE = (int)(2*nop*nVar+1) ;//max dimension of the comm buffers
+  MAX_BUFFER_SIZE = (int)(12*nop*nVar+1);
   //MAX_BUFFER_SIZE = (int)(21*nop*nVar+1) ;//max dimension of the comm buffers  for maxwellian tests
   // if they try to resize beyond this, the simulation is terminated
   b_XDX = new double[buffer_size];
@@ -250,7 +251,8 @@ void Particles2Dcomm::allocate(int species, CollectiveIO* col, VirtualTopology* 
   // with size MAX_REPOP_SIZE
 
   //MAX_NP_REPOP_SIZE= (int) (0.1*nop);  // attempt9, working
-  MAX_NP_REPOP_SIZE= (int) (nop);  // attempt9    
+  //MAX_NP_REPOP_SIZE= (int) (nop); 
+  MAX_NP_REPOP_SIZE= (int) (5*nop);  
   //cout << "MAX_NP_REPOP_SIZE: " << MAX_NP_REPOP_SIZE <<endl;
   //cout << "npmax " <<npmax <<endl;
 
