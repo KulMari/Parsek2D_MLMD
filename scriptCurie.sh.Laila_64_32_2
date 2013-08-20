@@ -1,0 +1,24 @@
+#!/bin/bash
+
+#MSUB -r Laila_200x80_64_32_2_BigVect
+#MSUB -n 4096  #512  #128 #128 #2048 #512                        # Number of tasks to use
+#MSUB -c 2  #Number of cores per task 
+#MSUB -T 86400 #72000 #1800                       # Elapsed time limit in seconds
+#MSUB -o $SCRATCHDIR/MLMD/Laila/Laila_200x80_64_32_2_BigVect/Laila_200x80_64_32_2_BigVect.o            # Standard output. %I is the job id
+#MSUB -e $SCRATCHDIR/MLMD/Laila/Laila_200x80_64_32_2_BigVect/Laila_200x80_64_32_2_BigVect.e        # Error output. %I is the job id
+#MSUB -q standard
+#####MSUB -Q test
+####MSUB -@ mariaelena.innocenti@wis.kuleuven.be: begin,end
+#MSUB -A ra1254 #new allocation
+#####MSUB -X 
+
+BRIDGE_MSUB_PWD='/ccc/cont005/home/ra0747/innocenm/Parsek2D-MLMD_DEV/Parsek2D_MLMD'
+export BRIDGE_MSUB_PWD
+#module load valgrind
+set -x
+cd ${BRIDGE_MSUB_PWD}
+
+#####module load ddt
+##ccc_mprun ./iPIC3D inputfiles/GEM.inp   #Test1.inp
+ccc_mprun ./ParsekEM  INPUTFILE_Mari_NewFormat/DoubleHarris_Laila_64_32_2
+#ccc_mprun -d ddt ./ParsekEM  INPUTFILE_Mari/inputfile.SmoothTest_1   
