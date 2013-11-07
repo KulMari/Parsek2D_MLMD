@@ -329,6 +329,15 @@ public:
 	/** SPECIES: get current on center cell(indexX,indexY,indexZ)*/
 	double &getJzs(int indexX, int indexY,int indexZ,int is) const;
 
+	//get total electric field energy, per level
+	double getEenergy(VirtualTopology *vct);
+	//get total magnetic field energy, per level
+	double getBenergy(VirtualTopology *vct);
+	// get local electric field energy, per proc
+	double getlocalEenergy(void);
+	// get local magnetic field energy, per proc
+	double getlocalBenergy(void);
+
 	//sets
 	void setRHOns(double value, int indexX, int indexY,int indexZ,int is);
 	void setJxs(double value, int indexX, int indexY,int indexZ,int is);
@@ -5807,6 +5816,51 @@ inline double &EMfields::getpYZns(int indexX, int indexY, int indexZ, int is) co
 inline double &EMfields::getpZZns(int indexX, int indexY, int indexZ, int is) const{
   return(pZZsn[is][indexX][indexY][0]);}
 
+/**get local (per proc) electric field energy*/
+double EMfields::getlocalEenergy(void)
+{
+  double localEenergy=0.0;
+  int k=0; double dz=1.0;  // for 2D
+  for (int i=1; i<nxn-2; i++)// -2 to skip the ghost and recounting the node shared by two nearby procs; the last node of the domain is left out, but that's OK
+    for (int j=1; j<nyn-2; j++)
+      localEenergy +=  dx * dy *dz  * (Ex[i][j][k] * Ex[i][j][k] + Ey[i][j][k] * Ey[i][j][k] + Ez[i][j][k] * Ez[i][j][k])  /32/atan(1.0);; 
+
+  return localEenergy;
+}
+
+/**get local (per proc) electric field energy*/
+double EMfields::getlocalBenergy(void)
+{
+  double localBenergy=0.0;
+  int k=0; double dz=1.0;  // for 2D                                                                                                                            
+  for (int i=1; i<nxn-2; i++)// -2 to skip the ghost and recounting the node shared by two nearby procs; the last node of the domain is left out, but that's OK
+    for (int j=1; j<nyn-2; j++)
+      localBenergy +=  dx * dy *dz  * (Bxn[i][j][k] * Bxn[i][j][k] + Byn[i][j][k] * Byn[i][j][k] + Bzn[i][j][k] * Bzn[i][j][k]) / 32/atan(1.0); 
+
+  return localBenergy;
+}
+
+/** Get total electric field energy, per level*/
+double EMfields::getEenergy(VirtualTopology *vct)
+{
+  double localEenergy= 0.0;
+  double totalEenergy= 0.0;
+
+  localEenergy= getlocalEenergy();
+  MPI_Allreduce(&localEenergy, &totalEenergy, 1, MPI_DOUBLE, MPI_SUM, vct->getCART_COMM());
+  return (totalEenergy);
+}
+
+/** Get total electric field energy, per level*/
+double EMfields::getBenergy(VirtualTopology *vct)
+{
+  double localBenergy= 0.0;
+  double totalBenergy= 0.0;
+
+  localBenergy= getlocalBenergy();
+  MPI_Allreduce(&localBenergy, &totalBenergy, 1, MPI_DOUBLE, MPI_SUM, vct->getCART_COMM());
+  return (totalBenergy);
+}
 //sets
 inline void EMfields::setRHOns(double value, int indexX, int indexY,int indexZ,int is)
 {rhons[is][indexX][indexY][0]=value;}
