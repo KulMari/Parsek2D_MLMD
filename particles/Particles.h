@@ -63,6 +63,16 @@ public:
      virtual void Print(VirtualTopology* ptVCT)const=0;
      /** Print the number of particles of this subdomain */
      virtual void PrintNp(VirtualTopology* ptVCT)const=0;
+
+     /**get particle kinetic energy, per species, per level*/
+     double virtual getKenergy(VirtualTopology* vct)=0;
+     /**get particle kinetic energy, per species, per process*/
+     double virtual getlocalKenergy()=0;
+     /**get particle momentum, per species, per level*/
+     double virtual getP(VirtualTopology* vct)=0;
+     /**get particle momentum, per species, per process*/
+     double virtual getlocalP()=0;
+
      
 };
 #endif

@@ -96,6 +96,14 @@ class Particles2D : public Particles2Dcomm {
      // repopulate the ghost cells of the coarse level
      int RepopulateCoarseLevel(Grid *grid, VirtualTopology* vct);
 
+     /**get particle kinetic energy, per species, per level*/
+     double getKenergy(VirtualTopology* vct);
+     /**get particle kinetic energy, per species, per process*/
+     double getlocalKenergy();
+     /**get particle momentum, per species, per level*/
+     double getP(VirtualTopology* vct);
+     /**get particle momentum, per species, per process*/
+     double getlocalP();
 };
 
 

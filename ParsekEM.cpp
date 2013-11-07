@@ -4,6 +4,7 @@ ParsekEM.cpp  - A main file for running a parallel Particle-in-Cell with Electro
 developers: Stefano Markidis, Enrico Camporeale, Giovanni Lapenta, David Burgess
 ********************************************************************************************/
 
+
 // MPI
 #include "mpi.h"
 #include "mpidata/MPIdata.h"
@@ -50,7 +51,7 @@ using std::endl;
 
 int main (int argc, char **argv) {
 
-  //cout <<"Started\n";
+  bool TEST=1; //this takes a lot od reduces, put to 0 normally
 
   int proj=1;
  int interp=1;
@@ -137,8 +138,8 @@ if (coord[0] != coord_particles[0]) {
   EMfields *EMf = new EMfields(col, grid, vct); // Create Electromagnetic Fields Object
   cout << "Grids and fields constructions done"<<endl;
   // Initial Condition for FIELD if you are not starting from RESTART
-  EMf->initUniform(vct,grid); // initialize with constant values
-  //EMf->initDoubleHarris(vct,grid); // initialize with constant values 
+  //EMf->initUniform(vct,grid); // initialize with constant values
+  EMf->initDoubleHarris(vct,grid); // initialize with constant values 
   //EMf->initLightwave(vct,grid); // initialize with a dipole
   cout << "vct->getNgrids() " << vct->getNgrids() <<endl;
   cout << "interp " << interp <<endl;
@@ -178,8 +179,14 @@ if (coord[0] != coord_particles[0]) {
     }  
   // Allocation of particles
   Particles2D *part = new Particles2D[ns];
-
-
+  
+  // for debugging
+  MPI_Barrier(vct->getCART_COMM_TOTAL());
+  if (vct->getCartesian_rank_COMMTOTAL()==0)
+    {
+      cout << "I am starting allocating particles\n";
+    }
+  // end for debugging
   for (int i=0; i < ns; i++)
     {
       // init operations for particle repopulation
@@ -206,8 +213,8 @@ if (coord[0] != coord_particles[0]) {
   {
     for (int i=0; i < ns; i++)
       {
-	part[i].maxwellian(grid,EMf,vctparticles);  // all the species have Maxwellian distribution in the velocity
-	//part[i].DoubleHarris(grid,EMf,vctparticles);
+	//part[i].maxwellian(grid,EMf,vctparticles);  // all the species have Maxwellian distribution in the velocity
+	part[i].DoubleHarris(grid,EMf,vctparticles);
 	//int out;
 	//out =part[i].maxwellian_sameParticleInit(grid,EMf,vctparticles);
 	//if (out<0)
@@ -252,6 +259,25 @@ if (coord[0] != coord_particles[0]) {
 	output_mgr.output("proc_topology ",0);
 	hdf5_agent.close();
   }
+ 
+  //  Conserved Quantities
+
+  double Eenergy, Benergy, TOTKenergy, TOTmomentum;
+  double *Kenergy;
+  double *momentum;
+  string cq;
+  if (TEST)
+    {
+      Kenergy = new double[ns];
+      momentum = new double[ns];
+      stringstream levelstr;
+      levelstr << level;
+      cq = SaveDirName + "/ConservedQuantities_"+ levelstr.str() +".txt";
+      if (vct->getCartesian_rank() == 0) { // this is the rank on the level
+	ofstream my_file(cq.c_str());
+	my_file.close();
+      }
+    }
   cout<<"R"<<myrank << " Init ops done"<<endl;
   MPI_Barrier(vct->getCART_COMM()) ;
   if (! (vct->getCartesian_rank_COMMTOTAL()%(vct->getXLEN()*vct->getYLEN()))   )
@@ -370,7 +396,7 @@ if (coord[0] != coord_particles[0]) {
 	    EMf->outputghost(vct, col, cycle);
 	}
     // Here we made the assumption that level n can be updated by non updated level n+1.
-    
+      
     // mover
     //if (0){ // to remove
       
@@ -478,9 +504,40 @@ if (coord[0] != coord_particles[0]) {
     if (cycle%(col->getRestartOutputCycle())==0 && cycle != first_cycle)
       writeRESTART(RestartDirName,myrank,cycle,ns,mpi,vct,col,grid,EMf,part,0); // without ,0 add to restart file	   
 
+
+    if (TEST)
+      {
+	Eenergy= EMf->getEenergy(vct);
+	Benergy= EMf->getBenergy(vct);
+	TOTKenergy=0.0;
+	TOTmomentum=0.0;
+	for (int is=0; is<ns; is++)
+	  {
+	    Kenergy[is]=part[is].getKenergy(vctparticles);
+	    TOTKenergy+=Kenergy[is];
+	    momentum[is]=part[is].getP(vctparticles);
+	    TOTmomentum+=momentum[is];
+	    }
+
+	if (vct->getCartesian_rank() == 0) {
+	  ofstream my_file(cq.c_str(), fstream::app);
+	  
+	  my_file << cycle << "\t" << "\t" << (Eenergy + Benergy + TOTKenergy) << "\t" << TOTmomentum << "\t" << Eenergy << "\t" << Benergy << "\t" << TOTKenergy <<"\t";
+	  for (int is=0; is<ns; is++)
+	    {
+	      my_file <<Kenergy[is] <<"\t" <<momentum[is] <<"\t" ;
+	      }
+	  my_file <<endl;
+	  my_file.close();
+	 
+	}
+	
+      }// end TEST
+
+
   }  // end of the cycle
   if (mem_avail==0) // write the restart only if the simulation finished succesfully
-    //writeRESTART(RestartDirName,myrank,(col->getNcycles()+first_cycle)-1,ns,mpi,vct,col,grid,EMf,part,0);
+    writeRESTART(RestartDirName,myrank,(col->getNcycles()+first_cycle)-1,ns,mpi,vct,col,grid,EMf,part,0);
 
     // time stamping
     my_clock->stopTiming();
@@ -488,6 +545,9 @@ if (coord[0] != coord_particles[0]) {
 
    // close MPI
   mpi->finalize_mpi();
+
+  delete[] Kenergy;
+  delete[] momentum;
   
   return(0);
 

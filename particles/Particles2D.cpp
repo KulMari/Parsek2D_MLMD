@@ -1643,10 +1643,58 @@ int Particles2D::getNPdeletedDipole(VirtualTopology* vct){
 	return(result);
 }
 
+/**get particle kinetic energy, per species, per level*/
+double Particles2D::getKenergy(VirtualTopology* vct)
+{
+  double localKenergy=0.0;
+  double totalKenergy=0.0;
+
+  localKenergy=getlocalKenergy();
+
+  MPI_Allreduce(&localKenergy, &totalKenergy, 1, MPI_DOUBLE, MPI_SUM, vct->getCART_COMM());
+  return totalKenergy;
+}
+/**get particle kinetic energy, per species, per process*/
+double Particles2D::getlocalKenergy()
+{
+  double localKenergy=0.0;
+  for (register int i=0; i<nop; i++)
+    localKenergy += .5 * (q[i] / qom) * (u[i] * u[i] + v[i] * v[i] + w[i] * w[i]);
+
+  return localKenergy;
+}
+/**get particle momentum, per species, per level*/
+double Particles2D::getP(VirtualTopology* vct)
+{
+  double localP=0.0;
+  double totalP=0.0;
+
+  localP=getlocalP();
+
+  MPI_Allreduce(&localP, &totalP, 1, MPI_DOUBLE, MPI_SUM, vct->getCART_COMM());
+  return totalP;
+
+}
+/**get particle momentum, per species, per process*/
+double Particles2D::getlocalP()
+{
+  double localP=0.0;
+
+  for (register int i=0; i<nop; i++)
+    localP+= (q[i] / qom) * sqrt(u[i] * u[i] + v[i] * v[i] + w[i] * w[i]);
+
+  return localP;
+
+}
+
+
+
 // ME: repopulate the ghost cells of the coarse level
 int Particles2D::RepopulateCoarseLevel(Grid *grid, VirtualTopology* vct)
 {
   
 }
+
+
 
 

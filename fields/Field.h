@@ -111,6 +111,15 @@ public:
      /** SPECIES: get pressure tensor component ZZ defined on nodes */
      virtual double**** getpZZsn() =0;
      
+     /**get total electric field energy, per level*/                                                                                  
+     virtual double getEenergy(VirtualTopology *vct)=0;
+     /**get total magnetic field energy, per level*/
+     virtual double getBenergy(VirtualTopology *vct)=0;
+     /**get local electric field energy, per proc*/
+     virtual double getlocalEenergy(void)=0;
+     /**get local magnetic field energy, per proc*/
+     virtual double getlocalBenergy(void)=0;
+
      // virtual sets
      virtual void setRHOns(double value, int indexX, int indexY,int indexZ,int is)=0;
      virtual void setJxs(double value, int indexX, int indexY,int indexZ,int is)=0;

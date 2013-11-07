@@ -555,13 +555,14 @@ void output(const string& tag, int cycle){
   			 K_en=0;
 			 stringstream ii;
 			 ii << i;
-			 double qom=fabs(_col->getQOM(i));
+			 /*double qom=fabs(_col->getQOM(i));
 			   for (int n=0; n<_part[i]->getNOP(); n++){
 				   K_en +=fabs(_part[i]->getQ(n))*_part[i]->getU(n)*_part[i]->getU(n);
 				   K_en +=fabs(_part[i]->getQ(n))*_part[i]->getV(n)*_part[i]->getV(n);
 				   K_en +=fabs(_part[i]->getQ(n))*_part[i]->getW(n)*_part[i]->getW(n);
 				 }
-				   K_en *=0.5/qom;
+				 K_en *=0.5/qom;*/
+			 K_en=_part[i]->getlocalKenergy();
 				this->output_adaptor.write("/energy/kinetic/species_"+ii.str()+"/cycle_"+cc.str(), K_en);
 				}
 		}
@@ -569,11 +570,12 @@ void output(const string& tag, int cycle){
 // magnetic energy (taken on nodes)
 		if (tag.find("B_energy",0) != string::npos){
 		double B_en;
-		B_en=0;
+		/*B_en=0;
 		for (int i=1; i<_grid->getNXN(); i++) // get rid of ghost cells
  		for (int j=1; j<_grid->getNYN(); j++)
  		   B_en += _field->getBx(i,j,0)*_field->getBx(i,j,0)+_field->getBy(i,j,0)*_field->getBy(i,j,0)+_field->getBz(i,j,0)*_field->getBz(i,j,0);
-		   B_en = B_en/32/atan(1.0); // here there should be a getfourPI for the right value of pi
+		   B_en = B_en/32/atan(1.0); // here there should be a getfourPI for the right value of pi*/
+		B_en=_field->getlocalBenergy();//careful: now the normalization *dx*dy*dx is already done
 		   this->output_adaptor.write("/energy/magnetic/cycle_"+cc.str(), B_en );
 		}
 
@@ -581,11 +583,12 @@ void output(const string& tag, int cycle){
 // electric energy (taken on nodes)
 		if (tag.find("E_energy",0) != string::npos){
 			double E_en;
-			E_en=0;
+			/*E_en=0;
 			for (int i=1; i<_grid->getNXN(); i++) // get rid of ghost cells
 				for (int j=1; j<_grid->getNYN(); j++)
 					E_en += _field->getEx(i,j,0)*_field->getEx(i,j,0)+_field->getEy(i,j,0)*_field->getEy(i,j,0)+_field->getEz(i,j,0)*_field->getEz(i,j,0);
-			E_en = E_en/32/atan(1.0); // here there should be a getfourPI for the right value of pi
+					E_en = E_en/32/atan(1.0); // here there should be a getfourPI for the right value of pi*/
+			E_en=_field->getlocalEenergy();//careful: now the normalization *dx*dy*dx is already done  
 			this->output_adaptor.write("/energy/electric/cycle_"+cc.str(), E_en );
 		}
 
