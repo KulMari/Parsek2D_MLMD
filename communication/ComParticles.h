@@ -41,4 +41,56 @@ inline int reduceMaxNpExiting(MPI_Comm CART_COMM, int npExitingMax){
   return(result);
 }
 
+/** communicate particles on the boundary communicators */
+/** commID:  0:left, 1:right, 2:bottom, 3:top */
+
+inline int communicateParticles_BoundaryComm(int comm_ID, int buffer_size,double *b_Xleft, double *b_Xright,VirtualTopology *vct){
+
+  MPI_Comm Comm;
+  int myrank; //on the appropriate boundary communicator                                  
+  int leftNeighbor, rightNeighbor;//on the appropriate   
+  int CommSize; 
+  int dir=0;
+
+  switch(comm_ID){
+  case 0: //left
+    myrank= vct->getRank_COMM_B_LEFT();
+    Comm= vct->getCOMM_B_LEFT();
+    leftNeighbor=vct->getLeftNeighbor_COMM_B_LEFT();
+    rightNeighbor=vct->getRightNeighbor_COMM_B_LEFT();
+    CommSize= vct->getYLEN();
+    break;
+  case 1: //right
+    myrank= vct->getRank_COMM_B_RIGHT();
+    Comm= vct->getCOMM_B_RIGHT();
+    leftNeighbor=vct->getLeftNeighbor_COMM_B_RIGHT();
+    rightNeighbor=vct->getRightNeighbor_COMM_B_RIGHT();
+    CommSize= vct->getYLEN();
+    break;
+  case 2: //bottom
+    myrank= vct->getRank_COMM_B_BOTTOM();
+    Comm= vct->getCOMM_B_BOTTOM();
+    leftNeighbor=vct->getLeftNeighbor_COMM_B_BOTTOM();
+    rightNeighbor=vct->getRightNeighbor_COMM_B_BOTTOM();
+    CommSize= vct->getXLEN();
+    break;
+  case 3: //top
+    myrank= vct->getRank_COMM_B_TOP();
+    Comm= vct->getCOMM_B_TOP();
+    leftNeighbor=vct->getLeftNeighbor_COMM_B_TOP();
+    rightNeighbor=vct->getRightNeighbor_COMM_B_TOP();
+    CommSize= vct->getXLEN();
+    break;
+  default:
+    cout <<"ERROR: wrong input in communicateParticles_BC, ...\n";
+    cerr <<"ERROR: wrong input in communicateParticles_BC, ...\n";
+    return -1;
+  }
+    
+  
+  communicateParticlesDIR(Comm, buffer_size,myrank,rightNeighbor,leftNeighbor,0,CommSize,1,b_Xright,b_Xleft);
+
+  return 1;
+}
+
 #endif
