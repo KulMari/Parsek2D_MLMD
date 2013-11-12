@@ -18,7 +18,7 @@
 
 using std::cout;
 using std::endl;
-
+using std::cerr;
 /**
 *
 * @date Fri Jun 4 2007
@@ -155,6 +155,189 @@ void VCtopology::setup_vctopology(MPI_Comm old_comm){
     {
       cout << "A process is trown away from the new topology. VCtopology.h" << endl;
     }
+
+    // set up a communicator per direction for refined level boundary processors
+    int* ranks_leftB= new int[YLEN];
+    int* ranks_rightB= new int[YLEN];
+    int* ranks_bottomB= new int[XLEN];
+    int* ranks_topB= new int[XLEN];
+    int* ranks_AllB= new int[2*(XLEN+YLEN-2)];
+
+    // rank on the boundary communicators
+    COMM_B_LEFT=MPI_COMM_NULL, COMM_B_RIGHT=MPI_COMM_NULL, COMM_B_BOTTOM=MPI_COMM_NULL, COMM_B_TOP=MPI_COMM_NULL, COMM_B_ALL=MPI_COMM_NULL;
+
+    int rankOnLevel= getCartesian_rank();
+
+    MPI_Group orig_group, new_groupL, new_groupR, new_groupB, new_groupT, new_groupAllB;
+
+    if (global_coordinates[0]==1)   //level 1
+      {
+	int i_left=0, i_right=0, i_bottom=0, i_top=0, i_AllB=0;
+	int numtasks;
+	
+	MPI_Comm_group(CART_COMM, &orig_group);
+	MPI_Comm_size(CART_COMM, &numtasks);
+	for (int i=0; i<numtasks; i++) // create the list of members for each group
+	  {
+	    if(i<=YLEN-1)
+	      {
+		ranks_leftB[i_left]=i; i_left++;
+		if (i!=0 and i!=YLEN-1)
+		  {ranks_AllB[i_AllB]=i; i_AllB++;}
+	      }
+	    if(i>=numtasks-YLEN)
+	      {
+		ranks_rightB[i_right]=i; i_right++;
+		if (i!=numtasks-YLEN and i!=XLEN*YLEN-1)
+		  {ranks_AllB[i_AllB]=i; i_AllB++;}
+	      }
+	    if(i%YLEN==0)
+	      {ranks_bottomB[i_bottom]=i; i_bottom++;
+		ranks_AllB[i_AllB]=i; i_AllB++;}
+	    if(i%YLEN==YLEN-1)
+	      {ranks_topB[i_top]=i; i_top++;
+		ranks_AllB[i_AllB]=i; i_AllB++;}
+	  }
+
+
+	if (i_left!=YLEN or i_right!=YLEN or i_bottom!=XLEN or i_top!=XLEN or i_AllB!=2*(XLEN+YLEN-2))
+	  {
+	    cerr <<"ERROR IN THE CREATION OF THE BOUNDARY COMMUNICATORS!"<<endl;
+	    cout <<"ERROR IN THE CREATION OF THE BOUNDARY COMMUNICATORS!"<<endl;
+	    return;
+	  }
+
+	int returnL, returnR, returnB, returnT;
+
+	MPI_Group_incl(orig_group, YLEN, ranks_leftB, &new_groupL);
+	MPI_Group_incl(orig_group, YLEN, ranks_rightB, &new_groupR);
+	MPI_Group_incl(orig_group, XLEN, ranks_bottomB, &new_groupB);
+	MPI_Group_incl(orig_group, XLEN, ranks_topB, &new_groupT);
+
+	MPI_Group_incl(orig_group, 2*(XLEN+YLEN-2), ranks_AllB, &new_groupAllB);
+	  
+	returnL=MPI_Comm_create(CART_COMM, new_groupL, &COMM_B_LEFT); 
+	returnR=MPI_Comm_create(CART_COMM, new_groupR, &COMM_B_RIGHT);
+	returnB=MPI_Comm_create(CART_COMM, new_groupB, &COMM_B_BOTTOM);
+	returnT=MPI_Comm_create(CART_COMM, new_groupT, &COMM_B_TOP);
+
+	MPI_Comm_create(CART_COMM, new_groupAllB, &COMM_B_ALL);
+
+	neighborLeft_COMM_B_LEFT=MPI_PROC_NULL, neighborRight_COMM_B_LEFT=MPI_PROC_NULL;
+	rankOnBLeft=-1;
+	//neighbors and rank
+	if (returnL== MPI_SUCCESS and COMM_B_LEFT!= MPI_COMM_NULL)   
+	  {
+	    MPI_Comm_rank(COMM_B_LEFT, &rankOnBLeft);
+	    if (rankOnBLeft>0) {neighborLeft_COMM_B_LEFT=rankOnBLeft-1;}
+	    else {neighborLeft_COMM_B_LEFT=MPI_PROC_NULL;}
+	    if (rankOnBLeft<YLEN-1){neighborRight_COMM_B_LEFT=rankOnBLeft+1;}
+	    else {neighborRight_COMM_B_LEFT=MPI_PROC_NULL;}
+	  }
+
+	neighborLeft_COMM_B_RIGHT=MPI_PROC_NULL, neighborRight_COMM_B_RIGHT=MPI_PROC_NULL;
+        rankOnBRight=-1;
+        //neighbors and rank                                                           
+        if (returnR== MPI_SUCCESS and COMM_B_RIGHT!= MPI_COMM_NULL)
+          {
+            MPI_Comm_rank(COMM_B_RIGHT, &rankOnBRight);
+	    if (rankOnBRight>0) {neighborLeft_COMM_B_RIGHT=rankOnBRight-1;}
+            else {neighborLeft_COMM_B_RIGHT=MPI_PROC_NULL;}
+            if (rankOnBRight<YLEN-1){neighborRight_COMM_B_RIGHT=rankOnBRight+1;}
+	    else {neighborRight_COMM_B_RIGHT=MPI_PROC_NULL;}
+          }
+
+	neighborLeft_COMM_B_BOTTOM=MPI_PROC_NULL, neighborRight_COMM_B_BOTTOM=MPI_PROC_NULL;
+        rankOnBBottom=-1;
+        //neighbors and rank                                   
+        if (returnB== MPI_SUCCESS and COMM_B_BOTTOM!= MPI_COMM_NULL)
+          {
+            MPI_Comm_rank(COMM_B_BOTTOM, &rankOnBBottom);
+	    if (rankOnBBottom>0) {neighborLeft_COMM_B_BOTTOM=rankOnBBottom-1;}
+            else {neighborLeft_COMM_B_BOTTOM=MPI_PROC_NULL;}
+            if (rankOnBBottom<XLEN-1){neighborRight_COMM_B_BOTTOM=rankOnBBottom+1;}
+	    else {neighborRight_COMM_B_BOTTOM=MPI_PROC_NULL;}
+          }
+	
+	neighborLeft_COMM_B_TOP=MPI_PROC_NULL, neighborRight_COMM_B_TOP=MPI_PROC_NULL;
+        rankOnBTop=-1;
+        //neighbors and rank                                                            
+        if (returnT== MPI_SUCCESS and COMM_B_TOP!= MPI_COMM_NULL)
+          {
+            MPI_Comm_rank(COMM_B_TOP, &rankOnBTop);
+	    if (rankOnBTop>0) {neighborLeft_COMM_B_TOP=rankOnBTop-1;}
+            else {neighborLeft_COMM_B_TOP=MPI_PROC_NULL;}
+            if (rankOnBTop<XLEN-1){neighborRight_COMM_B_TOP=rankOnBTop+1;}
+            else {neighborRight_COMM_B_TOP=MPI_PROC_NULL;}
+          }
+	
+	/*//DEBUG
+	MPI_Barrier(CART_COMM);                                                                                     
+        if (rankOnLevel==0)                                                           
+          {                                                                                   
+	    cout <<"ranks_AllB is :\n";                                                        
+	    for (int i=0; i<i_AllB; i++) cout<<ranks_AllB[i] <<endl;  
+	  }
+	MPI_Barrier(CART_COMM);
+	MPI_Barrier(CART_COMM);
+        if (rankOnLevel==0)
+          {
+            cout <<"ranks_leftB is :\n";
+            for (int i=0; i<i_left; i++) cout<<ranks_leftB[i] <<endl;
+            cout <<"ranks_rightB is :\n";
+            for(int i=0; i<i_right; i++) cout<<ranks_rightB[i] <<endl;
+            cout <<"ranks_bottomB is :\n";
+            for(int i=0; i<i_bottom; i++) cout<<ranks_bottomB[i] <<endl;
+            cout <<"ranks_topB is :\n";
+            for(int i=0; i<i_top; i++) cout<<ranks_topB[i] <<endl;
+	    
+          }
+        MPI_Barrier(CART_COMM);
+     
+	if (returnL== MPI_SUCCESS and COMM_B_LEFT!= MPI_COMM_NULL)
+	  {
+	    //rankOnBLeft=getRank_COMM_B_LEFT();
+	    cout << "My level rank is "<<rankOnLevel <<" and I am part of COMM_B_LEFT\n";}
+	if (returnR== MPI_SUCCESS and COMM_B_RIGHT!= MPI_COMM_NULL)
+	  {
+	    //rankOnBRight=getRank_COMM_B_RIGHT();
+	    cout << "My level rank is "<<rankOnLevel <<" and I am part of COMM_B_RIGHT\n";}
+	if (returnB== MPI_SUCCESS and COMM_B_BOTTOM!= MPI_COMM_NULL)
+	  {
+	    //rankOnBBottom=getRank_COMM_B_BOTTOM();
+	    cout << "My level rank is "<<rankOnLevel <<" and I am part of COMM_B_BOTTOM\n";}
+	if (returnT== MPI_SUCCESS and COMM_B_TOP!= MPI_COMM_NULL)
+	  {
+	    //rankOnBTop=getRank_COMM_B_TOP();
+	    cout << "My level rank is "<<rankOnLevel <<" and I am part of COMM_B_TOP\n";}
+
+	int testlocalL=1, testglobalL=0, testlocalR=1, testglobalR=0, testlocalB=1, testglobalB=0, testlocalT=1, testglobalT=0;
+	if (returnL== MPI_SUCCESS and COMM_B_LEFT!= MPI_COMM_NULL)
+	  MPI_Reduce(&testlocalL, &testglobalL, 1, MPI_INT, MPI_SUM, 0, COMM_B_LEFT);
+	if (returnR== MPI_SUCCESS and COMM_B_RIGHT!= MPI_COMM_NULL)
+	  MPI_Reduce(&testlocalR, &testglobalR, 1, MPI_INT, MPI_SUM, 0, COMM_B_RIGHT);
+	if (returnB== MPI_SUCCESS and COMM_B_BOTTOM!= MPI_COMM_NULL)
+	  MPI_Reduce(&testlocalB, &testglobalB, 1, MPI_INT, MPI_SUM, 0, COMM_B_BOTTOM);
+	if (returnT== MPI_SUCCESS and COMM_B_TOP!= MPI_COMM_NULL)
+	  MPI_Reduce(&testlocalT, &testglobalT, 1, MPI_INT, MPI_SUM, 0, COMM_B_TOP);
+
+	if (rankOnLevel==ranks_leftB[0])
+	  {cout << testglobalL <<" processes are part of the communicator COMM_B_LEFT, they should be " << YLEN <<endl; }
+	if (rankOnLevel==ranks_rightB[0])
+          {cout << testglobalR <<" processes are part of the communicator COMM_B_RIGHT, they should be " << YLEN <<endl; }
+	if (rankOnLevel==ranks_bottomB[0])
+          {cout << testglobalB <<" processes are part of the communicator COMM_B_BOTTOM, they should be " << XLEN <<endl; }
+	if (rankOnLevel==ranks_topB[0])
+          {cout << testglobalT <<" processes are part of the communicator COMM_B_TOP, they should be " << XLEN <<endl; }  
+	  // End DEBUG*/
+	
+      } // end level 1
+
+    delete[] ranks_leftB;
+    delete[] ranks_rightB;
+    delete[] ranks_bottomB;
+    delete[] ranks_topB;
+    delete[] ranks_AllB;
 }
 
 /** print topology info */
@@ -200,6 +383,22 @@ MPI_Comm VCtopology::getCART_COMM(){
 }
 MPI_Comm VCtopology::getCART_COMM_TOTAL(){
    return(CART_COMM_TOTAL);
+}
+/** get boundary communicators **/
+MPI_Comm VCtopology::getCOMM_B_LEFT(){
+  return(COMM_B_LEFT);
+}
+MPI_Comm VCtopology::getCOMM_B_RIGHT(){
+  return(COMM_B_RIGHT);
+}
+MPI_Comm VCtopology::getCOMM_B_BOTTOM(){
+  return(COMM_B_BOTTOM);
+}
+MPI_Comm VCtopology::getCOMM_B_TOP(){
+  return(COMM_B_TOP);
+}
+MPI_Comm VCtopology::getCOMM_B_ALL(){
+  return(COMM_B_ALL);
 }
 /** get and set ngrids */
 int VCtopology::getNgrids(){
@@ -248,21 +447,41 @@ void VCtopology::setPeriodicity(int xleft,int xright,int yleft,int yright){
 int VCtopology::getCartesian_rank(){
   return(cartesian_rank);
 }
-// AMR ME                                                                                                                      
-// get the rank of the process in MPI_COMM_TOTAL                                                                                
-int VCtopology::getCartesian_rank_COMMTOTAL(){
+/** get the rank of the process in MPI_COMM_TOTAL */                                                      int VCtopology::getCartesian_rank_COMMTOTAL(){
   int r;
   MPI_Comm_rank(CART_COMM_TOTAL, &r);
   return r;
 }
-
 int VCtopology::getRank_MPI_COMM_WORLD(){
   int r;
   MPI_Comm_rank(MPI_COMM_WORLD, &r);
   return r;
 }
-// end AMR ME 
-
+/** get the rank of the process on the boundary communicators */
+int VCtopology::getRank_COMM_B_LEFT(){
+  /*int r;
+  MPI_Comm_rank(COMM_B_LEFT, &r);
+  return r;*/
+  return rankOnBLeft;
+}
+int VCtopology::getRank_COMM_B_RIGHT(){
+  /*int r;
+  MPI_Comm_rank(COMM_B_RIGHT, &r);
+  return r;*/
+  return rankOnBRight;
+}
+int VCtopology::getRank_COMM_B_BOTTOM(){
+  /*int r;
+  MPI_Comm_rank(COMM_B_BOTTOM, &r);
+  return r;*/
+  return rankOnBBottom;
+}
+int VCtopology::getRank_COMM_B_TOP(){
+  /*int r;
+  MPI_Comm_rank(COMM_B_TOP, &r);
+  return r;*/
+  return rankOnBTop;
+}
 /** get the cartesian rank of XLEFT neighbor */
 int VCtopology::getXleft_neighbor(){
   return(xleft_neighbor);
@@ -296,7 +515,31 @@ int VCtopology::getXrightYright_neighbor(){
   return(XrightYright_neighbor);
 }
 
-
+/** get the neighbors in the boundary communicators */
+int VCtopology::getLeftNeighbor_COMM_B_LEFT(){
+  return(neighborLeft_COMM_B_LEFT);
+}
+int VCtopology::getRightNeighbor_COMM_B_LEFT(){
+  return(neighborRight_COMM_B_LEFT);
+}
+int VCtopology::getLeftNeighbor_COMM_B_RIGHT(){
+  return(neighborLeft_COMM_B_RIGHT);
+}
+int VCtopology::getRightNeighbor_COMM_B_RIGHT(){
+  return(neighborRight_COMM_B_RIGHT);
+}
+int VCtopology::getLeftNeighbor_COMM_B_BOTTOM(){
+  return(neighborLeft_COMM_B_BOTTOM);
+}
+int VCtopology::getRightNeighbor_COMM_B_BOTTOM(){
+  return(neighborRight_COMM_B_BOTTOM);
+}
+int VCtopology::getLeftNeighbor_COMM_B_TOP(){
+  return(neighborLeft_COMM_B_TOP);
+}
+int VCtopology::getRightNeighbor_COMM_B_TOP(){
+  return(neighborRight_COMM_B_TOP);
+}
 
 /** if cVERBOSE == true, print to the screen all the comunication */
 bool VCtopology::getcVERBOSE(){

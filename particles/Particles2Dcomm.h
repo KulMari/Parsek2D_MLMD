@@ -63,6 +63,8 @@ class Particles2Dcomm : public Particles {
      bool resize_buffersOS(int new_np);
      /** a method to compute how many particles are not in the right domain */
      int isMessagingDone(VirtualTopology* ptVCT);
+     /** a method to compute if refined particle boundary communication has to be repeated */
+     int isMessagingDoneSP(VirtualTopology* ptVCT);
      /** calculate the maximum number exiting from this domain */
      int maxNpExiting();
      /** calculate the weights given the position of particles */
@@ -288,7 +290,11 @@ class Particles2Dcomm : public Particles {
     int npDeletedDipole;
     /** number of particles not in the right domain   */
     int rightDomain;
-    /** bool for communication verbose */
+    /** number of particles not in the right domain, X or Y dir   */
+    int rightDomainX, rightDomainY;
+    /** flags for rightDomainX, rigthDomainY */
+    bool firstrightDomainX, firstrightDomainY;
+    /** Bool for communication verbose */
     bool cVERBOSE;
     /** Boundary condition on particles:
     <ul>
@@ -556,10 +562,8 @@ class Particles2Dcomm : public Particles {
     unsigned long* OS_ParticleID;
 
     int npmax_OS; // max number of particles in the OS buffers
-
-
-    
-};
+}
+;
 
 
 #endif

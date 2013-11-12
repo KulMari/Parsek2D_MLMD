@@ -586,7 +586,7 @@ int Particles2Dcomm::communicate(VirtualTopology* ptVCT, Grid* grid, int BC_part
   setToMINVAL_comm(b_YDX);
   setToMINVAL_comm(b_YSN);
 
-  npExitXright =0, npExitXleft =0, npExitYright =0, npExitYleft =0, npExit=0, rightDomain = 0;
+  npExitXright =0, npExitXleft =0, npExitYright =0, npExitYleft =0, npExit=0, rightDomain = 0, rightDomainX=0, rightDomainY=0;
   npDeletedBoundary = 0;
   //int np_current = 0;  
  
@@ -985,7 +985,11 @@ int Particles2Dcomm::unbuffer(double *b_, VirtualTopology *ptVCT){
 
 
     if(XnotRightDom || YnotRightDom)
-      {rightDomain++;} // the particle is not in the domain
+      {
+	rightDomain++; // the particle is not in the domain
+	if(XnotRightDom) rightDomainX++;
+	if(YnotRightDom) rightDomainY++;
+      }
     else // the particle IS in the right domain, check for PRA ops
       {
 	if (LastCommunicate==1 && FinerLevels_PRAOps==1 && PRACollectionMethod ==0)
@@ -1055,6 +1059,31 @@ int Particles2Dcomm::isMessagingDone(VirtualTopology* ptVCT){
 	return(result);
 	
 }
+
+/** method to calculate how many boundary particles are out of right domain */
+int Particles2Dcomm::isMessagingDoneSP(VirtualTopology* ptVCT){
+  /*int resultL = 0, resultR =0, resultB=0, resultT=0;
+  if (ptVCT->getCOMM_B_BOTTOM()!= MPI_COMM_NULL)
+    resultB = reduceNumberParticles(ptVCT->getCOMM_B_BOTTOM(),rightDomainX);
+  if (ptVCT->getCOMM_B_TOP()!= MPI_COMM_NULL)
+    resultT = reduceNumberParticles(ptVCT->getCOMM_B_TOP(),rightDomainX);
+  if (ptVCT->getCOMM_B_LEFT()!= MPI_COMM_NULL)
+    resultL = reduceNumberParticles(ptVCT->getCOMM_B_LEFT(),rightDomainY);
+  if (ptVCT->getCOMM_B_RIGHT()!= MPI_COMM_NULL)
+    resultR = reduceNumberParticles(ptVCT->getCOMM_B_RIGHT(),rightDomainY);
+  if (resultB>0 or resultT>0 or resultL>0 or resultR>0)
+    return(1) ; // if return is >0, communication is continued
+  
+    return (0);*/
+  int result = 0;
+  if (ptVCT->getCOMM_B_ALL()== MPI_COMM_NULL) return (result);
+  
+  result = reduceNumberParticles(ptVCT->getCOMM_B_ALL(),rightDomain);
+  if (result > 0 && cVERBOSE && ptVCT->getCartesian_rank()==0)
+    cout << "Further Comunication: " << result << " particles not in the right domain" << endl;
+  return(result);
+}
+
 /** calculate the maximum number exiting from this domain */
 int Particles2Dcomm::maxNpExiting(){
 	int maxNp = 0;
@@ -2304,7 +2333,6 @@ int Particles2Dcomm::PRAReceive(Grid* grid, VirtualTopology *vct, Field* EMf)
   //cout << "R" << vct->getCartesian_rank_COMMTOTAL()  <<"received " << received_p << " qom " << qom << endl;
   
   int nop_afterSplit_beforeCommSP=nop;
-
   int timeCommunicateSP=0;
   // distribuite finer grid particles among the finer grid processors
   int avail = communicateSP(vct, grid);
@@ -2317,8 +2345,8 @@ int Particles2Dcomm::PRAReceive(Grid* grid, VirtualTopology *vct, Field* EMf)
       return(-1);
     }
   
-  MPI_Barrier(vct->getCART_COMM());
-  while(isMessagingDone(vct) >0){
+  //Nov8 MPI_Barrier(vct->getCART_COMM());
+  while(isMessagingDoneSP(vct) >0){
     // COMMUNICATION
     avail = communicateSP(vct, grid);
     timeCommunicateSP++;
@@ -2327,7 +2355,7 @@ int Particles2Dcomm::PRAReceive(Grid* grid, VirtualTopology *vct, Field* EMf)
 	cout << "Insufficient buffer size in communicating SP particles" << endl;
 	return(-1);     
       }
-    MPI_Barrier(vct->getCART_COMM()); // do I really need this???
+    //Nov8 MPI_Barrier(vct->getCART_COMM()); // do I really need this???
   }// end isMessagingDone
   
   /*// debug
@@ -2340,7 +2368,7 @@ int Particles2Dcomm::PRAReceive(Grid* grid, VirtualTopology *vct, Field* EMf)
     // end debug*/
 
 
-  MPI_Barrier(vct->getCART_COMM()); // is this really needed???
+  //MPI_Barrier(vct->getCART_COMM()); // is this really needed???
 
   if (grid->getLevel()>0 && vct->getRefLevelAdj()==1) // communication OS particles done under condition RefLevelAdj
     {
@@ -2582,7 +2610,7 @@ int Particles2Dcomm::communicateSP(VirtualTopology* ptVCT, Grid* grid){
   setToMINVAL_SP(SplittedParticles_Comm_LEFT, max_np_SplitPartComm);
   setToMINVAL_SP(SplittedParticles_Comm_RIGHT, max_np_SplitPartComm);  
   //cout <<"R" <<ptVCT->getCartesian_rank_COMMTOTAL() << "entered communicate SP" <<endl;
-  npExitXright =0, npExitXleft =0, npExitYright =0, npExitYleft =0, npExit=0, rightDomain = 0;
+  npExitXright =0, npExitXleft =0, npExitYright =0, npExitYleft =0, npExit=0, rightDomain = 0, rightDomainX=0, rightDomainY=0;
   npDeletedBoundary = 0;
 
 
@@ -2710,8 +2738,44 @@ int Particles2Dcomm::communicateSP(VirtualTopology* ptVCT, Grid* grid){
   // and to  resize the buffer
   npExitingMax = maxNpExiting();
   // broadcast the maximum number of particles exiting for sizing the buffer and to check if communication is really needed
-  npExitingMax = reduceMaxNpExiting(ptVCT->getCART_COMM(),npExitingMax);
-  
+  //npExitingMax = reduceMaxNpExiting(ptVCT->getCART_COMM(),npExitingMax);
+
+  int local_npExitingMaxX= ((npExitXleft > npExitXright) ? npExitXleft : npExitXright);
+  int local_npExitingMaxY= ((npExitYleft > npExitYright) ? npExitYleft : npExitYright);
+
+  /** lots of checks, remove later **/
+  if ((npExitXleft>0 or npExitXright>0 or npExitYleft>0 or npExitYright>0) and (nmessagerecuBC==0))
+    {
+      cout<< "There must be a bug, exiting\n";
+      return -1;
+    }
+  if ((npExitXleft>0 or npExitXright>0) and (ptVCT->getCOMM_B_BOTTOM()== MPI_COMM_NULL and ptVCT->getCOMM_B_TOP()== MPI_COMM_NULL))
+    {
+      cout<< "There must be a bug, exiting\n";
+      return -1;
+    }
+  if ((npExitYleft>0 or npExitYright>0) and (ptVCT->getCOMM_B_LEFT()== MPI_COMM_NULL and ptVCT->getCOMM_B_RIGHT()== MPI_COMM_NULL))
+    {
+      cout<< "There must be a bug, exiting\n";
+      return -1;
+    }  
+  /** end checks **/
+  int npExitingMaxX=0, npExitingMaxY=0;
+
+  if (ptVCT->getCOMM_B_BOTTOM()!= MPI_COMM_NULL)
+    npExitingMaxX= reduceMaxNpExiting(ptVCT->getCOMM_B_BOTTOM(),local_npExitingMaxX);   
+  if (ptVCT->getCOMM_B_TOP()!= MPI_COMM_NULL)
+    npExitingMaxX= reduceMaxNpExiting(ptVCT->getCOMM_B_TOP(),local_npExitingMaxX);
+  if (ptVCT->getCOMM_B_LEFT()!= MPI_COMM_NULL)
+    npExitingMaxY= reduceMaxNpExiting(ptVCT->getCOMM_B_LEFT(),local_npExitingMaxY);
+  if (ptVCT->getCOMM_B_RIGHT()!= MPI_COMM_NULL)
+    npExitingMaxY= reduceMaxNpExiting(ptVCT->getCOMM_B_RIGHT(),local_npExitingMaxY);
+
+  npExitingMax=0;
+  npExitingMax=((npExitingMaxX > npExitingMaxY) ? npExitingMaxX : npExitingMaxY);
+
+  //int npExitingMaxX= reduceMaxNpExiting(ptVCT->getCART_COMM(),local_npExitingMaxX);
+  //int npExitingMaxY= reduceMaxNpExiting(ptVCT->getCART_COMM(),local_npExitingMaxY); 
 
   /*****************************************************/
   /*           SEND AND RECEIVE MESSAGES               */
@@ -2733,36 +2797,71 @@ int Particles2Dcomm::communicateSP(VirtualTopology* ptVCT, Grid* grid){
       }
   }
 
-  /*if (ptVCT->getCartesian_rank_COMMTOTAL()== ptVCT->getXLEN()*ptVCT->getYLEN())
-    {
-  cout <<"R" <<ptVCT->getCartesian_rank_COMMTOTAL() << " npExitingMax " << npExitingMax <<endl;
-  }*/
-  if (npExitingMax > 0){
-    // the first param is the buffer dim, not the number of particles
-    communicateParticles((npExitingMax + 1)*nVar,SplittedParticles_Comm_LEFT,SplittedParticles_Comm_RIGHT,SplittedParticles_Comm_BOTTOM, SplittedParticles_Comm_TOP,ptVCT);
+  MPI_Comm Comm;
+  int CommID; //commID:  0:left, 1:right, 2:bottom, 3:top
+  if (npExitingMaxX>0 and (ptVCT->getCOMM_B_BOTTOM()!= MPI_COMM_NULL or ptVCT->getCOMM_B_TOP()!= MPI_COMM_NULL)){
+    if (ptVCT->getCOMM_B_BOTTOM()!= MPI_COMM_NULL) 
+      {
+	Comm= ptVCT->getCOMM_B_BOTTOM();
+	CommID=2;
+      }
+    else if (ptVCT->getCOMM_B_TOP()!= MPI_COMM_NULL)
+      {
+	Comm= ptVCT->getCOMM_B_TOP();
+	CommID=3;
+      }// if both are different from MPI_COMM_NULL, YLEN=1 and the communicators point to the same groups of procs; then, only BOTTOM will perform all the communication
+
+    if(!communicateParticles_BoundaryComm(CommID,(npExitingMaxX+1)*nVar,SplittedParticles_Comm_LEFT, SplittedParticles_Comm_RIGHT,ptVCT))
+      return -1;
+    //cout << "R" <<ptVCT->getCartesian_rank_COMMTOTAL() << "unbuffer in communicateSP" <<endl;          
+    // UNBUFFERING                                                                               
+    avail1 = unbuffer(SplittedParticles_Comm_LEFT, ptVCT);                                             
+    avail2 = unbuffer(SplittedParticles_Comm_RIGHT, ptVCT);                               
+    // if one of these numbers is negative than there is not enough space for particles                        
+    avail = avail1 + avail2;
+    //cout << "R" <<ptVCT->getCartesian_rank_COMMTOTAL() << "before reduceNumberParticles in communicateSP" <<endl;
+    availALL = reduceNumberParticles(Comm,avail);                     
+    //cout << "R" <<ptVCT->getCartesian_rank_COMMTOTAL() << "after reduceNumberParticles in communicateSP" <<endl;
+    if (availALL < 0)                                                                             
+      {                                                                       
+        cout << "CommunicateSP, top and bottom, too many particles coming: exiting " <<endl;                       
+        return(-1);  // too many particles coming, save data nad stop simulation          
+      }                                                                                             
+  }
+
+  if (npExitingMaxY>0 and (ptVCT->getCOMM_B_LEFT()!= MPI_COMM_NULL or ptVCT->getCOMM_B_RIGHT()!= MPI_COMM_NULL)){
+    if (ptVCT->getCOMM_B_LEFT()!= MPI_COMM_NULL)
+      {
+        Comm= ptVCT->getCOMM_B_LEFT();
+        CommID=0;
+      }
+    else if (ptVCT->getCOMM_B_RIGHT()!= MPI_COMM_NULL)
+      {
+        Comm= ptVCT->getCOMM_B_RIGHT();
+        CommID=1;
+      }// if both are different from MPI_COMM_NULL, YLEN=1 and the communicators point to the same groups of procs; then, only BOTTOM will perform all the communication       
+
+    if(!communicateParticles_BoundaryComm(CommID,(npExitingMaxY+1)*nVar,SplittedParticles_Comm_BOTTOM, SplittedParticles_Comm_TOP,ptVCT))
+      return -1;
     //cout << "R" <<ptVCT->getCartesian_rank_COMMTOTAL() << "unbuffer in communicateSP" <<endl;
-    // UNBUFFERING
-    // message from XLEFT
-    avail1 = unbuffer(SplittedParticles_Comm_LEFT, ptVCT);
-    // message from XRIGHT
-    avail2 = unbuffer(SplittedParticles_Comm_RIGHT, ptVCT);
-    // message from YLEFT
-    avail3 = unbuffer(SplittedParticles_Comm_BOTTOM, ptVCT);
-    // message from YRIGHT
-    avail4 = unbuffer(SplittedParticles_Comm_TOP, ptVCT);
-    // if one of these numbers is negative than there is not enough space for particles
-    avail = avail1 + avail2 + avail3 + avail4;
-    availALL = reduceNumberParticles(ptVCT->getCART_COMM(),avail);
+    // UNBUFFERING                                                                                                                                                
+    avail1 = unbuffer(SplittedParticles_Comm_BOTTOM, ptVCT);
+    avail2 = unbuffer(SplittedParticles_Comm_TOP, ptVCT);
+    // if one of these numbers is negative than there is not enough space for particles                                                                       
+    avail = avail1 + avail2;
+    availALL = reduceNumberParticles(Comm,avail);
     if (availALL < 0)
       {
-	cout << "CommunicateSP, too many particles coming: exiting " <<endl;
-	return(-1);  // too many particles coming, save data nad stop simulation
+	cout << "CommunicateSP, left and right, too many particles coming: exiting " <<endl;
+	return(-1);  // too many particles coming, save data nad stop simulation                                                                                  
       }
-  }  
-  //cout <<"R" <<ptVCT->getCartesian_rank_COMMTOTAL() << "exited communicate SP" <<endl;
+  }
+
   return(0); // everything was fine
   
 }
+
+
       
 int Particles2Dcomm::CountPRAParticles(VirtualTopology* vct)
 {
@@ -3059,7 +3158,7 @@ int Particles2Dcomm::communicateOS(VirtualTopology* ptVCT, Grid* grid)
 
   //cout <<"R" <<ptVCT->getCartesian_rank_COMMTOTAL() << " nop_OS bef sorting in communicateOS "<< nop_OS << endl;
 
-  npExitXright =0, npExitXleft =0, npExitYright =0, npExitYleft =0, npExit=0, rightDomain = 0;
+  npExitXright =0, npExitXleft =0, npExitYright =0, npExitYleft =0, npExit=0, rightDomain = 0, rightDomainX=0, rightDomainY=0;
   npDeletedBoundary = 0; 
 
   // deal with the Bottom quantities (particles which will fix the Yleft side moments)

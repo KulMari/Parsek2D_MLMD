@@ -266,10 +266,12 @@ if (coord[0] != coord_particles[0]) {
   double *Kenergy;
   double *momentum;
   string cq;
+  Kenergy = new double[ns];
+  momentum = new double[ns];
   if (TEST)
     {
-      Kenergy = new double[ns];
-      momentum = new double[ns];
+      //Kenergy = new double[ns];
+      //momentum = new double[ns];
       stringstream levelstr;
       levelstr << level;
       cq = SaveDirName + "/ConservedQuantities_"+ levelstr.str() +".txt";
@@ -505,7 +507,7 @@ if (coord[0] != coord_particles[0]) {
       writeRESTART(RestartDirName,myrank,cycle,ns,mpi,vct,col,grid,EMf,part,0); // without ,0 add to restart file	   
 
 
-    if (TEST)
+    if (TEST and !(cycle%20 ))
       {
 	Eenergy= EMf->getEenergy(vct);
 	Benergy= EMf->getBenergy(vct);

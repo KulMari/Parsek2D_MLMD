@@ -52,6 +52,12 @@ class VCtopologyparticles : public VirtualTopology {
     MPI_Comm getCART_COMM();
     /** get the CART_COMM_TOTAL communicator **/
     MPI_Comm getCART_COMM_TOTAL();
+    /** get the boundary communicators, only for the refined grid **/
+    MPI_Comm getCOMM_B_LEFT();
+    MPI_Comm getCOMM_B_RIGHT();
+    MPI_Comm getCOMM_B_BOTTOM();
+    MPI_Comm getCOMM_B_TOP();
+    MPI_Comm getCOMM_B_ALL();
     /** Print topology info */
     void Print();
     /** Print the mapping of topology */
@@ -78,12 +84,15 @@ class VCtopologyparticles : public VirtualTopology {
     void setPeriodicity(int xleft,int xright,int yleft,int yright);
     /** get the cartesian rank of the process */
     int getCartesian_rank();
-    // AMR ME
     // gets the rank relative to ALL levels, in MPI_COMM_TOTAL
-    int getCartesian_rank_COMMTOTAL();
-    // get the rank in MPI_COMM_WORLD                                                                                                                                   
+    int getCartesian_rank_COMMTOTAL();    
+    // get the rank in MPI_COMM_WORLD                                                                     
     int getRank_MPI_COMM_WORLD();
-    // end AMR ME
+    /** get the rank of the process on the boundary communicators */
+    int getRank_COMM_B_LEFT();
+    int getRank_COMM_B_RIGHT();
+    int getRank_COMM_B_BOTTOM();
+    int getRank_COMM_B_TOP();
     /** get the cartesian rank of XLEFT neighbor */
     int getXleft_neighbor();
     /** get the cartesian rank of XRIGHT neighbor */
@@ -101,6 +110,16 @@ class VCtopologyparticles : public VirtualTopology {
     /** get the cartesian rank of XRIGHT(+) YRIGHT(+) SAME Z neighbor */
     int getXrightYright_neighbor();
 
+    /** get the neighbors in the boundary communicators */
+    int getLeftNeighbor_COMM_B_LEFT();
+    int getRightNeighbor_COMM_B_LEFT();
+    int getLeftNeighbor_COMM_B_RIGHT();
+    int getRightNeighbor_COMM_B_RIGHT();
+    int getLeftNeighbor_COMM_B_BOTTOM();
+    int getRightNeighbor_COMM_B_BOTTOM();
+    int getLeftNeighbor_COMM_B_TOP();
+    int getRightNeighbor_COMM_B_TOP();
+
     /** get the coordinates in dir direction of process*/
     int getCoordinates(int dir);
     /** get Periodicity condition in dir direction */
@@ -117,6 +136,10 @@ class VCtopologyparticles : public VirtualTopology {
     MPI_Comm CART_COMM_test;
     /** New communicator with virtual cartesian topology including grid levels */
     MPI_Comm CART_COMM_TOTAL;
+    /** New communicators containing the processors at the boundary of the refined grid; used only by the refined grid */
+    MPI_Comm COMM_B_LEFT, COMM_B_RIGHT, COMM_B_BOTTOM, COMM_B_TOP, COMM_B_ALL;
+    /** rank of the process on these communicators */
+    int rankOnBLeft, rankOnBRight, rankOnBTop, rankOnBBottom;
     /** MPI status during sending and receiving communication */
     MPI_Status status;
     /** Direction X for shift MPI_Cart_Shift*/
@@ -173,7 +196,11 @@ class VCtopologyparticles : public VirtualTopology {
     /** cartesian rank of XRIGHT(+) YRIGHT(+) SAME Z neighbor */
     int XrightYright_neighbor;
 
-
+    /** neighbors in the boundary communicators */
+    int neighborLeft_COMM_B_LEFT, neighborRight_COMM_B_LEFT;
+    int neighborLeft_COMM_B_RIGHT, neighborRight_COMM_B_RIGHT;
+    int neighborLeft_COMM_B_BOTTOM, neighborRight_COMM_B_BOTTOM;
+    int neighborLeft_COMM_B_TOP, neighborRight_COMM_B_TOP;
 
     /** if cVERBOSE == true, print to the screen all the comunication */
     bool cVERBOSE;

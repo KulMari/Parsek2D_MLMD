@@ -28,6 +28,12 @@ class VirtualTopology {
     virtual MPI_Comm getCART_COMM()=0;
     /** Get CART_COMM_TOTAL communicators **/
     virtual MPI_Comm getCART_COMM_TOTAL()=0;
+    /** get boundary communicators **/
+    virtual MPI_Comm getCOMM_B_LEFT()=0;
+    virtual MPI_Comm getCOMM_B_RIGHT()=0;
+    virtual MPI_Comm getCOMM_B_BOTTOM()=0;
+    virtual MPI_Comm getCOMM_B_TOP()=0;
+    virtual MPI_Comm getCOMM_B_ALL()=0;
     /** get ngrids */
     virtual int getNgrids()=0;
     /** Print topology info */
@@ -46,12 +52,15 @@ class VirtualTopology {
     virtual bool getPERIODICY()=0;
     /** get the cartesian rank of the process */
     virtual int getCartesian_rank()=0;
-    // AMR ME
     /** get the cartesian rank of the process in the global communicator (on the multiple levels)*/
     virtual int getCartesian_rank_COMMTOTAL()=0;
     // get the rank in MPI_COMM_WORLD (not necessarely the same as in commtotal)
     virtual int getRank_MPI_COMM_WORLD()=0;
-    // end AMR ME
+    /** get the rank of the process on the boundary communicators */
+    virtual int getRank_COMM_B_LEFT()=0;
+    virtual int getRank_COMM_B_RIGHT()=0;
+    virtual int getRank_COMM_B_BOTTOM()=0;
+    virtual int getRank_COMM_B_TOP()=0;
     /** get the cartesian rank of XLEFT neighbor */
     virtual int getXleft_neighbor()=0;
     /** get the cartesian rank of XRIGHT neighbor */
@@ -68,6 +77,15 @@ class VirtualTopology {
     virtual int getXrightYleft_neighbor()=0;
     /** get the cartesian rank of XRIGHT(+) YRIGHT(+) SAME Z neighbor */
     virtual int getXrightYright_neighbor()=0;
+    /** get the neighbors in the boundary communicators */
+    virtual int getLeftNeighbor_COMM_B_LEFT()=0;
+    virtual int getRightNeighbor_COMM_B_LEFT()=0;
+    virtual int getLeftNeighbor_COMM_B_RIGHT()=0;
+    virtual int getRightNeighbor_COMM_B_RIGHT()=0;
+    virtual int getLeftNeighbor_COMM_B_BOTTOM()=0;
+    virtual int getRightNeighbor_COMM_B_BOTTOM()=0;
+    virtual int getLeftNeighbor_COMM_B_TOP()=0;
+    virtual int getRightNeighbor_COMM_B_TOP()=0;
     /** get the coordinates in dir direction of process*/
     virtual int getCoordinates(int dir)=0;
     /** get Periodicity condition in dir direction */
