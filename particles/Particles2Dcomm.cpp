@@ -220,10 +220,18 @@ void Particles2Dcomm::allocate(int species, CollectiveIO* col, VirtualTopology* 
     nVar=11;
   //buffer_size =(int) (10*nop*nVar+1); // max test    
   //buffer_size=(int) (.1*nop*nVar+1);//normal //(int) (10*nop*nVar+1); // maxwellian test
-  buffer_size=(int) (nop*nVar+1);
+  //buffer_size=(int) (nop*nVar+1);
   //MAX_BUFFER_SIZE = (int)(2*nop*nVar+1) ;//max dimension of the comm buffers
-  MAX_BUFFER_SIZE = (int)(12*nop*nVar+1);
+  //MAX_BUFFER_SIZE = (int)(12*nop*nVar+1);
   //MAX_BUFFER_SIZE = (int)(21*nop*nVar+1) ;//max dimension of the comm buffers  for maxwellian tests
+
+  buffer_size=(int) (0.05*nop*nVar+1); 
+    MAX_BUFFER_SIZE = (int)(1*nop*nVar+1); //new
+
+  //old
+  /*buffer_size=(int) (nop*nVar+1);                                                                                                                         
+    MAX_BUFFER_SIZE = (int)(12*nop*nVar+1);*/
+   
   // if they try to resize beyond this, the simulation is terminated
   b_XDX = new double[buffer_size];
   b_XDX_ptr = b_XDX; // alias to make the resize
@@ -3926,6 +3934,9 @@ bool Particles2Dcomm::resize_buffersOS(int new_particleNumber){
 void Particles2Dcomm::setToMINVAL_comm(double *vec)
 {
   memcpy(vec, MIN_VAL_VEC_COMM, buffer_size*sizeof(double));
+  // try if faster
+  /*    for (int i=0; i<buffer_size; i++)
+	vec[i]=MIN_VAL;*/
   return;
 }
 double Particles2Dcomm::roundPrec(double x, int prec)
