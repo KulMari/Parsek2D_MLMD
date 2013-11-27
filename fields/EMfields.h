@@ -2397,992 +2397,53 @@ inline  void EMfields::addDipole(double B0, double x0, double y0,Grid *grid){
 }
 /** add IMF field*/
 inline  void EMfields::addIMF(double B_IMF, double theta, Grid *grid){
-	for (int i=0; i <nxn; i++)
-		for (int j=0; j <nyn; j++){
-			Bxn[i][j][0] += B_IMF*cos((theta/90)*M_PI);
-			Byn[i][j][0] += B_IMF*sin((theta/90)*M_PI);
-			Bzn[i][j][0] += 0.0;
-		}
-			// calculate on the centers
-			grid->interpN2C(Bxc,Bxn);
-	grid->interpN2C(Byc,Byn);
-	grid->interpN2C(Bzc,Bzn);
+  for (int i=0; i <nxn; i++)
+    for (int j=0; j <nyn; j++){
+      Bxn[i][j][0] += B_IMF*cos((theta/90)*M_PI);
+      Byn[i][j][0] += B_IMF*sin((theta/90)*M_PI);
+      Bzn[i][j][0] += 0.0;
+    }
+  // calculate on the centers
+  grid->interpN2C(Bxc,Bxn);
+  grid->interpN2C(Byc,Byn);
+  grid->interpN2C(Bzc,Bzn);
 
 }
 
 
 /** set to 0 all the densities fields */
 inline  void EMfields::setZeroDensities(){
-	for (register int i=0; i < nxn; i++)
-		for (register int j=0; j < nyn; j++){
-			Jx[i][j][0]   = 0.0;
-			Jxh[i][j][0]  = 0.0;
-			Jy[i][j][0]   = 0.0;
-			Jyh[i][j][0]  = 0.0;
-			Jz[i][j][0]   = 0.0;
-			Jzh[i][j][0]  = 0.0;
-			rhon[i][j][0] = 0.0;
-        }
-			for (register int i=0; i < nxc; i++)
-				for (register int j=0; j < nyc; j++){
-					rhoc[i][j][0] = 0.0;
-					rhoh[i][j][0] = 0.0;
-				}
-					for (register int kk=0; kk < ns; kk++)
-						for (register int i=0; i < nxn; i++)
-							for (register int j=0; j < nyn; j++){
-								rhons[kk][i][j][0] = 0.0;
-								Jxs[kk][i][j][0]   = 0.0;
-								Jys[kk][i][j][0]   = 0.0;
-								Jzs[kk][i][j][0]   = 0.0;
-								pXXsn[kk][i][j][0] = 0.0;
-								pXYsn[kk][i][j][0] = 0.0;
-								pXZsn[kk][i][j][0] = 0.0;
-								pYYsn[kk][i][j][0] = 0.0;
-								pYZsn[kk][i][j][0] = 0.0;
-								pZZsn[kk][i][j][0] = 0.0;
-							}
-}
-/** Initialize the weight for the BC projections between grids **/
-/** Also initialize the number and size of messages that must be sent between grids every cycle for the BC **/
-/** The first xnnl quadruplets are the weights for the y=Oy-finedy ghost nodes**/
-/**The next xnnu quadruplets are the weights for the y=Oy+finely+finedy ghost nodes**/
-/** The next ynnl quadruplets are the weights for the x=Ox-finedx ghost nodes**/
-/** The last ynnu quadruplets are the weights for the x=Ox+finelx+finedx ghost nodes**/
-/*inline int EMfields::initWeightBC(VirtualTopology *vct, Grid *grid, CollectiveIO* col){
-
-int i,j,ix,iy,nproc;
-double finedx, finedy,finelx,finely, xfirst, xlast,xfirstnext, Ox, Oy,xloc,yloc;
-double coarsedx, coarsedy,coarselx,coarsely;
-double finelxplusfinedx;
-double xshift, yshift;
-
- nmessagerecuBC=0;
- nmessageBC=0;
-
-// AMR, ME//
- targetBOTTOM=0;
- targetTOP=0;
- targetLEFT=0;
- targetRIGHT=0;
-// end AMR, ME//
-
-if ( grid->getLevel() < vct->getNgrids()-1) {                             //If this grid is considered as coarse by another grid
-    finedx = grid->getDX()/col->getRatio();
-    finelx = col->getLx()/pow(col->getRatio(),grid->getLevel()+1);
-    finedy = grid->getDY()/col->getRatio();
-    finely = col->getLy()/pow(col->getRatio(),grid->getLevel()+1);
-    finelxplusfinedx = col->getLx()/(double)col->getNxc()*((double)col->getNxc()+1)/(double)pow((double)col->getRatio(),(double)grid->getLevel()+1.);
-    Ox = grid->getOx(grid->getLevel()+1); //Origin x of finer grid
-    Oy = grid->getOy(grid->getLevel()+1); //Origin y of finer grid
-    j=0;
-// Computation of the weights
-// If the y=Oy-finedy ghost nodes of the fine grid intersect this process
-    if (grid->getmodifiedYstart(vct) < Oy-finedy && grid->getmodifiedYend(vct) > Oy-finedy && grid->getmodifiedXstart(vct) < Ox+finelx+finedx && grid->getmodifiedXend(vct) > Ox-finedx) {
-        xfirst = max(-finedx, ceil((grid->getmodifiedXstart(vct)-Ox)/finedx)*finedx); 
-        xfirstnext = ceil((grid->getmodifiedXend(vct)-Ox)/finedx)*finedx; 
-        xlast  = min(finelx+finedx, floor((grid->getmodifiedXend(vct)-xfirst-Ox)/finedx)*finedx+xfirst);
-
-	// to remove                                 
-	//if (vct->getCartesian_rank_COMMTOTAL()== 11 || vct->getCartesian_rank_COMMTOTAL()== 14)
-	//  { 
-	//    cout <<"R" << vct->getCartesian_rank_COMMTOTAL() << " xlast1: " << xlast <<endl; 
-	//    //cout << "grid->getXend() " <<grid->getXend() << " xlast " <<xlast << " Ox " <<Ox <<" fabs(grid->getXend()-xlast-Ox) " << fabs(grid->getXend()-xlast-Ox) << " DBL_EPSILON " << DBL_EPSILON << " fabs(grid->getXend()-xlast-Ox)*0.99999 "<<fabs(grid->getXend()-xlast-Ox)*0.99999  <<endl;                  
-	//    }
-
-        //if(grid->getXend()-xlast-Ox < DBL_EPSILON){ //If the fine subdivision overlap coarse subdivision
-	if(fabs(grid->getXend()-xlast-Ox)*0.99999 < DBL_EPSILON){ //If the fine subdivision overlap coarse subdivision; 0.99999 because the obvious choices of ratios often bring to overlapping that this alone does not resolve          
-            xlast = xlast - finedx;
-        }
-
-	if (vct->getCartesian_rank_COMMTOTAL()== 25 || vct->getCartesian_rank_COMMTOTAL()== 49) 
-	  {
-	    cout <<"R" << vct->getCartesian_rank_COMMTOTAL() << " xlast bef correction: " << min(finelx+finedx, floor((grid->getmodifiedXend(vct)-xfirst-Ox)/finedx)*finedx+xfirst) <<endl;
-	    cout <<"R" << vct->getCartesian_rank_COMMTOTAL() << " xlast: " << xlast <<endl;       
-	    cout <<"R" << vct->getCartesian_rank_COMMTOTAL() << " xfirst: " << xfirst <<endl;       
-	  }
-        xnnl = floor((xlast-xfirst)/finedx+0.5)+1; //floor(x+0.5) used to round to closest integer in case the division is not working properly
-        yloc = Oy - finedy;
-        for (i =0;i<xnnl;i++) {
-            xshift = xfirst + i * finedx ;
-            xloc = xshift + Ox ;
-            
-            //Weights used for interpolation on nodes (for E and B)
-            ix = 2 +  int(floor((xloc-grid->getXstart())/grid->getDX()));
-            iy = 2 +  int(floor((yloc-grid->getYstart())/grid->getDY()));
-            ixsent[i] = ix;
-            iysent[i] = iy;
-            weightBC[i][3][0] = ((xloc - grid->getXN(ix-1,iy-1,0))/grid->getDX())*((yloc - grid->getYN(ix-1,iy-1,0))/grid->getDY()); // weight +:+
-            weightBC[i][2][0] = ((xloc - grid->getXN(ix-1,iy,0))/grid->getDX())*((grid->getYN(ix-1,iy,0) - yloc)/grid->getDY()); //weight +:-
-            weightBC[i][1][0] = ((grid->getXN(ix,iy-1,0) - xloc)/grid->getDX())*((yloc - grid->getYN(ix,iy-1,0))/grid->getDY()); // weight -:+
-            weightBC[i][0][0] = ((grid->getXN(ix,iy,0) - xloc)/grid->getDX())*((grid->getYN(ix,iy,0) - yloc)/grid->getDY()); // weight -:-
-            nproc = col->getYLEN()*floor(xshift/((grid->getNXC()-2.)*finedx))+col->getXLEN()*col->getYLEN()*(grid->getLevel()+1); // rank of the proc on the fine grid receiving this point(in MPI_COMM_WORLD)
-            nproc = max(nproc, col->getXLEN()*col->getYLEN()*(grid->getLevel()+1));
-            nproc = min(nproc, col->getYLEN()*((grid->getLevel()+2)*col->getXLEN()-1));
-            if (i==0){
-                targetBC[0] = nproc;
-                npointssent[0]=0;
-                nmessageBC++;
-		// AMR, ME
-		BCSide[0]=0;
-		targetBOTTOM++;
-		// end AMR, ME
-            }
-            if(nproc != targetBC[j]){
-                j++;
-                nmessageBC++;
-		// AMR, ME
-		BCSide[j]=0;
-		targetBOTTOM++;
-		// end AMR, ME
-                targetBC[j]=nproc; 
-                npointssent[j]=0;
-            }
-                npointssent[j]++;
-        }
-        
+  for (register int i=0; i < nxn; i++)
+    for (register int j=0; j < nyn; j++){
+      Jx[i][j][0]   = 0.0;
+      Jxh[i][j][0]  = 0.0;
+      Jy[i][j][0]   = 0.0;
+      Jyh[i][j][0]  = 0.0;
+      Jz[i][j][0]   = 0.0;
+      Jzh[i][j][0]  = 0.0;
+      rhon[i][j][0] = 0.0;
     }
-// If the y=Oy+finely+finedy ghost nodes of the fine grid intersect this process
-    if (grid->getmodifiedYstart(vct) < Oy+finely+finedy && grid->getmodifiedYend(vct) > Oy+finely+finedy && grid->getmodifiedXstart(vct) < Ox+finelx+finedx && grid->getmodifiedXend(vct) > Ox-finedx) {
-        xfirst = max(-finedx, ceil((grid->getmodifiedXstart(vct)-Ox)/finedx)*finedx); 
-        xfirstnext = ceil((grid->getmodifiedXend(vct)-Ox)/finedx)*finedx; 
-        xlast  = min(finelx+finedx, floor((grid->getmodifiedXend(vct)-xfirst-Ox)/finedx)*finedx+xfirst);
-        //if(grid->getXend()-xlast-Ox < DBL_EPSILON){ //If the fine subdivision overlap coarse subdivision
-	if(fabs(grid->getXend()-xlast-Ox)*0.99999  < DBL_EPSILON){ //If the fine subdivision overlap coarse subdivision ; 0.99999 because the obvious choices of ratios often\
- bring to overlapping that this alone does not resolve                                                              
-            xlast = xlast - finedx;
-        }
-        xnnu = floor((xlast-xfirst)/finedx+0.5)+1; 
-        yloc = Oy + finely + finedy;
-        for (i =0;i<xnnu;i++) {
-            xshift = xfirst + i * finedx ;
-            xloc = xshift + Ox ;
-            ix = 2 +  int(floor((xloc-grid->getXstart())/grid->getDX()));
-            iy = 2 +  int(floor((yloc-grid->getYstart())/grid->getDY()));
-            ixsent[xnnl+i] = ix;
-            iysent[xnnl+i] = iy;
-            weightBC[xnnl+i][3][0] = ((xloc - grid->getXN(ix-1,iy-1,0))/grid->getDX())*((yloc - grid->getYN(ix-1,iy-1,0))/grid->getDY()); // weight +:+
-            weightBC[xnnl+i][2][0] = ((xloc - grid->getXN(ix-1,iy,0))/grid->getDX())*((grid->getYN(ix-1,iy,0) - yloc)/grid->getDY()); //weight +:-
-            weightBC[xnnl+i][1][0] = ((grid->getXN(ix,iy-1,0) - xloc)/grid->getDX())*((yloc - grid->getYN(ix,iy-1,0))/grid->getDY()); // weight -:+
-            weightBC[xnnl+i][0][0] = ((grid->getXN(ix,iy,0) - xloc)/grid->getDX())*((grid->getYN(ix,iy,0) - yloc)/grid->getDY()); // weight -:-
-            nproc = col->getYLEN()*(floor(xshift/((grid->getNXC()-2.)*finedx))+1)-1+col->getXLEN()*col->getYLEN()*(grid->getLevel()+1); // rank of the proc on the fine grid receiving this point(in MPI_COMM_WORLD)
-            nproc = max(nproc, col->getYLEN()*(col->getXLEN()*(grid->getLevel()+1)+1)-1);
-            nproc = min(nproc, col->getYLEN()*col->getXLEN()*(grid->getLevel()+2)-1);
-            if (i==0){
-                if(nmessageBC>0){
-                    j++;
-                }
-                targetBC[j] = nproc;
-                npointssent[j]=0;
-                nmessageBC++;
-		// AMR, ME
-		BCSide[j]=1;
-		targetTOP++;
-		// end AMR, ME
-            }
-            if(nproc != targetBC[j]){
-                j++;
-                nmessageBC++;
-		// AMR, ME
-		BCSide[j]=1;
-		targetTOP++;
-		// end AMR, ME
-                targetBC[j]=nproc; 
-                npointssent[j]=0;
-            }
-                npointssent[j]++;
-       }
+  for (register int i=0; i < nxc; i++)
+    for (register int j=0; j < nyc; j++){
+      rhoc[i][j][0] = 0.0;
+      rhoh[i][j][0] = 0.0;
     }
-// If the x=Ox-finedx ghost nodes of the fine grid intersect this process
-    if (grid->getmodifiedYstart(vct) < Oy+finely+finedy && grid->getmodifiedYend(vct) > Oy-finedy && grid->getmodifiedXstart(vct) < Ox-finedx && grid->getmodifiedXend(vct) > Ox-finedx) {
-        xfirst = max(0., ceil((grid->getYstart()-Oy)/finedy)*finedy); 
-        xfirstnext = ceil((grid->getYend()-Oy)/finedy)*finedy; 
-        xlast  = min(finely, floor((grid->getYend()-xfirst-Oy)/finedy)*finedy+xfirst);
-        if(grid->getYend()-xlast-Oy < DBL_EPSILON){ //If the fine subdivision overlap coarse subdivision
-            xlast = xlast - finedy;
-        }
-        ynnl = floor((xlast-xfirst)/finedy+0.5)+1; 
-        xloc = Ox-finedx;
-        for (i =0;i<ynnl;i++) {
-            yshift = xfirst + i * finedy ;
-            yloc = yshift + Oy ;
-            ix = 2 +  int(floor((xloc-grid->getXstart())/grid->getDX()));
-            iy = 2 +  int(floor((yloc-grid->getYstart())/grid->getDY()));
-            ixsent[xnnl+xnnu+i] = ix;
-            iysent[xnnl+xnnu+i] = iy;
-            weightBC[xnnl+xnnu+i][3][0] = ((xloc - grid->getXN(ix-1,iy-1,0))/grid->getDX())*((yloc - grid->getYN(ix-1,iy-1,0))/grid->getDY()); // weight +:+
-            weightBC[xnnl+xnnu+i][2][0] = ((xloc - grid->getXN(ix-1,iy,0))/grid->getDX())*((grid->getYN(ix-1,iy,0) - yloc)/grid->getDY()); //weight +:-
-            weightBC[xnnl+xnnu+i][1][0] = ((grid->getXN(ix,iy-1,0) - xloc)/grid->getDX())*((yloc - grid->getYN(ix,iy-1,0))/grid->getDY()); // weight -:+
-            weightBC[xnnl+xnnu+i][0][0] = ((grid->getXN(ix,iy,0) - xloc)/grid->getDX())*((grid->getYN(ix,iy,0) - yloc)/grid->getDY()); // weight -:-
-            nproc =floor(yshift/((grid->getNYC()-2.)*finedy))+col->getXLEN()*col->getYLEN()*(grid->getLevel()+1); // rank of the proc on the fine grid receiving this point(in MPI_COMM_WORLD)
-            nproc = max(nproc, col->getYLEN()*col->getXLEN()*(grid->getLevel()+1));
-            nproc = min(nproc, col->getYLEN()*(1+col->getXLEN()*(grid->getLevel()+1))-1);
-            if (i==0){
-                if(nmessageBC>0){
-                    j++;
-                }
-                targetBC[j] = nproc;
-		// AMR, ME
-		BCSide[j]=2;
-		targetLEFT++;
-		// end AMR, ME
-                npointssent[j]=0;
-                nmessageBC++;
-            }
-            if(nproc != targetBC[j]){
-                j++;
-                nmessageBC++;
-                targetBC[j]=nproc;
-		// AMR, ME
-		BCSide[j]=2;
-		targetLEFT++;
-		// end AMR, ME
-                npointssent[j]=0;
-            }
-                npointssent[j]++;
-        }
-    }
-// If the x=Ox+finelx+finedx ghost nodes of the fine grid intersect this process
-    if (grid->getmodifiedYstart(vct) < Oy+finely + finedy && grid->getmodifiedYend(vct) > Oy-finedy && grid->getmodifiedXstart(vct) < Ox+finelx+finedx && grid->getmodifiedXend(vct) > Ox+finelx+finedx) {
-        xfirst = max(0., ceil((grid->getYstart()-Oy)/finedy)*finedy); 
-        xfirstnext = ceil((grid->getYend()-Oy)/finedy)*finedy; 
-        xlast  = min(finely, floor((grid->getYend()-xfirst-Oy)/finedy)*finedy+xfirst);
-        if(grid->getYend()-xlast-Oy < DBL_EPSILON){ //If the fine subdivision overlap coarse subdivision
-            xlast = xlast - finedy;
-        }
-        ynnu = floor((xlast-xfirst)/finedy+0.5)+1; 
-        xloc = Ox+finelx+finedx;
-        for (i =0;i<ynnu;i++) {
-            yshift = xfirst + i * finedy ;
-            yloc = yshift + Oy ;
-            ix = 2 +  int(floor((xloc-grid->getXstart())/grid->getDX()));
-            iy = 2 +  int(floor((yloc-grid->getYstart())/grid->getDY()));
-            ixsent[xnnl+xnnu+ynnl+i] = ix;
-            iysent[xnnl+xnnu+ynnl+i] = iy;
-            weightBC[xnnl+xnnu+ynnl+i][3][0] = ((xloc - grid->getXN(ix-1,iy-1,0))/grid->getDX())*((yloc - grid->getYN(ix-1,iy-1,0))/grid->getDY()); // weight +:+
-            weightBC[xnnl+xnnu+ynnl+i][2][0] = ((xloc - grid->getXN(ix-1,iy,0))/grid->getDX())*((grid->getYN(ix-1,iy,0) - yloc)/grid->getDY()); //weight +:-
-            weightBC[xnnl+xnnu+ynnl+i][1][0] = ((grid->getXN(ix,iy-1,0) - xloc)/grid->getDX())*((yloc - grid->getYN(ix,iy-1,0))/grid->getDY()); // weight -:+
-            weightBC[xnnl+xnnu+ynnl+i][0][0] = ((grid->getXN(ix,iy,0) - xloc)/grid->getDX())*((grid->getYN(ix,iy,0) - yloc)/grid->getDY()); // weight -:-
-            nproc =floor(yshift/((grid->getNYC()-2.)*finedy))+col->getYLEN()*(col->getXLEN()*(grid->getLevel()+2)-1); // rank of the proc on the fine grid receiving this point(in MPI_COMM_WORLD)
-            nproc = max(nproc, col->getYLEN()*(col->getXLEN()*(grid->getLevel()+2)-1));
-            nproc = min(nproc, col->getYLEN()*col->getXLEN()*(grid->getLevel()+2)-1);
-    	    if (i==0){
-                if(nmessageBC>0){
-                    j++;
-                }
-                targetBC[j] = nproc;
-		// AMR, ME
-		BCSide[j]=3;
-		targetRIGHT++;
-		// end AMR, ME
-                npointssent[j]=0;
-                nmessageBC++;
-            }
-            if(nproc != targetBC[j]){
-                j++;
-                nmessageBC++;
-                targetBC[j]=nproc;
-		// AMR, ME
-		BCSide[j]=3;
-		targetRIGHT++;
-		// end AMR, ME
-                npointssent[j]=0;
-            }
-                npointssent[j]++;
-        }
-    }
-    for (i=0;i<nmessageBC;i++){
-      cout <<"R" <<vct->getCartesian_rank_COMMTOTAL() << " sending BC "<<npointssent[i]<<" points to "<<targetBC[i] <<", side " << BCSide[i] <<endl;
-    }
- }
-
-// for debugging purposes                                                                                                                     
- int nmessagerecuBCLEFT=0;
- int nmessagerecuBCRIGHT=0;
- int nmessagerecuBCBOTTOM=0;
- int nmessagerecuBCTOP=0;
-
-
-if ( grid->getLevel() > 0) {                             //If this grid is considered as fine by another grid
-    coarsedx = grid->getDX()*col->getRatio();
-    coarselx = col->getLx()/pow(col->getRatio(),grid->getLevel()-1);
-    coarsedy = grid->getDY()*col->getRatio();
-    coarsely = col->getLy()/pow(col->getRatio(),grid->getLevel()-1);
-    Ox = grid->getOx(grid->getLevel()); //Origin x of the grid
-    Oy = grid->getOy(grid->getLevel()); //Origin y of the grid
-    j=0;
-    if(vct->getCoordinates(1) == 0) {
-        xfirst = grid->getmodifiedXstart(vct);
-        if(vct->getCoordinates(0) == vct->getXLEN()-1) {
-            xlast = grid->getXend()+grid->getDX(); 
-        }else{
-            xlast = grid->getXend()-grid->getDX();
-        }
-        
-        yloc = max(Oy - grid->getDY(),0.);// Because when y < 0, it is on the same proc as if y=0  
-        xnnl = floor((xlast-xfirst)/grid->getDX()+0.5)+1; 
-        for (i=0; i< xnnl; i++) {
-            xloc = max(Ox + xfirst +i*grid->getDX(),0.);// Because when x < 0, it is on the same proc as if x=0  
-            nproc =floor(yloc/((grid->getNYC()-2)*coarsedy))+floor(xloc/((grid->getNXC()-2)*coarsedx))*col->getYLEN()+col->getYLEN()*col->getXLEN()*(grid->getLevel()-1); // rank of the proc on the coarse grid sending this point(in MPI_COMM_WORLD)
-            if (i==0){
-                fromBC[0] = nproc;
-                nmessagerecuBC++;
-		nmessagerecuBCBOTTOM++;
-		BCSidecu[0]=0;
-                npointsreceived[0]=0;
-                xmrecv[0]=0;
-                xprecv[0]=0;
-                ymrecv[0]=0;
-                yprecv[0]=0;
-            }
-            if(nproc != fromBC[j]){
-                j++;
-                nmessagerecuBC++;
-		nmessagerecuBCBOTTOM++;
-		BCSidecu[j]=0;
-                fromBC[j]=nproc; 
-                npointsreceived[j]=0;
-                xmrecv[j]=0;
-                xprecv[j]=0;
-                ymrecv[j]=0;
-                yprecv[j]=0;
-            }
-                npointsreceived[j]++;
-                ixmrecvfirst[j]=floor((xloc-grid->getXstart()-Ox)/grid->getDX()+0.5)-xmrecv[j]+1; //+1 because 0 is the ghost cell at x=Xstart-dx.
-                xmrecv[j]++;
-
-        }
-   } 
-    if(vct->getCoordinates(1) == vct->getYLEN()-1) {
-        xfirst = grid->getmodifiedXstart(vct);
-        if(vct->getCoordinates(0) == vct->getXLEN()-1) {
-            xlast = grid->getXend()+grid->getDX(); 
-        }else{
-            xlast = grid->getXend()-grid->getDX();
-        }
-        yloc = min(Oy + grid->getYend()+grid->getDY(),coarsely);  
-        xnnu = floor((xlast-xfirst)/grid->getDX()+0.5)+1; 
-        for (i=0; i< xnnu; i++) {
-            xloc = max(Ox + xfirst +i*grid->getDX(),0.);
-            nproc =floor(yloc/((grid->getNYC()-2)*coarsedy))+floor(xloc/((grid->getNXC()-2)*coarsedx))*col->getYLEN()+col->getYLEN()*col->getXLEN()*(grid->getLevel()-1); // rank of the proc on the coarse grid sending this point(in MPI_COMM_WORLD)
-            if (i==0){
-                if(nmessagerecuBC>0){
-                    j++;
-                }
-                fromBC[j] = nproc;
-                nmessagerecuBC++;
-		nmessagerecuBCTOP++;
-		BCSidecu[j]=1;
-                npointsreceived[j]=0;
-                xmrecv[j]=0;
-                xprecv[j]=0;
-                ymrecv[j]=0;
-                yprecv[j]=0;
-            }
-            if(nproc != fromBC[j]){
-                j++;
-                nmessagerecuBC++;
-		nmessagerecuBCTOP++;
-		BCSidecu[j]=1;
-                fromBC[j]=nproc; 
-                npointsreceived[j]=0;
-                xmrecv[j]=0;
-                xprecv[j]=0;
-                ymrecv[j]=0;
-                yprecv[j]=0;
-            }
-                npointsreceived[j]++;
-                ixprecvfirst[j]=floor((xloc-grid->getXstart()-Ox)/grid->getDX()+0.5)-xprecv[j]+1;
-                xprecv[j]++;
-
-        }
-   } 
-    if(vct->getCoordinates(0) == 0) {
-        xfirst = grid->getYstart();
-        if(vct->getCoordinates(1) == vct->getYLEN()-1) {
-            xlast = grid->getYend(); 
-        }else{
-            xlast = grid->getYend()-grid->getDY();
-        }
-        xloc = max(Ox -grid->getDX(),0.);  
-        ynnl = floor((xlast-xfirst)/grid->getDY()+0.5)+1; 
-        for (i=0; i< ynnl; i++) {
-            yloc = Oy + xfirst +i*grid->getDY();
-            nproc =floor(yloc/((grid->getNYC()-2)*coarsedy))+floor(xloc/((grid->getNXC()-2)*coarsedx))*col->getYLEN()+col->getYLEN()*col->getXLEN()*(grid->getLevel()-1); // rank of the proc on the coarse grid sending this point(in MPI_COMM_WORLD)
-            if (i==0){
-                if(nmessagerecuBC>0){
-                    j++;
-                }
-                fromBC[j] = nproc;
-                nmessagerecuBC++;
-		nmessagerecuBCLEFT++;
-		BCSidecu[j]=2;
-                npointsreceived[j]=0;
-                xmrecv[j]=0;
-                xprecv[j]=0;
-                ymrecv[j]=0;
-                yprecv[j]=0;
-            }
-            if(nproc != fromBC[j]){
-                j++;
-                nmessagerecuBC++;
-		nmessagerecuBCLEFT++;
-		BCSidecu[j]=2;
-                fromBC[j]=nproc; 
-                npointsreceived[j]=0;
-                xmrecv[j]=0;
-                xprecv[j]=0;
-                ymrecv[j]=0;
-                yprecv[j]=0;
-            }
-                npointsreceived[j]++;
-                iymrecvfirst[j]=floor((yloc-grid->getYstart()-Oy)/grid->getDY()+0.5)-ymrecv[j]+1;
-                ymrecv[j]++;
-
-        }
-   } 
-    if(vct->getCoordinates(0) == vct->getXLEN()-1) {
-        xfirst = grid->getYstart();
-        if(vct->getCoordinates(1) == vct->getYLEN()-1) {
-            xlast = grid->getYend(); 
-        }else{
-            xlast = grid->getYend()-grid->getDY();
-        }
-        xloc = min(Ox +grid->getXend()+grid->getDX(),coarselx);  
-        ynnu = floor((xlast-xfirst)/grid->getDY()+0.5)+1; 
-        for (i=0; i< ynnu; i++) {
-            yloc = Oy + xfirst +i*grid->getDY();
-            nproc =floor(yloc/((grid->getNYC()-2)*coarsedy))+floor(xloc/((grid->getNXC()-2)*coarsedx))*col->getYLEN()+col->getYLEN()*col->getXLEN()*(grid->getLevel()-1); // rank of the proc on the coarse grid sending this point(in MPI_COMM_WORLD)
-            if (i==0){
-                if(nmessagerecuBC>0){
-                    j++;
-                }
-                fromBC[j] = nproc;
-                nmessagerecuBC++;
-		nmessagerecuBCRIGHT++;
-		BCSidecu[j]=3;
-                npointsreceived[j]=0;
-                xmrecv[j]=0;
-                xprecv[j]=0;
-                ymrecv[j]=0;
-                yprecv[j]=0;
-            }
-            if(nproc != fromBC[j]){
-                j++;
-                nmessagerecuBC++;
-		nmessagerecuBCRIGHT++;
-		BCSidecu[j]=3;
-                fromBC[j]=nproc; 
-                npointsreceived[j]=0;
-                xmrecv[j]=0;
-                xprecv[j]=0;
-                ymrecv[j]=0;
-                yprecv[j]=0;
-            }
-                npointsreceived[j]++;
-                iyprecvfirst[j]=floor((yloc-grid->getYstart()-Oy)/grid->getDY()+0.5)-yprecv[j]+1;
-                yprecv[j]++;
-
-        }
-   } 
-
-    for (i=0;i<nmessagerecuBC;i++){
-      cout << "R" << vct->getCartesian_rank_COMMTOTAL() <<  ": receiving BC "<<npointsreceived[i]<<" points from "<<fromBC[i] <<", side " << BCSidecu[i]<<endl;
-    }
-
+  for (register int kk=0; kk < ns; kk++)
+    for (register int i=0; i < nxn; i++)
+      for (register int j=0; j < nyn; j++){
+	rhons[kk][i][j][0] = 0.0;
+	Jxs[kk][i][j][0]   = 0.0;
+	Jys[kk][i][j][0]   = 0.0;
+	Jzs[kk][i][j][0]   = 0.0;
+	pXXsn[kk][i][j][0] = 0.0;
+	pXYsn[kk][i][j][0] = 0.0;
+	pXZsn[kk][i][j][0] = 0.0;
+	pYYsn[kk][i][j][0] = 0.0;
+	pYZsn[kk][i][j][0] = 0.0;
+	pZZsn[kk][i][j][0] = 0.0;
+      }
 }
 
-//some checks, from ME
-// check that the number of sends match the number of receives                                                                                                            
-
- int npointssentBOTTOM=0;
- int npointssentTOP=0;
- int npointssentLEFT=0;
- int npointssentRIGHT=0;
-
- for (int i=0; i< nmessageBC; i++)
-   {
-     if (BCSide[i]==0)
-       npointssentBOTTOM+= npointssent[i];
-
-     if (BCSide[i]==1)
-       npointssentTOP+= npointssent[i];
-
-     if (BCSide[i]==2)
-       npointssentLEFT+= npointssent[i];
-
-     if (BCSide[i]==3)
-       npointssentRIGHT+= npointssent[i];
-   }
-
- int npointsreceivedBOTTOM=0;
- int npointsreceivedTOP=0;
- int npointsreceivedLEFT=0;
- int npointsreceivedRIGHT=0;
- 
- for (int i=0; i< nmessagerecuBC; i++)
-   {
-     if (BCSidecu[i]==0)
-       npointsreceivedBOTTOM+=npointsreceived[i];
- 
-     if (BCSidecu[i]==1)
-       npointsreceivedTOP+=npointsreceived[i];
-
-     if (BCSidecu[i]==2)
-       npointsreceivedLEFT+=npointsreceived[i];
-
-     if (BCSidecu[i]==3)
-       npointsreceivedRIGHT+=npointsreceived[i];
-   }
-
- int ALL_npointssentBOTTOM;
- int ALL_npointssentTOP;
- int ALL_npointssentLEFT;
- int ALL_npointssentRIGHT;
-
- int ALL_npointsreceivedBOTTOM;
- int ALL_npointsreceivedTOP;
- int ALL_npointsreceivedLEFT;
- int ALL_npointsreceivedRIGHT;
- 
- MPI_Allreduce ( &npointssentBOTTOM, &ALL_npointssentBOTTOM, 1,  MPI_INT, MPI_SUM, vct->getCART_COMM_TOTAL());
- MPI_Allreduce ( &npointssentTOP, &ALL_npointssentTOP, 1,  MPI_INT, MPI_SUM, vct->getCART_COMM_TOTAL());
- MPI_Allreduce ( &npointssentLEFT, &ALL_npointssentLEFT, 1,  MPI_INT, MPI_SUM, vct->getCART_COMM_TOTAL());
- MPI_Allreduce ( &npointssentRIGHT, &ALL_npointssentRIGHT, 1,  MPI_INT, MPI_SUM, vct->getCART_COMM_TOTAL());
-
- MPI_Allreduce ( &npointsreceivedBOTTOM, &ALL_npointsreceivedBOTTOM, 1,MPI_INT, MPI_SUM, vct->getCART_COMM_TOTAL());
- MPI_Allreduce ( &npointsreceivedTOP, &ALL_npointsreceivedTOP, 1,MPI_INT, MPI_SUM, vct->getCART_COMM_TOTAL());
- MPI_Allreduce ( &npointsreceivedLEFT, &ALL_npointsreceivedLEFT, 1,MPI_INT, MPI_SUM, vct->getCART_COMM_TOTAL());
- MPI_Allreduce ( &npointsreceivedRIGHT, &ALL_npointsreceivedRIGHT, 1,MPI_INT, MPI_SUM, vct->getCART_COMM_TOTAL());
- 
- int ALL_TARGETS;
- int ALL_RECEIVERS;
-
- //appropriate initializations done                                                                                                                                         
- MPI_Allreduce( &nmessageBC, &ALL_TARGETS, 1,  MPI_INT, MPI_SUM, vct->getCART_COMM_TOTAL());
- MPI_Allreduce ( &nmessagerecuBC, &ALL_RECEIVERS, 1,MPI_INT, MPI_SUM, vct->getCART_COMM_TOTAL());
-
- int ALLTARGETS_LEFT, ALLTARGETS_RIGHT, ALLTARGETS_BOTTOM, ALLTARGETS_TOP;
- int ALLRECEIVERS_LEFT,  ALLRECEIVERS_RIGHT,  ALLRECEIVERS_BOTTOM,  ALLRECEIVERS_TOP;
-
- MPI_Allreduce( &targetLEFT, &ALLTARGETS_LEFT, 1,  MPI_INT, MPI_SUM, vct->getCART_COMM_TOTAL());
- MPI_Allreduce( &targetRIGHT, &ALLTARGETS_RIGHT, 1,  MPI_INT, MPI_SUM, vct->getCART_COMM_TOTAL());
- MPI_Allreduce( &targetBOTTOM, &ALLTARGETS_BOTTOM, 1,  MPI_INT, MPI_SUM, vct->getCART_COMM_TOTAL());
- MPI_Allreduce( &targetTOP, &ALLTARGETS_TOP, 1,  MPI_INT, MPI_SUM, vct->getCART_COMM_TOTAL());
-
- MPI_Allreduce( &nmessagerecuBCLEFT, &ALLRECEIVERS_LEFT, 1,  MPI_INT, MPI_SUM, vct->getCART_COMM_TOTAL());
- MPI_Allreduce( &nmessagerecuBCRIGHT, &ALLRECEIVERS_RIGHT, 1,  MPI_INT, MPI_SUM, vct->getCART_COMM_TOTAL());
- MPI_Allreduce( &nmessagerecuBCBOTTOM, &ALLRECEIVERS_BOTTOM, 1,  MPI_INT, MPI_SUM, vct->getCART_COMM_TOTAL());
- MPI_Allreduce( &nmessagerecuBCTOP, &ALLRECEIVERS_TOP, 1,  MPI_INT, MPI_SUM, vct->getCART_COMM_TOTAL());
-
- // to remove
-
- for (int i=0; i< nmessageBC; i++)
-   {
-     if (BCSide[i]==0)
-       {
-         cout <<"R" << vct->getCartesian_rank_COMMTOTAL() << " FIELDS: sends BC bottom to R" << targetBC[i] <<" ns "<<ns <<endl;
-       }
-   }
-
- for (int i=0; i<nmessagerecuBC; i++)
-   {
-     if (BCSidecu[i]==0)
-       {
-         cout <<"R" << vct->getCartesian_rank_COMMTOTAL() << " FIELDS: receives BC bottom from R" << fromBC[i] <<" ns "<<ns<<endl;
-       }
-   }
- MPI_Barrier(vct->getCART_COMM_TOTAL());
- // end to remove
-
- if (ALL_TARGETS!=ALL_RECEIVERS)
-   {
-     if (vct->getCartesian_rank_COMMTOTAL()==0)
-       {
-	 cout <<"FIELDS: ALL_TARGETS= " <<ALL_TARGETS <<"!= ALL_RECEIVERS= "<<ALL_RECEIVERS <<endl;
-	 cout <<"FIELDS: ALLTARGETS_LEFT= " << ALLTARGETS_LEFT << " ALLRECEIVERS_LEFT= " << ALLRECEIVERS_LEFT <<endl;
-	 cout <<"FIELDS: ALLTARGETS_RIGHT= " << ALLTARGETS_RIGHT << " ALLRECEIVERS_RIGHT= "<< ALLRECEIVERS_RIGHT <<endl;
-	 cout <<"FIELDS: ALLTARGETS_BOTTOM= " << ALLTARGETS_BOTTOM << " ALLRECEIVERS_BOTTOM= "<< ALLRECEIVERS_BOTTOM <<endl;
-	 cout <<"FIELDS: ALLTARGETS_TOP= " << ALLTARGETS_TOP << " ALLRECEIVERS_TOP= "<< ALLRECEIVERS_TOP <<endl;
-	 return -1;
-       }
-   }
- 
- if (ALL_npointssentBOTTOM!= ALL_npointsreceivedBOTTOM || ALL_npointssentTOP!= ALL_npointsreceivedTOP || ALL_npointssentLEFT!= ALL_npointsreceivedLEFT || ALL_npointssentRIGHT!= ALL_npointsreceivedRIGHT )
-   {
-     if (vct->getCartesian_rank_COMMTOTAL()==0)
-       {
-	 cout << "Mismatch in points sent and received for interpolation!!!"<<endl;
-	 cout << "ALL_npointssentBOTTOM: " << ALL_npointssentBOTTOM << ", ALL_npointsreceivedBOTTOM: " << ALL_npointsreceivedBOTTOM <<endl;
-	 cout << "ALL_npointssentTOP: " << ALL_npointssentTOP<< ", ALL_npointsreceivedTOP: " << ALL_npointsreceivedTOP<<endl;
-	 cout << "ALL_npointssentLEFT: " << ALL_npointssentLEFT<< ", ALL_npointsreceivedLEFT: " << ALL_npointsreceivedLEFT<<endl;
-	 cout << "ALL_npointssentRIGHT: " << ALL_npointssentRIGHT<< ", ALL_npointsreceivedRIGHT: " << ALL_npointsreceivedRIGHT<<endl;
-	 return -1;
-       }
-   }
-
- // end checks, by ME
- return 1;
-}*/
-/*//Initialize weight for projection of refined fields between grids
-inline void EMfields::initWeightProj(VirtualTopology *vct, Grid *grid, CollectiveIO* col){
-
-MPI_Status status;
-int X,Y,Xlocal,Ylocal,i,j,k,ix,iy,nprocfirst,nproclast,nybloc,ierr;
-double coarsedx,coarsedy,coarselx,coarsely,finelx,finely,Ox,Oy,finedx,finedy,correctionx,correctiony;
-double xloc, yloc,xfirst,xlast,yfirst,ylast,xlocalfirst,xlocallast,ylocalfirst,ylocallast,xstop,ystop;
-int start, step;
-
-
-if ( grid->getLevel() > 0) {                             //If this grid is considered as fine by another grid
-    coarsedx = grid->getDX()*col->getRatio();
-    coarselx = col->getLx()/pow(col->getRatio(),grid->getLevel()-1);
-    coarsedy = grid->getDY()*col->getRatio();
-    coarsely = col->getLy()/pow(col->getRatio(),grid->getLevel()-1);
-    Ox = grid->getOx(grid->getLevel()); //Origin x of finer grid
-    Oy = grid->getOy(grid->getLevel()); //Origin y of finer grid
-
-    xfirst = floor((grid->getXstart()+Ox)/coarsedx)*coarsedx;//Coordinate of the first point in x direction of the coarse grid influenced by the projection of this proc expressed in the coarse grid frame
-    X= floor((xfirst)/coarsedx)/(grid->getNXC()-2); // X coordinate of the proc of the coarse grid intersecting the origin of this proc   
-    yfirst = floor((grid->getYstart()+Oy)/coarsedy)*coarsedy;
-    Y= floor((yfirst)/coarsedy)/(grid->getNYC()-2); // X coordinate of the proc of the coarse grid intersecting the origin of this proc   
-    targetProj[0] = X*vct->getYLEN()+Y+vct->getXLEN()*vct->getYLEN()*(grid->getLevel()-1);
-    targetProj[1] = (X+1)*vct->getYLEN()+Y+vct->getXLEN()*vct->getYLEN()*(grid->getLevel()-1);
-    targetProj[2] = X*vct->getYLEN()+Y+1+vct->getXLEN()*vct->getYLEN()*(grid->getLevel()-1);
-    targetProj[3] = (X+1)*vct->getYLEN()+Y+1+vct->getXLEN()*vct->getYLEN()*(grid->getLevel()-1);
-	if (vct->getXright_neighbor()==MPI_PROC_NULL){
-        xlast = ceil((grid->getXend()+Ox)/coarsedx)*coarsedx;
-        lastindicex = grid->getNXN()-2;
-    } else {
-        xlast = ceil((grid->getXend()+Ox)/coarsedx-1./col->getRatio())*coarsedx;
-        lastindicex = grid->getNXN()-3;
-    }
-	if (vct->getYright_neighbor()==MPI_PROC_NULL){
-        ylast = ceil((grid->getYend()+Oy)/coarsedy)*coarsedy;
-        lastindicey = grid->getNYN()-2;
-    } else {
-        ylast = ceil((grid->getYend()+Oy)/coarsedy-1./col->getRatio())*coarsedy;
-        lastindicey = grid->getNYN()-3;
-    }
-    xstop = (X+1)*(grid->getNXC()-2)*coarsedx; //End of domain of processor whith coordinate X
-    ystop = (Y+1)*(grid->getNYC()-2)*coarsedy; //End of domain of processor with coordinate Y
-    //nxmsend is the number of points sent in the x direction to the left part of x=xstop, and nxp to the right part of x=xstop
-    if (xstop < xlast){
-        nmessageProj=nmessageProj*2;
-        nxpsend = floor((xlast-xstop)/coarsedx+0.5) + 1;
-        nxmsend = floor((xlast-xfirst)/coarsedx+0.5)+1-nxpsend;
-    } else {
-        nxmsend = floor((xlast-xfirst)/coarsedx+0.5)+1;
-        nxpsend = 0;
-    }
-    //nym is the number of points sent in the y direction to the lower part of y=ystop, and nxp to the upper part of y=ystop
-    if (ystop < ylast){
-        nmessageProj=nmessageProj*2;
-        nypsend = floor((ylast-ystop)/coarsedy+0.5) + 1;
-        nymsend = floor((ylast-yfirst)/coarsedy+0.5)+1-nypsend;
-    } else {
-        nymsend = floor((ylast-yfirst)/coarsedy+0.5) + 1;
-        nypsend = 0 ;
-    }
-
-    for (ix =0; ix<nxmsend+nxpsend; ix++){
-        for (iy =0; iy<nymsend+nypsend; iy++){
-            normalizeProj[ix][iy][0]=0.;
-        }
-    }
-
-    for (i =0;i<lastindicex;i++) {
-        xloc = grid->getXstart() + i * grid->getDX() + Ox -xfirst;
-        ixsentProj[i] = int(floor(xloc/coarsedx));
-        for (j =0;j<lastindicey;j++) {
-            yloc = grid->getYstart() + j * grid->getDY() + Oy -yfirst;
-            iysentProj[j] = int(floor(yloc/coarsedy));
-
-            weightProj[i][j][3][0] = ((xloc - ixsentProj[i]*coarsedx)/coarsedx)*((yloc - iysentProj[j]*coarsedy)/coarsedy); // weight +:+
-            weightProj[i][j][2][0] = ((xloc - ixsentProj[i]*coarsedx)/coarsedx)*(((iysentProj[j]+1)*coarsedy - yloc)/coarsedy); //weight +:-
-            weightProj[i][j][1][0] = (((ixsentProj[i]+1)*coarsedx - xloc)/coarsedx)*((yloc - iysentProj[j]*coarsedy)/coarsedy); // weight -:+
-            weightProj[i][j][0][0] = (((ixsentProj[i]+1)*coarsedx - xloc)/coarsedx)*(((iysentProj[j]+1)*coarsedy - yloc)/coarsedy); // weight -:-
-
-            normalizeProj[ixsentProj[i]+1][iysentProj[j]+1][0] += weightProj[i][j][3][0];
-            normalizeProj[ixsentProj[i]+1][iysentProj[j]][0] += weightProj[i][j][2][0];
-            normalizeProj[ixsentProj[i]][iysentProj[j]+1][0] += weightProj[i][j][1][0];
-            normalizeProj[ixsentProj[i]][iysentProj[j]][0] += weightProj[i][j][0][0];
-        }
-    }
-
-    cout<< vct->getCartesian_rank_COMMTOTAL() << " sends to target0 = " << targetProj[0]<<" nmessageProj= "<<nmessageProj<<" nxmsend= "<<nxmsend<<" nxpsend= "<<nxpsend<<" nymsend= "<<nymsend<<" nypsend= "<<nypsend<< "xfirst = "<<xfirst<<"xlast = "<<xlast<<" yfirst= "<<yfirst<<" ylast = "<<ylast<<" xstop= "<<xstop<<endl;
-    start = 0;
-    for (i=0;i<nxmsend*nymsend;i++){
-        bufferProjsend[start] = normalizeProj[i/nymsend][i%nymsend][0];
-        start++;
-     //   cout << bufferProjsend[i]<<" ";
-    }
-       //cout << endl;
-       cout << vct->getCartesian_rank_COMMTOTAL() << "sending to "<< targetProj[0] << endl;
-    ierr = MPI_Send(bufferProjsend,nxmsend*nymsend,MPI_DOUBLE,targetProj[0],1,MPI_COMM_WORLD);
-
-    if(nxpsend > 0){
-        step=start;
-        for (i=0;i<nxpsend*nymsend;i++){
-            bufferProjsend[start] = normalizeProj[nxmsend+i/nymsend][i%nymsend][0];
-            start++;
-        }
-        ierr = MPI_Send(bufferProjsend+step,nxpsend*nymsend,MPI_DOUBLE,targetProj[1],1,MPI_COMM_WORLD);
-    }
-
-    if(nypsend > 0){
-        step=start;
-        for (i=0;i<nxmsend*nypsend;i++){
-            bufferProjsend[start] = normalizeProj[i/nypsend][nymsend+i%nypsend][0];
-            start++;
-        }
-        ierr = MPI_Send(bufferProjsend+step,nxmsend*nypsend,MPI_DOUBLE,targetProj[2],1,MPI_COMM_WORLD);
-    }
-    if(nypsend > 0 && nxpsend > 0){
-        step=start;
-        for (i=0;i<nxpsend*nypsend;i++){
-            bufferProjsend[start] = normalizeProj[nxmsend+i/nypsend][nymsend+i%nypsend][0];
-            start++;
-        }
-        ierr = MPI_Send(bufferProjsend+step,nxpsend*nypsend,MPI_DOUBLE,targetProj[3],1,MPI_COMM_WORLD);
-    }
-
-
-}
-if (grid->getLevel() < vct->getNgrids()-1) {
-    Ox = grid->getOx(grid->getLevel()+1); //Origin x of finer grid
-    Oy = grid->getOy(grid->getLevel()+1); //Origin y of finer grid
-    coarselx = col->getLx()/pow(col->getRatio(),grid->getLevel());
-    coarsely = col->getLy()/pow(col->getRatio(),grid->getLevel());
-    finelx = col->getLx()/pow(col->getRatio(),grid->getLevel()+1);
-    finely = col->getLy()/pow(col->getRatio(),grid->getLevel()+1);
-    finedx = grid->getDX()/col->getRatio();
-    finedy = grid->getDY()/col->getRatio();
-    for (ix =0; ix<nxn; ix++){
-        for (iy =0; iy<nyn; iy++){
-            normalizerecvProj[ix][iy][0]=0.; 
-        }
-    }
-    if(grid->getXstart()<Ox+finelx && grid->getXend()>Ox && grid->getYstart()<Oy+finely && grid->getYend()>Oy){
-        xfirst = max(floor(Ox/grid->getDX())*grid->getDX(),grid->getXstart());//x of the first point of this proc being updated by the finer domain (in the coarse domain frame) 
-        yfirst = max(floor(Oy/grid->getDY())*grid->getDY(),grid->getYstart());//y of the first point of this proc being updated by the finer domain (in the coarse domain frame)
-        ixrecvfirstProjglobal=floor((xfirst-grid->getXstart())/grid->getDX()+0.5)+1;//ix of the first point of this proc being updated by the finer domain (in the coarse domain frame) 
-        iyrecvfirstProjglobal=floor((yfirst-grid->getYstart())/grid->getDY()+0.5)+1;//iy of the first point of this proc being updated by the finer domain (in the coarse domain frame) 
-
-        xlast = min(ceil((Ox+finelx)/grid->getDX())*grid->getDX(),grid->getXend());//x of the last point of this proc intersecting the finer domain (in the coarse domain frame)
-        ylast = min(ceil((Oy+finely)/grid->getDY())*grid->getDY(),grid->getYend());//y of the last point of this proc intersecting the finer domain (in the coarse domain frame)
-        ixrecvlastProjglobal=floor((xlast-grid->getXstart())/grid->getDX()+0.5)+1;//ix of the first point of this proc being updated by the finer domain (in the coarse domain frame) 
-        iyrecvlastProjglobal=floor((ylast-grid->getYstart())/grid->getDY()+0.5)+1;//iy of the first point of this proc being updated by the finer domain (in the coarse domain frame) 
-        //Correction not to update coarse grid close to the fine/coarse boundary
-        if (xfirst <= Ox)
-	  ixrecvfirstProjglobal += 5; // skipped cells 
-        if (yfirst <= Oy)
-            iyrecvfirstProjglobal += 5; 
-        if (xlast >= Ox+finelx)
-            ixrecvlastProjglobal -= 5; 
-        if (ylast >= Oy+finely)
-            iyrecvlastProjglobal -= 5; 
-        nxmrecv=floor((xlast-xfirst)/grid->getDX()+0.5)+1;
-        nymrecv=floor((ylast-yfirst)/grid->getDY()+0.5)+1;
-
-
-    correctionx = 0.;
-    correctiony = 0.;
-    if (xfirst < Ox)
-        correctionx = grid->getDX();
-    if (yfirst < Oy)
-        correctiony = grid->getDY();
-      
-     nprocfirst = min(floor((yfirst+correctiony-Oy)/((grid->getNYC()-2.)*finedy)),col->getYLEN()-1.)+col->getYLEN()*min(floor((xfirst+correctionx-Ox)/((grid->getNXC()-2.)*finedx)),col->getXLEN()-1.)+col->getXLEN()*col->getYLEN()*(grid->getLevel()+1); // rank of the proc on the fine grid sending this point(in MPI_COMM_WORLD)
-
-
-    correctionx = 0.;
-    correctiony = 0.;
-    if (xlast > Ox+finelx)
-        correctionx = grid->getDX();
-    if (ylast > Oy+finely)
-        correctiony = grid->getDY();
-
-    nproclast = min(floor((ylast-correctiony-Oy)/((grid->getNYC()-2.)*finedy)),col->getYLEN()-1.)+col->getYLEN()*min(floor((xlast-correctionx-Ox)/((grid->getNXC()-2.)*finedx)),col->getXLEN()-1.)+col->getXLEN()*col->getYLEN()*( grid->getLevel()+1); // rank of the proc on the fine grid sending this point(in MPI_COMM_WORLD)
-    X = (nproclast-col->getYLEN()*col->getXLEN()*(grid->getLevel()+1))/col->getYLEN();// X position of nproclast
-    Y = nproclast%col->getYLEN();// Y position of nproclast
-    cout << vct->getCartesian_rank_COMMTOTAL() << " before correction x first = "<<xfirst<<" y first = "<<yfirst<<" nproc first = "<<nprocfirst<<" nproc last = "<<nproclast<<" X= "<<X<<" Y= "<<Y << endl;
-
-    if(xlast == grid->getXend() && grid->getXend() < Ox+finelx){
-        nproclast -= col->getYLEN(); 
-    }
-    if(ylast == grid->getYend() && grid->getYend() < Oy+finely){
-        nproclast -= 1; 
-    }
-    cout << vct->getCartesian_rank_COMMTOTAL() << " nproc first = "<<nprocfirst<<" nproc last = "<<nproclast << endl;
-
-   X=nproclast/col->getYLEN()-nprocfirst/col->getYLEN()+1;//Number of proc sending to this one in the X direction
-   Y=nproclast%col->getYLEN()-nprocfirst%col->getYLEN()+1;//Number of procs sending to this one in the Y direction
-   nmessagerecvProj = X*Y;
-   for (i=0;i<nmessagerecvProj;i++){
-       fromProj[i]= nprocfirst+i%Y+(i/Y)*col->getYLEN();
-
-       // This correction account for the fact that fine procs do not project their last points unless they are on the last row(y) or last colum(x).
-       correctionx = 0.;
-       correctiony = 0.;
-       if ((fromProj[i]-col->getXLEN()*col->getYLEN()*(grid->getLevel()+1))/col->getYLEN() < col->getXLEN()-1)
-           correctionx = -1./col->getRatio();
-       if (fromProj[i]%col->getYLEN() < col->getYLEN()-1)
-           correctiony = -1./col->getRatio();
-
-          Xlocal=(fromProj[i]-col->getXLEN()*col->getYLEN()*( grid->getLevel()+1))/col->getYLEN();
-          Ylocal=(fromProj[i]-col->getXLEN()*col->getYLEN()*( grid->getLevel()+1))%col->getYLEN();
-
-       xlocalfirst = max(          grid->getXstart(), floor(   (Ox+Xlocal*finelx/col->getXLEN())/grid->getDX()   ) *  grid->getDX()                            );//First updated point by proc fromProj[i]
-       ylocalfirst = max(          grid->getYstart(), floor(   (Oy+Ylocal*finely/col->getYLEN())/grid->getDY()   ) *  grid->getDY()                            );//First updated point by proc fromProj[i]
-       xlocallast = min(          grid->getXend(), ceil(   (Ox+(Xlocal+1)*finelx/col->getXLEN())/grid->getDX()+correctionx   ) *  grid->getDX()                            );//First updated point by proc fromProj[i]
-       ylocallast = min(          grid->getYend(), ceil(   (Oy+(Ylocal+1)*finely/col->getYLEN())/grid->getDY()+correctiony   ) *  grid->getDY()                            );//First updated point by proc fromProj[i]
-       nxrecvProj[i]=floor((xlocallast-xlocalfirst)/grid->getDX()+1.5);
-       nyrecvProj[i]=floor((ylocallast-ylocalfirst)/grid->getDY()+1.5);
-       npointsreceivedProj[i]=nxrecvProj[i]*nyrecvProj[i];
-       ixrecvfirstProj[i]=floor((xlocalfirst-grid->getXstart())/grid->getDX()+0.5)+1;
-       iyrecvfirstProj[i]=floor((ylocalfirst-grid->getYstart())/grid->getDY()+0.5)+1;
-
-       cout << vct->getCartesian_rank_COMMTOTAL() << "receiving from "<< fromProj[i] << " number of points = "<<npointsreceivedProj[i]<< "xlocalfirst= "<< xlocalfirst<<" xlocallast= "<<xlocallast<<" correctionx = "<<correctionx<<" ylocalfirst= "<< ylocalfirst<<" ylocallast = "<<ylocallast<<endl;
-       ierr = MPI_Recv(bufferProj,npointsreceivedProj[i],MPI_DOUBLE,fromProj[i],1,MPI_COMM_WORLD, &status);
-       for (j=0;j<npointsreceivedProj[i];j++){
-           ix = ixrecvfirstProj[i] + j/nyrecvProj[i];
-           iy = iyrecvfirstProj[i] + j%nyrecvProj[i];
-           normalizerecvProj[ix][iy][0] += bufferProj[j];
-       }
-       
-   }
-   }
-   // Completing normalizerecvProj with the normalization gathered by the other coarse procs
-    if (Ox <=grid->getXstart() && Ox+finelx >= grid->getXstart()) {
-        //Send a message to proc  coorinateX-1
-        for (i=1;i<nyn-1;i++){
-                bufferProjsend[i-1] = normalizerecvProj[1][i][0];
-            }
-        if (Ox <=grid->getXend() && Ox+finelx >= grid->getXend()) {
-        //also receive a message
-            cout << vct->getCartesian_rank_COMMTOTAL() << "SENd RECEIVE" <<endl;
-            ierr = MPI_Sendrecv(bufferProjsend,nyn-2,MPI_DOUBLE,vct->getXleft_neighbor(),1,bufferProjrecv,nyn-2,MPI_DOUBLE,vct->getXright_neighbor(),1,vct->getCART_COMM(), &status);
-        } else {
-        //send only
-            cout << vct->getCartesian_rank_COMMTOTAL() << "SENd only" <<endl;
-            ierr = MPI_Send(bufferProjsend,nyn-2,MPI_DOUBLE,vct->getXleft_neighbor(),1,vct->getCART_COMM());
-        }
-    } else {
-        //Do not send ...
-          if (Ox <=grid->getXend() && Ox+finelx >= grid->getXend()) {
-          //... but receive only
-            cout << vct->getCartesian_rank_COMMTOTAL() << "RECEIVE only" <<endl;
-              ierr = MPI_Recv(bufferProjrecv,nyn-2,MPI_DOUBLE,vct->getXright_neighbor(),1,vct->getCART_COMM(), &status);
-          }
-    }
-    if (Ox <=grid->getXend() && Ox+finelx >= grid->getXend()) {
-        //If a message from proc coorinateX+1 has been received
-        for (i=1;i<nyn-1;i++){
-                normalizerecvProj[nxn-2][i][0] += bufferProjrecv[i-1];
-        }
-    //Send a message to proc coordinateX+1
-        for(i=1;i<nyn-1;i++){
-            bufferProjsend[i-1] = normalizerecvProj[nxn-2][i][0];
-        }
-        if (Ox <=grid->getXstart() && Ox+finelx >= grid->getXstart()) {
-        //also receive a message
-        ierr = MPI_Sendrecv(bufferProjsend,nyn-2,MPI_DOUBLE,vct->getXright_neighbor(),1,bufferProjrecv,nyn-2,MPI_DOUBLE,vct->getXleft_neighbor(),1,vct->getCART_COMM(), &status);
-        } else {
-        //send only
-        cout << vct->getCartesian_rank_COMMTOTAL() <<" send to "<< vct->getXright_neighbor() << endl;
-        ierr = MPI_Send(bufferProjsend,nyn-2,MPI_DOUBLE,vct->getXright_neighbor(),1,vct->getCART_COMM());
-        }
-    
-    } else {
-          //Do not send ...
-           if (Ox <=grid->getXstart() && Ox+finelx >= grid->getXstart()) {
-           //...receive only
-           cout << vct->getCartesian_rank_COMMTOTAL() <<" receive from "<< vct->getXleft_neighbor() << endl;
-           ierr = MPI_Recv(bufferProjrecv,nyn-2,MPI_DOUBLE,vct->getXleft_neighbor(),1,vct->getCART_COMM(), &status);
-           }
-    }
-
-    if (Ox <=grid->getXstart() && Ox+finelx >= grid->getXstart()) {
-        //A message from proc coordinateX-1 has been received
-        for (i=1;i<nyn-1;i++){
-            normalizerecvProj[1][i][0] =  bufferProjrecv[i-1];
-        }
-    }
-
-    // In the Y direction now
-    if (Oy <=grid->getYstart() && Oy+finely >= grid->getYstart()) {
-        //Send a message to proc  coorinateY-1
-        for (i=1;i<nxn-1;i++){
-                bufferProjsend[i-1] = normalizerecvProj[i][1][0];
-            }
-        if (Oy <=grid->getYend() && Oy+finely >= grid->getYend()) {
-        //also receive a message
-            ierr = MPI_Sendrecv(bufferProjsend,nxn-2,MPI_DOUBLE,vct->getYleft_neighbor(),1,bufferProjrecv,nxn-2,MPI_DOUBLE,vct->getYright_neighbor(),1,vct->getCART_COMM(), &status);
-        } else {
-        //send only
-            ierr = MPI_Send(bufferProjsend,nxn-2,MPI_DOUBLE,vct->getYleft_neighbor(),1,vct->getCART_COMM());
-        }
-    } else {
-        //Do not send ...
-          if (Oy <=grid->getYend() && Oy+finely >= grid->getYend()) {
-          //... but receive only
-              ierr = MPI_Recv(bufferProjrecv,nxn-2,MPI_DOUBLE,vct->getYright_neighbor(),1,vct->getCART_COMM(), &status);
-          }
-    }
-    if (Oy <=grid->getYend() && Oy+finely >= grid->getYend()) {
-        //If a message from proc coorinateY+1 has been received
-        for (i=1;i<nxn-1;i++){
-                normalizerecvProj[i][nyn-2][0] += bufferProjrecv[i-1];
-        }
-    //Send a message to proc coordinateY+1
-        for(i=1;i<nxn-1;i++){
-            bufferProjsend[i-1] = normalizerecvProj[i][nyn-2][0];
-        }
-        if (Oy <=grid->getYstart() && Oy+finely >= grid->getYstart()) {
-        //also receive a message
-        ierr = MPI_Sendrecv(bufferProjsend,nxn-2,MPI_DOUBLE,vct->getYright_neighbor(),1,bufferProjrecv,nxn-2,MPI_DOUBLE,vct->getYleft_neighbor(),1,vct->getCART_COMM(), &status);
-        } else {
-        //send only
-        cout << vct->getCartesian_rank_COMMTOTAL() <<" send to "<< vct->getYright_neighbor() << endl;
-        ierr = MPI_Send(bufferProjsend,nxn-2,MPI_DOUBLE,vct->getYright_neighbor(),1,vct->getCART_COMM());
-        }
-    
-    } else {
-          //Do not send ...
-           if (Oy <=grid->getYstart() && Oy+finely >= grid->getYstart()) {
-           //...receive only
-           cout << vct->getCartesian_rank_COMMTOTAL() <<" receive from "<< vct->getYleft_neighbor() << endl;
-           ierr = MPI_Recv(bufferProjrecv,nxn-2,MPI_DOUBLE,vct->getYleft_neighbor(),1,vct->getCART_COMM(), &status);
-           }
-    }
-    if (Oy <=grid->getYstart() && Oy+finely >= grid->getYstart()) {
-        //A message from proc coordinateX-1 has been received
-        for (i=1;i<nxn-1;i++){
-            normalizerecvProj[i][1][0] =  bufferProjrecv[i-1];
-        }
-    }
-    
-
-         //cout << "Proc " << vct->getCartesian_rank_COMMTOTAL() <<"receives from nproc first= " << nprocfirst<<" nproc last = "<<nproclast << "xfirst = "<<xfirst << "xlast = "<< xlast<< "yfirst = "<<yfirst << "ylast = "<< ylast << "nproc last = " << nproclast<< endl;
-   for (i=0;i<nmessagerecvProj;i++){
-       cout << " fromProj " << fromProj[i] << " nxrecvProj = "<<nxrecvProj[i]<<" nyrecvProj= "<<nyrecvProj[i]<< "ixrecvfirstProj= " <<ixrecvfirstProj[i]<<"iyrecvfirstProj= "<<iyrecvfirstProj[i]<<endl;
-   }
-
-   if (vct->getCartesian_rank_COMMTOTAL()==6){
-       for(j=0;j<nyn;j++){
-           for(i=0;i<nxn;i++){
-               cout << normalizerecvProj[i][j][0] << " ";
-           }
-           cout << endl;
-       }
-   }
-
-
-   // }
-
-}
-}*/
 /** communicate ghost for grid -> Particles interpolation */
 inline void EMfields::communicateGhostP2G(int ns,int bcFaceXright, int bcFaceXleft, int bcFaceYright, int bcFaceYleft, VirtualTopology *vct){
 
@@ -6418,6 +5479,9 @@ inline void EMfields::calculateB_afterProj(Grid *grid, VirtualTopology *vct){
 
 /** modified by ME to avoid problems when nodes sent and receive do not match**/
 inline int EMfields::initWeightBC(VirtualTopology *vct, Grid *grid, CollectiveIO* col){
+
+  bool DEBUG= false;// in case of problems, set this to true for a lot of additional checks for debug
+
   int i,j,ix,iy,nproc;
   double finedx, finedy,finelx,finely, xfirst, xlast,xfirstnext, Ox, Oy,xloc,yloc;
   double coarsedx, coarsedy,coarselx,coarsely;
@@ -6660,9 +5724,11 @@ inline int EMfields::initWeightBC(VirtualTopology *vct, Grid *grid, CollectiveIO
       }
     } 
 
-    for (i=0;i<nmessagerecuBC;i++){
+    if (DEBUG)
+      {    for (i=0;i<nmessagerecuBC;i++){
       cout << "R" << vct->getCartesian_rank_COMMTOTAL() <<  ": receiving BC "<<npointsreceived[i]<<" points from "<<fromBC[i] <<", side " << BCSidecu[i]<<endl;
     }
+      }// end DEBUG
 
   } 
 
@@ -6709,6 +5775,8 @@ inline int EMfields::initWeightBC(VirtualTopology *vct, Grid *grid, CollectiveIO
 	}
     }
 
+  if (DEBUG)
+    {
   MPI_Barrier(vct->getCART_COMM());
   if (! (vct->getCartesian_rank_COMMTOTAL()%(vct->getXLEN()*vct->getYLEN())))
     {
@@ -6739,7 +5807,7 @@ inline int EMfields::initWeightBC(VirtualTopology *vct, Grid *grid, CollectiveIO
     }
   // end debug, can be commented
   // end exchange the map
-
+    } // end if (DEBUG)
 
   // exchange the info
   
@@ -6817,11 +5885,14 @@ inline int EMfields::initWeightBC(VirtualTopology *vct, Grid *grid, CollectiveIO
     }
   // end coarse grid receiving the info
 
+  if (DEBUG)
+    {
   MPI_Barrier(vct->getCART_COMM());
   if (! (vct->getCartesian_rank_COMMTOTAL()%(vct->getXLEN()*vct->getYLEN())))
     {
       cout << "Level " << grid->getLevel() << " finished exchanging the info for BC\n";
     }
+    
 
   // debug, can be commented
 
@@ -6900,7 +5971,7 @@ inline int EMfields::initWeightBC(VirtualTopology *vct, Grid *grid, CollectiveIO
 	  cout << "Points sent and received for BC checked! Congrats!!!" << endl;
 	}
     }
-
+    }// edn if (DEBUG)
   // end debug, can be commented
 
   // end exchange the info
@@ -7056,6 +6127,8 @@ inline int EMfields::initWeightBC(VirtualTopology *vct, Grid *grid, CollectiveIO
 
       // end coarse grid builds its weights
       
+      if(DEBUG)
+	{
       // debug, possible to remove
       int total_sent=0;
       for (int i=0; i< nmessageBC; i++)
@@ -7067,26 +6140,26 @@ inline int EMfields::initWeightBC(VirtualTopology *vct, Grid *grid, CollectiveIO
 	  cout << "R" << vct->getCartesian_rank_COMMTOTAL() << ": mess in initWeightBC: exiting..." <<endl;
 	  return -1;
 	}
-      // end debug, possible to remvoe
-      
+	}// end if (DEBUG)
     }// end coarse grod
-  
   // end send/receive
 
 
-  MPI_Barrier(vct->getCART_COMM());
-  if (! (vct->getCartesian_rank_COMMTOTAL()%(vct->getXLEN()*vct->getYLEN())))
+  if (DEBUG)
     {
-      cout << "Level " << grid->getLevel() << " finished initWeightBC\n";
-    }  
-
-  MPI_Barrier(vct->getCART_COMM_TOTAL());
-  if (vct->getCartesian_rank_COMMTOTAL()==0)
-    {
-      cout << "everybody finished initWeightBC" << endl;
-    }
-
-    
+      MPI_Barrier(vct->getCART_COMM());
+      if (! (vct->getCartesian_rank_COMMTOTAL()%(vct->getXLEN()*vct->getYLEN())))
+	{
+	  cout << "Level " << grid->getLevel() << " finished initWeightBC\n";
+	}  
+      
+      MPI_Barrier(vct->getCART_COMM_TOTAL());
+      if (vct->getCartesian_rank_COMMTOTAL()==0)
+	{
+	  cout << "everybody finished initWeightBC" << endl;
+	}
+    }// end DEBUG
+  
   delete []buffer;
   delete []info;
   return 1;

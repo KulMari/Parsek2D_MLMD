@@ -51,7 +51,8 @@ using std::endl;
 
 int main (int argc, char **argv) {
 
-  bool TEST=1; //this takes a lot od reduces, put to 0 normally
+  bool TEST=0; //this takes a lot od reduces, put to 0 normally
+  bool TEST_B=0; // to eliminate the barriers; when debugging, the barriers mark the beginning/ end of each phase
 
   int proj=1;
  int interp=1;
@@ -152,15 +153,17 @@ if (coord[0] != coord_particles[0]) {
 	  mpi->Abort();
 	  return (-1);
 	}
-
     }
 
-  MPI_Barrier(vct->getCART_COMM_TOTAL()) ;
-  if (vct->getCartesian_rank_COMMTOTAL()==0)
+  if (TEST_B) 
     {
-      cout << "initWeightBC ended well\n";
-    }
-
+      MPI_Barrier(vct->getCART_COMM_TOTAL()) ;
+      if (vct->getCartesian_rank_COMMTOTAL()==0)
+	{
+	  cout << "initWeightBC ended well\n";
+	}
+    }// end TEST
+  
   if (vct->getNgrids()>1 && proj)
     {
       int initProjres;
@@ -172,20 +175,27 @@ if (coord[0] != coord_particles[0]) {
         }
     }
 
-  MPI_Barrier(vct->getCART_COMM_TOTAL()) ;
-  if (vct->getCartesian_rank_COMMTOTAL()==0)
+  if (TEST_B)
     {
-      cout << "initWeightProj ended well\n";
-    }  
+      MPI_Barrier(vct->getCART_COMM_TOTAL()) ;
+      if (vct->getCartesian_rank_COMMTOTAL()==0)
+	{
+	  cout << "initWeightProj ended well\n";
+	}
+    }  // end TEST
   // Allocation of particles
   Particles2D *part = new Particles2D[ns];
   
-  // for debugging
-  MPI_Barrier(vct->getCART_COMM_TOTAL());
-  if (vct->getCartesian_rank_COMMTOTAL()==0)
+  if (TEST_B)
     {
-      cout << "I am starting allocating particles\n";
-    }
+      MPI_Barrier(vct->getCART_COMM_TOTAL());
+      if (vct->getCartesian_rank_COMMTOTAL()==0)
+	{
+	  cout << "I am starting allocating particles\n";
+	}
+    }// end TEST
+
+
   // end for debugging
   for (int i=0; i < ns; i++)
     {
@@ -270,8 +280,6 @@ if (coord[0] != coord_particles[0]) {
   momentum = new double[ns];
   if (TEST)
     {
-      //Kenergy = new double[ns];
-      //momentum = new double[ns];
       stringstream levelstr;
       levelstr << level;
       cq = SaveDirName + "/ConservedQuantities_"+ levelstr.str() +".txt";
@@ -280,12 +288,14 @@ if (coord[0] != coord_particles[0]) {
 	my_file.close();
       }
     }
-  cout<<"R"<<myrank << " Init ops done"<<endl;
-  MPI_Barrier(vct->getCART_COMM()) ;
-  if (! (vct->getCartesian_rank_COMMTOTAL()%(vct->getXLEN()*vct->getYLEN()))   )
-    cout << "Level " << level << ": Init ops done\n";
-
+  if (TEST_B)
+    {
+      cout<<"R"<<myrank << " Init ops done"<<endl;
+      MPI_Barrier(vct->getCART_COMM()) ;
+      if (! (vct->getCartesian_rank_COMMTOTAL()%(vct->getXLEN()*vct->getYLEN()))   )
+	cout << "Level " << level << ": Init ops done\n";
   
+    }//end TEST
   //*******************************************//<<
   //****     Start the  Simulation!         ***//
   //*******************************************//
@@ -341,8 +351,6 @@ if (coord[0] != coord_particles[0]) {
       output_mgr.output("Eall + Ball + rhos + rho + phi + Jsall",cycle);
       hdf5_agent.close();
 
-      //ME 
-      //EMf->outputghost(vct, col, cycle);
     }
     if (cycle%(col->getParticlesOutputCycle())==0 && col->getParticlesOutputCycle()!=1)
     {
@@ -364,13 +372,6 @@ if (coord[0] != coord_particles[0]) {
     {
       EMf->calculateField(grid,vct); // calculate the EM fields
     }
-
-    /*// to remove                                                                                                        
-    MPI_Barrier(vct->getCART_COMM());// barrier at Level level                                                          
-    if (myrank==0 || myrank == 100)
-      {
-        cout << "L " <<level << " Barrier at level level after solver, cycle " << cycle+1 << endl;
-	}*/
 
     //If needed: receive or send  boundary conditions to other levels
     if (interp)
@@ -394,14 +395,11 @@ if (coord[0] != coord_particles[0]) {
 	EMf->receiveProjection(col,grid,vct);
       }
     }// end projection
-    if (cycle%(col->getFieldOutputCycle())==0 || cycle==first_cycle){
+    if ((cycle%(col->getFieldOutputCycle())==0 || cycle==first_cycle) and TEST){
 	    EMf->outputghost(vct, col, cycle);
 	}
     // Here we made the assumption that level n can be updated by non updated level n+1.
-      
-    // mover
-    //if (0){ // to remove
-      
+            
     for (int i=0; i < ns; i++) // move each species
     {
       // initialize the buffers for communicatin of PRA particles from the coarser to the finer grids
@@ -507,7 +505,7 @@ if (coord[0] != coord_particles[0]) {
       writeRESTART(RestartDirName,myrank,cycle,ns,mpi,vct,col,grid,EMf,part,0); // without ,0 add to restart file	   
 
 
-    if (TEST and !(cycle%20 ))
+    if (TEST)// and !(cycle%20 ))
       {
 	Eenergy= EMf->getEenergy(vct);
 	Benergy= EMf->getBenergy(vct);
