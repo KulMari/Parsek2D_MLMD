@@ -1,6 +1,8 @@
 #makefile for PARSEK PROJECT
 CPP=    mpicxx
-OPTFLAGS=  -g -Wl,-z,muldefs #-g for debugging -trace to generate trace for itac
+#CPP= scalasca -instrument mpicxx
+#OPTFLAGS= -g -O0 -Wl,-z,muldefs  #usual#-z muldefs to ignore multiple definitions, fails otherwise
+OPTFLAGS= -O2 -fp-model precise -Wl,-z,muldefs #-g for debugging -trace to generate trace for itac
 # include files
 ##INC_MPI = -I/apps/leuven/intel/impi/4.0.0.028/include64
 # libs

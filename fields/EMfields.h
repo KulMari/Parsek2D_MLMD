@@ -6191,18 +6191,11 @@ inline int EMfields::initWeightProj(VirtualTopology *vct, Grid *grid, Collective
   int xright=0;
   int yleft=0;
   int yright=0;
-  /*MPI_Barrier(vct->getCART_COMM_TOTAL());
-  if (vct->getCartesian_rank_COMMTOTAL()==0)
-  cout << "AFter the Barrier at the beginnign in initWeightProj" <<endl;*/
 
   for (int i=0; i< vct->getXLEN()*vct->getYLEN(); i++)
     {
       ProjCoarseGrid[i]=0;
     }
-
-  /*MPI_Barrier(vct->getCART_COMM_TOTAL());
-  if (vct->getCartesian_rank_COMMTOTAL()==0)
-  cout << "AFter the Barrier at the beginnign in initWeightProj" <<endl;*/
 
   if ( grid->getLevel() > 0) {                             //If this grid is considered as fine by another grid
     coarsedx = grid->getDX()*col->getRatio();
@@ -6220,6 +6213,7 @@ inline int EMfields::initWeightProj(VirtualTopology *vct, Grid *grid, Collective
     targetProj[1] = (X+1)*vct->getYLEN()+Y+vct->getXLEN()*vct->getYLEN()*(grid->getLevel()-1);
     targetProj[2] = X*vct->getYLEN()+Y+1+vct->getXLEN()*vct->getYLEN()*(grid->getLevel()-1);
     targetProj[3] = (X+1)*vct->getYLEN()+Y+1+vct->getXLEN()*vct->getYLEN()*(grid->getLevel()-1);
+
     if (vct->getXright_neighbor()==MPI_PROC_NULL){
       xlast = ceil((grid->getXend()+Ox)/coarsedx)*coarsedx;
       lastindicex = grid->getNXN()-2; 
@@ -6234,6 +6228,7 @@ inline int EMfields::initWeightProj(VirtualTopology *vct, Grid *grid, Collective
       ylast = ceil((grid->getYend()+Oy)/coarsedy-1./col->getRatio())*coarsedy;
       lastindicey = grid->getNYN()-3; 
     }
+
     xstop = (X+1)*(grid->getNXC()-2)*coarsedx; //End of domain of processor whith coordinate X
     ystop = (Y+1)*(grid->getNYC()-2)*coarsedy; //End of domain of processor with coordinate Y
     //nxmsend is the number of points sent in the x direction to the left part of x=xstop, and nxp to the right part of x=xstop
@@ -6276,12 +6271,11 @@ inline int EMfields::initWeightProj(VirtualTopology *vct, Grid *grid, Collective
     coordXprojPP=2; 
     coordYprojPP=2; 
 
-    //cout << "R" << vct->getCartesian_rank_COMMTOTAL() << ", coordXprojMM "<< coordXprojMM << ", coordYprojMM "<< coordYprojMM << ", coordXprojMP "<< coordXprojMP << ", coordYprojMP "<< coordYprojMP << ", coordXprojPM "<< coordXprojPM << ", coordYprojPM "<< coordYprojPM << ", coordXprojPP "<< coordXprojPP << ", coordYprojPP "<< coordYprojPP <<endl;
-    
-    for (i =0;i<lastindicex;i++) {
+    for (int i =0;i<lastindicex;i++) {
       xloc = grid->getXstart() + i * grid->getDX() + Ox -xfirst;
       ixsentProj[i] = int(floor(xloc/coarsedx));
-      for (j =0;j<lastindicey;j++) {
+
+      for (int j =0;j<lastindicey;j++) {
 	yloc = grid->getYstart() + j * grid->getDY() + Oy -yfirst;
 	iysentProj[j] = int(floor(yloc/coarsedy));
 
@@ -6294,18 +6288,9 @@ inline int EMfields::initWeightProj(VirtualTopology *vct, Grid *grid, Collective
 	normalizeProj[ixsentProj[i]+1][iysentProj[j]][0] += weightProj[i][j][2][0];
 	normalizeProj[ixsentProj[i]][iysentProj[j]+1][0] += weightProj[i][j][1][0];
 	normalizeProj[ixsentProj[i]][iysentProj[j]][0] += weightProj[i][j][0][0];
+
       }
     }
-    /*if (vct->getCartesian_rank_COMMTOTAL()== 24){
-        for (i=0;i<nxmsend;i++){
-            for (j=0;j<nymsend;j++){
-                cout<< normalizeProj[i][j][0]<< " ";
-            }
-            cout << endl;
-        }
-	}*/
-    //cout<< vct->getCartesian_rank_COMMTOTAL() << " sends to target0 = " << targetProj[0]<<" nmessageProj= "<<nmessageProj<<" nxmsend= "<<nxmsend<<" nxpsend= "<<nxpsend<<" nymsend= "<<nymsend<<" nypsend= "<<nypsend<< "xfirst = "<<xfirst<<"xlast = "<<xlast<<" yfirst= "<<yfirst<<" ylast = "<<ylast<<" xstop= "<<xstop <<" lastindicey "<< lastindicey << "lastindicex  "<<lastindicex <<endl;
-    
     ProjCoarseGrid[targetProj[0]]++;   
 
     if(nxpsend > 0){
@@ -6320,10 +6305,7 @@ inline int EMfields::initWeightProj(VirtualTopology *vct, Grid *grid, Collective
     }
 
 
-  }
-  //MPI_Barrier(vct->getCART_COMM_TOTAL());
-  //if (vct->getCartesian_rank_COMMTOTAL()==0)
-  //  cout << "AFter the Barrier in initWeightProj" <<endl;
+  }  // end refined grid
 
   if (grid->getLevel()==0) // init the normalizerecvProj, while the refined grid does something else
     {
@@ -6335,16 +6317,7 @@ inline int EMfields::initWeightProj(VirtualTopology *vct, Grid *grid, Collective
     }
 
   MPI_Allreduce(ProjCoarseGrid,TOTALProjCoarseGrid,vct->getXLEN()*vct->getYLEN(),MPI_INT,MPI_SUM,vct->getCART_COMM_TOTAL());
-  //if (vct->getCartesian_rank_COMMTOTAL()==0)
-  //  {
-  //    cout << "initWeightProj: after MPI_Reduce\n";
-  //    for (int i=0; i<vct->getXLEN()*vct->getYLEN(); i++)
-  //    {
-  //	  cout << "Messages to R" << i << ": " << TOTALProjCoarseGrid[i] <<endl;
-  // 	}
-  //  }
 
-  // refined grid builds the weights and  sends the messages
 
   int TagProj=5;
   //double prova=0.0;
