@@ -242,12 +242,12 @@ inline Grid2DCU::Grid2DCU(CollectiveIO* col, VirtualTopology* vct, int GridLevel
      //ox[i] = col->getLx()/(double)2.*(double)pow(ratio,-i+1)*((double)1.-(double)1./ratio);
      //oy[i] = col->getLy()/(double)2.*(double)pow(ratio,-i+1)*((double)1.-(double)1./ratio)*1.5;
        //Manually tuned
-     //ox[i] = 15-col->getLx()/pow(ratio,i)/2.;
-     //oy[i] = 15-col->getLy()/pow(ratio,i)/2.;
+     ox[i] = 15-col->getLx()/pow(ratio,i)/2.;
+     oy[i] = 15-col->getLy()/pow(ratio,i)/2.;
 
      //Manually tuned Laila               
-     ox[i] = 150-col->getLx()/pow(ratio,i)/2.; 
-     oy[i] = 60-col->getLy()/pow(ratio,i)/2.; 
+     //ox[i] = 150-col->getLx()/pow(ratio,i)/2.; 
+     //oy[i] = 60-col->getLy()/pow(ratio,i)/2.; 
 
      //ox[i] = col->getLx()*(0.25+1./(double)2.*(double)pow(ratio,-i+1)*((double)1.-(double)1./ratio))-1;
      //oy[i] = col->getLy()*(0.25+1./(double)2.*(double)pow(ratio,-i+1)*((double)1.-(double)1./ratio))-1;
@@ -267,8 +267,10 @@ inline Grid2DCU::Grid2DCU(CollectiveIO* col, VirtualTopology* vct, int GridLevel
    yEnd   = yStart + (lengthy/(double) vct->getYLEN());
  
    // arrays allocation: nodes ---> the first node has index 1, the last has index nxn-2!
-   xn = newArr3(double,nxn,nyn,1);
-   yn = newArr3(double,nxn,nyn,1);
+   //xn = newArr3(double,nxn,nyn,1);
+   //yn = newArr3(double,nxn,nyn,1);
+   allocArr3(&xn, nxn, nyn, 1);
+   allocArr3(&yn, nxn, nyn, 1);
    for (int i=0; i < nxn; i++){
      for (int j=0; j < nyn; j++){
           xn[i][j][0] = xStart + (i-1)*dx;
@@ -277,8 +279,10 @@ inline Grid2DCU::Grid2DCU(CollectiveIO* col, VirtualTopology* vct, int GridLevel
      }
    
    // arrays allocation: cells ---> the first cell has index 1, the last has index ncn-2!
-   xc = newArr3(double,nxc,nyc,1);
-   yc = newArr3(double,nxc,nyc,1);
+   //xc = newArr3(double,nxc,nyc,1);
+   //yc = newArr3(double,nxc,nyc,1);
+   allocArr3(&xc, nxc, nyc, 1);
+   allocArr3(&yc, nxc, nyc, 1);
    for (int i=0; i < nxc; i++){
      for (int j=0; j < nyc; j++){
           xc[i][j][0] = .5*(xn[i][j][0] + xn[i+1][j][0]);
@@ -291,11 +295,15 @@ inline Grid2DCU::Grid2DCU(CollectiveIO* col, VirtualTopology* vct, int GridLevel
 /** deallocate the local grid */
 inline Grid2DCU::~Grid2DCU(){
    // deallocate nodes
-   delArr3(xn,nxn,nyn);
-   delArr3(yn,nxn,nyn);
+   //delArr3(xn,nxn,nyn);
+   //delArr3(yn,nxn,nyn);
+  freeArr3(&xn);
+  freeArr3(&yn);
    // centers cells
-   delArr3(xc,nxc,nyc);
-   delArr3(yc,nxc,nyc);
+  //delArr3(xc,nxc,nyc);
+  //delArr3(yc,nxc,nyc);
+  freeArr3(&xc);
+  freeArr3(&yc);
    
    
 }
@@ -626,8 +634,14 @@ inline void Grid2DCU::curlN2C_withghost(double ***curlXC, double ***curlYC, doub
 inline void Grid2DCU::lapN2N(double*** lapN,double ***scFieldN,VirtualTopology *vct){
    // calculate laplacian as divercence of gradient
    // allocate 3 gradients: defined on central points
-   double*** gradXC = newArr3(double,nxc,nyc,1);
-   double*** gradYC = newArr3(double,nxc,nyc,1);
+   //double*** gradXC = newArr3(double,nxc,nyc,1);
+   //double*** gradYC = newArr3(double,nxc,nyc,1);
+  double*** gradXC;
+  double*** gradYC;
+
+  allocArr3(&gradXC, nxc, nyc, 1);
+  allocArr3(&gradYC, nxc, nyc, 1);
+
    eqValue (0.0, gradXC,nxc,nyc);
    eqValue (0.0, gradYC,nxc,nyc);
    gradN2C(gradXC,gradYC,scFieldN);
@@ -656,15 +670,24 @@ inline void Grid2DCU::lapN2N(double*** lapN,double ***scFieldN,VirtualTopology *
        lapN[i][nyn-2][0]  = (scFieldN[i-1][nyn-2][0] -2*scFieldN[i][nyn-2][0] +scFieldN[i+1][nyn-2][0] )*invdx*invdx + (scFieldN[i][nyn-3][0] -2*scFieldN[i][nyn-2][0] + scFieldN[i][nyn-1][0])*invdy*invdy;
   }
    // deallocate
-   delArr3(gradXC,nxc,nyc);
-   delArr3(gradYC,nxc,nyc);
+   //delArr3(gradXC,nxc,nyc);
+   //delArr3(gradYC,nxc,nyc);
+  freeArr3(&gradXC);
+  freeArr3(&gradYC);
 }
 /** calculate laplacian on nodes, given a scalar field defined on nodes */
 inline void Grid2DCU::lapN2N_plusghost(double*** lapN,double ***scFieldN,VirtualTopology *vct){
    // calculate laplacian as divercence of gradient
    // allocate 3 gradients: defined on central points
-   double*** gradXC = newArr3(double,nxc,nyc,1);
-   double*** gradYC = newArr3(double,nxc,nyc,1);
+   //double*** gradXC = newArr3(double,nxc,nyc,1);
+   //double*** gradYC = newArr3(double,nxc,nyc,1);
+
+  double*** gradXC;
+  double*** gradYC;
+
+  allocArr3(&gradXC, nxc, nyc, 1);
+  allocArr3(&gradYC, nxc, nyc, 1);
+
    eqValue (0.0, gradXC,nxc,nyc);
    eqValue (0.0, gradYC,nxc,nyc);
    gradN2C_plusghost(gradXC,gradYC,scFieldN);
@@ -672,16 +695,25 @@ inline void Grid2DCU::lapN2N_plusghost(double*** lapN,double ***scFieldN,Virtual
    communicateCenter(nxc,nyc,gradYC,vct);
    divC2N(lapN,gradXC,gradYC,vct);
    // deallocate
-   delArr3(gradXC,nxc,nyc);
-   delArr3(gradYC,nxc,nyc);
+   //delArr3(gradXC,nxc,nyc);
+   //delArr3(gradYC,nxc,nyc);
+   freeArr3(&gradXC);
+   freeArr3(&gradYC);
 }
 
 /** calculate laplacian on central points, given a scalar field defined on central points */
 inline void Grid2DCU::lapC2C(double*** lapC,double ***scFieldC,VirtualTopology *vct){
     //  calculate laplacian as divercence of gradient
     // allocate 3 gradients: defined on nodes
-    double*** gradXN = newArr3(double,nxn,nyn,1);
-    double*** gradYN = newArr3(double,nxn,nyn,1);
+    //double*** gradXN = newArr3(double,nxn,nyn,1);
+    //double*** gradYN = newArr3(double,nxn,nyn,1);
+
+  double*** gradXN;
+  double*** gradYN;
+
+  allocArr3(&gradXN, nxn, nyn, 1);
+  allocArr3(&gradYN, nxn, nyn, 1);
+
     gradC2N(gradXN,gradYN,scFieldC,vct);//if ghost centers OK, active nodes OK
     divN2C(lapC,gradXN,gradYN);//active centers OK, with ghost centers before OK
     // here you need to fix the BC
@@ -707,16 +739,24 @@ inline void Grid2DCU::lapC2C(double*** lapC,double ***scFieldC,VirtualTopology *
        lapC[i][nyc-2][0]  = (scFieldC[i-1][nyc-2][0] -2*scFieldC[i][nyc-2][0] + scFieldC[i+1][nyc-2][0] )*invdx*invdx + (scFieldC[i][nyc-3][0] -2*scFieldC[i][nyc-2][0] + scFieldC[i][nyc-1][0])*invdy*invdy;
   }
     // deallocate
-    delArr3(gradXN,nxn,nyn);
-    delArr3(gradYN,nxn,nyn);
+    //delArr3(gradXN,nxn,nyn);
+    //delArr3(gradYN,nxn,nyn);
+
+  freeArr3(&gradXN);
+  freeArr3(&gradYN);
 }                              
 /** calculate laplacian on central points, given a scalar field defined on central points */
 /** (dubious) patch for ghost centers **/
 inline void Grid2DCU::lapC2C_plusghost(double*** lapC,double ***scFieldC,VirtualTopology *vct){
   //  calculate laplacian as divercence of gradient                                                 
   // allocate 3 gradients: defined on nodes                                                         
-  double*** gradXN = newArr3(double,nxn,nyn,1);
-  double*** gradYN = newArr3(double,nxn,nyn,1);
+  //double*** gradXN = newArr3(double,nxn,nyn,1);
+  //double*** gradYN = newArr3(double,nxn,nyn,1);
+
+  double*** gradXN;
+  double*** gradYN;
+  allocArr3(&gradXN, nxn, nyn, 1);
+  allocArr3(&gradYN, nxn, nyn, 1);
   
   gradC2N(gradXN,gradYN,scFieldC,vct);//if ghost centers OK, active nodes OK                        
   //divN2C(lapC,gradXN,gradYN);//active centers OK, with ghost centers before OK
@@ -768,8 +808,10 @@ inline void Grid2DCU::lapC2C_plusghost(double*** lapC,double ***scFieldC,Virtual
     lapC[0][nyc-1][0]  = ( -scFieldC[0][nyc-1][0] + scFieldC[1][nyc-1][0] )*invdx*invdx + (scFieldC[0][nyc-2][0] -scFieldC[0][nyc-1][0])*invdy*invdy;
     
   // deallocate                                                                                     
-  delArr3(gradXN,nxn,nyn);
-  delArr3(gradYN,nxn,nyn);
+  //delArr3(gradXN,nxn,nyn);
+  //delArr3(gradYN,nxn,nyn);
+    freeArr3(&gradXN);
+    freeArr3(&gradYN);
 }
 /** interpolate on nodes from central points: do this for the magnetic field */
 inline void Grid2DCU::interpC2N(double ***vecFieldN, double ***vecFieldC, VirtualTopology *vct){

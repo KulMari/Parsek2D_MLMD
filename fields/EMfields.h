@@ -734,27 +734,37 @@ inline void EMfields::calculateField(Grid *grid, VirtualTopology *vct){
 	if (vct->getCartesian_rank() ==0){
 	  cout << "Level " << grid->getLevel() <<": *** E, B CALCULATION ***" << endl;
         }
-	double ***divE = newArr3(double,nxc,nyc,1);
-	double ***gradPHIX = newArr3(double,nxn,nyn,1);
-	double ***gradPHIY = newArr3(double,nxn,nyn,1);
-	double ***gradPHIZ = newArr3(double,nxn,nyn,1);
-
-	double *xkrylov = new double[3*(nxn-2)*(nyn-2)];
-	double *bkrylov = new double[3*(nxn-2)*(nyn-2)];
+	double ***divE;// = newArr3(double,nxc,nyc,1);
+	allocArr3(&divE, nxc, nyc, 1);
+	double ***gradPHIX;// = newArr3(double,nxn,nyn,1);
+	allocArr3(&gradPHIX, nxn, nyn, 1);
+	double ***gradPHIY;// = newArr3(double,nxn,nyn,1);
+	allocArr3(&gradPHIY, nxn, nyn, 1);
+	double ***gradPHIZ;// = newArr3(double,nxn,nyn,1);
+	allocArr3(&gradPHIZ, nxn, nyn, 1);
+	
+	double *xkrylov;// = new double[3*(nxn-2)*(nyn-2)];
+	allocArr1(&xkrylov, 3*(nxn-2)*(nyn-2));
+	double *bkrylov;// = new double[3*(nxn-2)*(nyn-2)];
+	allocArr1(&bkrylov, 3*(nxn-2)*(nyn-2));	  
 
 	double *bkrylovPoisson;
 	double *xkrylovPoisson;
 
 	//if (grid->getLevel()==0)//to be used in Poisson correction
 	if (grid->getLevel()>-1)//to be used in Poisson correction
-	  { bkrylovPoisson = new double[(nxc-2)*(nyc-2)];
-	    xkrylovPoisson = new double[(nxc-2)*(nyc-2)];
+	  { //bkrylovPoisson = new double[(nxc-2)*(nyc-2)];
+	    //xkrylovPoisson = new double[(nxc-2)*(nyc-2)];
+	    allocArr1(&bkrylovPoisson, (nxc-2)*(nyc-2));
+	    allocArr1(&xkrylovPoisson, (nxc-2)*(nyc-2));
     	eqValue (0.0, xkrylovPoisson, (nxc-2)*(nyc-2));
     	eqValue (0.0, bkrylovPoisson, (nxc-2)*(nyc-2));
 	  }
 	else
-	  { bkrylovPoisson = new double[(nxc)*(nyc)];
-	    xkrylovPoisson = new double[(nxc)*(nyc)];
+	  { //bkrylovPoisson = new double[(nxc)*(nyc)];
+	    //xkrylovPoisson = new double[(nxc)*(nyc)];
+	    allocArr1(&bkrylovPoisson, (nxc)*(nyc));
+	    allocArr1(&xkrylovPoisson, (nxc)*(nyc));
     	eqValue (0.0, xkrylovPoisson, (nxc)*(nyc));
     	eqValue (0.0, bkrylovPoisson, (nxc)*(nyc));
 	  }
@@ -934,15 +944,18 @@ inline void EMfields::calculateField(Grid *grid, VirtualTopology *vct){
     // calculate B
     calculateB(grid,vct);
     // deallocate
-	delete[] xkrylov;
-	delete[] bkrylov;
-	delete[] xkrylovPoisson;
-	delete[] bkrylovPoisson;
-	delArr3(divE,nxc,nyc);
-	delArr3(gradPHIX,nxn,nyn);
-	delArr3(gradPHIY,nxn,nyn);
-	delArr3(gradPHIZ,nxn,nyn);
-
+    delete[] xkrylov;
+    delete[] bkrylov;
+    delete[] xkrylovPoisson;
+    delete[] bkrylovPoisson;
+    //delArr3(divE,nxc,nyc);
+    freeArr3(&divE);
+    //delArr3(gradPHIX,nxn,nyn);
+    freeArr3(&gradPHIX);
+    //delArr3(gradPHIY,nxn,nyn);
+    freeArr3(&gradPHIY);
+    //delArr3(gradPHIZ,nxn,nyn);
+    freeArr3(&gradPHIZ);
 }
 
 
@@ -950,8 +963,11 @@ inline void EMfields::calculateField(Grid *grid, VirtualTopology *vct){
 /** Image of Poisson Solver */
 inline void EMfields::PoissonImage(double *image, double *vector, Grid *grid, VirtualTopology *vct){
     // allocate  2 two dimensional service vectors
-    double ***temp = newArr3(double,nxc,nyc,1);
-    double ***im  = newArr3(double,nxc,nyc,1);
+  double ***temp; //= newArr3(double,nxc,nyc,1);
+  allocArr3(&temp, nxc, nyc, 1);
+  double ***im;  //= newArr3(double,nxc,nyc,1);
+  allocArr3(&im, nxc, nyc, 1);
+
     //if (grid->getLevel()==0)
     if (grid->getLevel()>-1)
       eqValue (0.0, image,(nxc-2)*(nyc-2));
@@ -1016,9 +1032,10 @@ inline void EMfields::PoissonImage(double *image, double *vector, Grid *grid, Vi
 	phys2solver_plusghost(image,im,nxc,nyc);
 	}
     // deallocate temporary array and objects
-    delArr3(temp,nxc,nyc);
-    delArr3(im,nxc,nyc);
-
+    //delArr3(temp,nxc,nyc);
+    freeArr3(&temp);
+    //delArr3(im,nxc,nyc);
+    freeArr3(&im);
 
 }
 
@@ -3305,7 +3322,8 @@ inline void  EMfields::smooth(int nvolte, double value,double ***vector, bool ty
 					break;
 			}
 
-			double **temp = newArr(double,nx,ny);
+			double **temp;// = newArr(double,nx,ny);
+			allocArr2(&temp, nx, ny);
 			alpha=(1.0-value)/4;
 
 			for (int i=1; i<nx-1; i++)
@@ -3360,7 +3378,8 @@ inline void  EMfields::smooth(int nvolte, double value,double ***vector, bool ty
 			else
 				communicateNode(nx, ny, vector, vct);
 
-			delArr(temp,nx);
+			//delArr(temp,nx);
+			freeArr1(&temp);
 		} // end of if (value !=1)
 	}
 }
@@ -3390,7 +3409,8 @@ inline void  EMfields::smoothE(int nvolte, double value,double ***vector, bool t
 					break;
 			}
 
-			double **temp = newArr(double,nx,ny);
+			double **temp;// = newArr(double,nx,ny);
+			allocArr2(&temp, nx, ny);
 			alpha=(1.0-value)/4;
 
 			for (int i=1; i<nx-1; i++)
@@ -3408,7 +3428,8 @@ inline void  EMfields::smoothE(int nvolte, double value,double ***vector, bool t
 			else
 				communicateNode(nx, ny, vector, vct);
 
-			delArr(temp,nx);
+			//delArr(temp,nx);
+			freeArr1(&temp);
 		} // end of if (value !=1)
 	}
 }
@@ -3437,7 +3458,8 @@ inline void  EMfields::smooth(int nvolte, double value,double ****vector,int is,
 					break;
 			}
 
-			double **temp = newArr(double,nx,ny);
+			double **temp;// = newArr(double,nx,ny);
+			allocArr2(&temp, nx, ny);
 			alpha=(1.0-value)/4;
 
 			for (int i=1; i<nx-1; i++)
@@ -3490,7 +3512,8 @@ inline void  EMfields::smooth(int nvolte, double value,double ****vector,int is,
 			else
 				communicateNode(nx, ny, vector, is, vct);
 
-			delArr(temp,nx);
+			//delArr(temp,nx);
+			freeArr1(&temp);
 		} // end of if
 	}
 }
@@ -5076,225 +5099,416 @@ inline EMfields::EMfields(CollectiveIO *col,Grid *grid, VCtopology *vct){
 	CGtol = col->getCGtol();
 	GMREStol = col->getGMREStol();
 	// arrays allocation: nodes ---> the first node has index 1, the last has index nxn-2!
-	Ex = newArr3(double,nxn,nyn,1);
-	Ey = newArr3(double,nxn,nyn,1);
-	Ez = newArr3(double,nxn,nyn,1);
-	Ex_old = newArr3(double,nxn,nyn,1);
-	Ey_old = newArr3(double,nxn,nyn,1);
-	Ez_old = newArr3(double,nxn,nyn,1);
-	Ex_recvbufferproj = newArr3(double,nxn,nyn,1);
-	Ey_recvbufferproj = newArr3(double,nxn,nyn,1);
-	Ez_recvbufferproj = newArr3(double,nxn,nyn,1);
-	Exth = newArr3(double,nxn,nyn,1);
-	Eyth = newArr3(double,nxn,nyn,1);
-	Ezth = newArr3(double,nxn,nyn,1);
-	Bxc_old   = newArr3(double,nxc,nyc,1);
-	Byc_old   = newArr3(double,nxc,nyc,1);
-	Bzc_old   = newArr3(double,nxc,nyc,1);
-	Bxn   = newArr3(double,nxn,nyn,1);
-	Byn   = newArr3(double,nxn,nyn,1);
-	Bzn   = newArr3(double,nxn,nyn,1);
-	Bxn_new   = newArr3(double,nxn,nyn,1);
-	Byn_new   = newArr3(double,nxn,nyn,1);
-	Bzn_new   = newArr3(double,nxn,nyn,1);
-	Bxn_recvbufferproj   = newArr3(double,nxn,nyn,1);
-	Byn_recvbufferproj   = newArr3(double,nxn,nyn,1);
-	Bzn_recvbufferproj   = newArr3(double,nxn,nyn,1);
-	rhon  = newArr3(double,nxn,nyn,1);
-	Jx    = newArr3(double,nxn,nyn,1);
-	Jy    = newArr3(double,nxn,nyn,1);
-	Jz    = newArr3(double,nxn,nyn,1);
-	Jxh   = newArr3(double,nxn,nyn,1);
-	Jyh   = newArr3(double,nxn,nyn,1);
-	Jzh   = newArr3(double,nxn,nyn,1);
-        // 2*(nxn+nyn-2) ghost nodes. 4 weights for each of them
-	weightBC   = newArr3(double,2*(nxn+nyn-2)*(int)ceil(ratio),4,1);
+	//Ex = newArr3(double,nxn,nyn,1);
+	allocArr3(&Ex, nxn, nyn, 1);
+	//Ey = newArr3(double,nxn,nyn,1);
+	allocArr3(&Ey, nxn, nyn, 1);
+	//Ez = newArr3(double,nxn,nyn,1);
+	allocArr3(&Ez, nxn, nyn, 1);
+	//Ex_old = newArr3(double,nxn,nyn,1);
+	allocArr3(&Ex_old, nxn, nyn, 1);
+	//Ey_old = newArr3(double,nxn,nyn,1);
+	allocArr3(&Ey_old, nxn, nyn, 1);
+	//Ez_old = newArr3(double,nxn,nyn,1);
+	allocArr3(&Ez_old, nxn, nyn, 1);
+	//Ex_recvbufferproj = newArr3(double,nxn,nyn,1);
+	allocArr3(&Ex_recvbufferproj, nxn, nyn, 1);
+	//Ey_recvbufferproj = newArr3(double,nxn,nyn,1);
+	allocArr3(&Ey_recvbufferproj, nxn, nyn, 1);
+	//Ez_recvbufferproj = newArr3(double,nxn,nyn,1);
+	allocArr3(&Ez_recvbufferproj, nxn, nyn, 1);
+	//Exth = newArr3(double,nxn,nyn,1);
+	allocArr3(&Exth, nxn, nyn, 1);
+	//Eyth = newArr3(double,nxn,nyn,1);
+	allocArr3(&Eyth, nxn, nyn, 1);
+	//Ezth = newArr3(double,nxn,nyn,1);
+	allocArr3(&Ezth, nxn, nyn, 1);
+	//Bxc_old   = newArr3(double,nxc,nyc,1);
+	allocArr3(&Bxc_old, nxc, nyc, 1);
+	//Byc_old   = newArr3(double,nxc,nyc,1);
+	allocArr3(&Byc_old, nxc, nyc, 1);
+	//Bzc_old   = newArr3(double,nxc,nyc,1);
+	allocArr3(&Bzc_old, nxc, nyc, 1);
+	//Bxn   = newArr3(double,nxn,nyn,1);
+	allocArr3(&Bxn, nxn, nyn, 1);
+	//Byn   = newArr3(double,nxn,nyn,1);
+	allocArr3(&Byn, nxn, nyn, 1);
+	//Bzn   = newArr3(double,nxn,nyn,1);
+	allocArr3(&Bzn, nxn, nyn, 1);
+	//Bxn_new   = newArr3(double,nxn,nyn,1);
+	allocArr3(&Bxn_new, nxn, nyn, 1);
+	//Byn_new   = newArr3(double,nxn,nyn,1);
+	allocArr3(&Byn_new, nxn, nyn, 1);
+	//Bzn_new   = newArr3(double,nxn,nyn,1);
+	allocArr3(&Bzn_new, nxn, nyn, 1);
+	//Bxn_recvbufferproj   = newArr3(double,nxn,nyn,1);
+	allocArr3(&Bxn_recvbufferproj, nxn, nyn, 1);
+	//Byn_recvbufferproj   = newArr3(double,nxn,nyn,1);
+	allocArr3(&Byn_recvbufferproj, nxn, nyn, 1);
+	//Bzn_recvbufferproj   = newArr3(double,nxn,nyn,1);
+	allocArr3(&Bzn_recvbufferproj, nxn, nyn, 1);
+
+	//rhon  = newArr3(double,nxn,nyn,1);
+	allocArr3(&rhon, nxn, nyn, 1);
+	//Jx    = newArr3(double,nxn,nyn,1);
+	allocArr3(&Jx, nxn, nyn, 1);
+	//Jy    = newArr3(double,nxn,nyn,1);
+	allocArr3(&Jy, nxn, nyn, 1);
+	//Jz    = newArr3(double,nxn,nyn,1);
+	allocArr3(&Jz, nxn, nyn, 1);
+	//Jxh   = newArr3(double,nxn,nyn,1);
+	allocArr3(&Jxh, nxn, nyn, 1);
+	//Jyh   = newArr3(double,nxn,nyn,1);
+	allocArr3(&Jyh, nxn, nyn, 1);
+	//Jzh   = newArr3(double,nxn,nyn,1);
+	allocArr3(&Jzh, nxn, nyn, 1);
+
+	//weightBC   = newArr3(double,2*(nxn+nyn-2)*(int)ceil(ratio),4,1);
+	allocArr3(&weightBC, 2*(nxn+nyn-2)*(int)ceil(ratio), 4, 1);
         // maximum number of points from the coarse grid in the fine grid. 4 weights for each of them
-	weightProj   = newArr4(double,nxn,nyn,4,1);
-    normalizeProj = newArr3(double,nxnproj,nynproj,1);
-    reducedEx = newArr3(double,nxnproj,nynproj,1);
-    reducedEy = newArr3(double,nxnproj,nynproj,1);
-    reducedEz = newArr3(double,nxnproj,nynproj,1);
-    reducedBxn= newArr3(double,nxnproj,nynproj,1);
-    reducedByn= newArr3(double,nxnproj,nynproj,1);
-    reducedBzn= newArr3(double,nxnproj,nynproj,1);
-    normalizerecvProj = newArr3(double,nxn,nyn,1);
+	//weightProj   = newArr4(double,nxn,nyn,4,1);
+	allocArr4(&weightProj, nxn, nyn, 4, 1);
+	//normalizeProj = newArr3(double,nxnproj,nynproj,1);
+	allocArr3(&normalizeProj, nxnproj, nynproj, 1);
+	//reducedEx = newArr3(double,nxnproj,nynproj,1);
+	allocArr3(&reducedEx, nxnproj, nynproj, 1);
+	//reducedEy = newArr3(double,nxnproj,nynproj,1);
+	allocArr3(&reducedEy, nxnproj, nynproj, 1);
+	//reducedEz = newArr3(double,nxnproj,nynproj,1);
+	allocArr3(&reducedEz, nxnproj, nynproj, 1);
+	//reducedBxn= newArr3(double,nxnproj,nynproj,1);
+	allocArr3(&reducedBxn, nxnproj, nynproj, 1);
+	//reducedByn= newArr3(double,nxnproj,nynproj,1);
+	allocArr3(&reducedByn, nxnproj, nynproj, 1);
+	//reducedBzn= newArr3(double,nxnproj,nynproj,1);
+	allocArr3(&reducedBzn, nxnproj, nynproj, 1);
+	//normalizerecvProj = newArr3(double,nxn,nyn,1);
+	allocArr3(&normalizerecvProj, nxn, nyn, 1);
         // 2*(nxn+nyn-2) ghost nodes. 6 components of electric field, new magnetic field
-        bufferBC = new double[2*(nxn+nyn-2)*6*(int)ceil(ratio)]; //buffer sent by MPI
+        //bufferBC = new double[2*(nxn+nyn-2)*6*(int)ceil(ratio)]; //buffer sent by MPI
+	allocArr1(&bufferBC, 2*(nxn+nyn-2)*6*(int)ceil(ratio));
         //Buffers in which BC are stored
-        bufferBCExxm = new double[nxn];
-        bufferBCExxp = new double[nxn];
-        bufferBCExym = new double[nyn];
-        bufferBCExyp = new double[nyn];
-        bufferBCEyxm = new double[nxn];
-        bufferBCEyxp = new double[nxn];
-        bufferBCEyym = new double[nyn];
-        bufferBCEyyp = new double[nyn];
-        bufferBCEzxm = new double[nxn];
-        bufferBCEzxp = new double[nxn];
-        bufferBCEzym = new double[nyn];
-        bufferBCEzyp = new double[nyn];
-                //nxnproj*nynproj projected nodes. 6 components of electric and magnetic field.
-        bufferProj = new double[nxnproj*nynproj*6];
-        bufferProjsend = new double[2*max(nxn,nyn)*6];
-        bufferProjrecv = new double[2*max(nxn,nyn)*6];
-	// ME
+        //bufferBCExxm = new double[nxn];
+	allocArr1(&bufferBCExxm, nxn);
+        //bufferBCExxp = new double[nxn];
+	allocArr1(&bufferBCExxp, nxn);
+        //bufferBCExym = new double[nyn];
+	allocArr1(&bufferBCExym, nyn);
+        //bufferBCExyp = new double[nyn];
+	allocArr1(&bufferBCExyp, nyn);
+        //bufferBCEyxm = new double[nxn];
+	allocArr1(&bufferBCEyxm, nxn);
+        //bufferBCEyxp = new double[nxn];
+	allocArr1(&bufferBCEyxp, nxn);
+        //bufferBCEyym = new double[nyn];
+	allocArr1(&bufferBCEyym, nyn);
+        //bufferBCEyyp = new double[nyn];
+	allocArr1(&bufferBCEyyp, nyn);
+        //bufferBCEzxm = new double[nxn];
+	allocArr1(&bufferBCEzxm, nxn);
+        //bufferBCEzxp = new double[nxn];
+	allocArr1(&bufferBCEzxp, nxn);
+        //bufferBCEzym = new double[nyn];
+	allocArr1(&bufferBCEzym, nyn);
+        //bufferBCEzyp = new double[nyn];
+	allocArr1(&bufferBCEzyp, nyn);
+	//nxnproj*nynproj projected nodes. 6 components of electric and magnetic field.
+        //bufferProj = new double[nxnproj*nynproj*6];
+	allocArr1(&bufferProj, nxnproj*nynproj*6);
+        //bufferProjsend = new double[2*max(nxn,nyn)*6];
+	allocArr1(&bufferProjsend, 2*max(nxn,nyn)*6);
+        //bufferProjrecv = new double[2*max(nxn,nyn)*6];
+	allocArr1(&bufferProjrecv, 2*max(nxn,nyn)*6);
 	// the 6 initial double are to store the map info
-	INFObufferProjsend = new double[10+2*max(nxn,nyn)*6];
-        INFObufferProj = new double[10+nxnproj*nynproj*6];// declared as bufferProj + the extra 10 double in the header
-	// end ME
+	//INFObufferProjsend = new double[10+2*max(nxn,nyn)*6];
+	allocArr1(&INFObufferProjsend, 10+2*max(nxn,nyn)*6);
+        //INFObufferProj = new double[10+nxnproj*nynproj*6];// declared as bufferProj + the extra 10 double in the header
+	allocArr1(&INFObufferProj, 10+nxnproj*nynproj*6);
 	// involving species
-	rhons = newArr4(double,ns,nxn,nyn,1);
-	rhocs = newArr4(double,ns,nxc,nyc,1);
-	Jxs   = newArr4(double,ns,nxn,nyn,1);
-	Jys   = newArr4(double,ns,nxn,nyn,1);
-	Jzs   = newArr4(double,ns,nxn,nyn,1);
-	pXXsn  = newArr4(double,ns,nxn,nyn,1);
-	pXYsn  = newArr4(double,ns,nxn,nyn,1);
-	pXZsn  = newArr4(double,ns,nxn,nyn,1);
-	pYYsn  = newArr4(double,ns,nxn,nyn,1);
-	pYZsn  = newArr4(double,ns,nxn,nyn,1);
-	pZZsn  = newArr4(double,ns,nxn,nyn,1);
+	//rhons = newArr4(double,ns,nxn,nyn,1);
+	allocArr4(&rhons, ns, nxn, nyn, 1);
+	//rhocs = newArr4(double,ns,nxc,nyc,1);
+	allocArr4(&rhocs, ns, nxc, nyc, 1);
+	//Jxs   = newArr4(double,ns,nxn,nyn,1);
+	allocArr4(&Jxs, ns, nxn, nyn, 1);
+	//Jys   = newArr4(double,ns,nxn,nyn,1);
+	allocArr4(&Jys, ns, nxn, nyn, 1);
+	//Jzs   = newArr4(double,ns,nxn,nyn,1);
+	allocArr4(&Jzs, ns, nxn, nyn, 1);
+	//pXXsn  = newArr4(double,ns,nxn,nyn,1);
+	allocArr4(&pXXsn, ns, nxn, nyn, 1);
+	//pXYsn  = newArr4(double,ns,nxn,nyn,1);
+	allocArr4(&pXYsn, ns, nxn, nyn, 1);
+	//pXZsn  = newArr4(double,ns,nxn,nyn,1);
+	allocArr4(&pXZsn, ns, nxn, nyn, 1);
+	//pYYsn  = newArr4(double,ns,nxn,nyn,1);
+	allocArr4(&pYYsn, ns, nxn, nyn, 1);
+	//pYZsn  = newArr4(double,ns,nxn,nyn,1);
+	allocArr4(&pYZsn, ns, nxn, nyn, 1);
+	//pZZsn  = newArr4(double,ns,nxn,nyn,1);
+	allocArr4(&pZZsn, ns, nxn, nyn, 1);
 	// arrays allocation: central points ---> the first central point has index 1, the last has index nxn-2!
-	PHI    = newArr3(double,nxc,nyc,1);
-	Bxc    = newArr3(double,nxc,nyc,1);
-	Byc    = newArr3(double,nxc,nyc,1);
-	Bzc    = newArr3(double,nxc,nyc,1);
-	rhoc   = newArr3(double,nxc,nyc,1);
-	rhoh   = newArr3(double,nxc,nyc,1);
+	//PHI    = newArr3(double,nxc,nyc,1);
+	allocArr3(&PHI, nxc, nyc, 1);
+	//Bxc    = newArr3(double,nxc,nyc,1);
+	allocArr3(&Bxc, nxc, nyc, 1);
+	//Byc    = newArr3(double,nxc,nyc,1);
+	allocArr3(&Byc, nxc, nyc, 1);
+	//Bzc    = newArr3(double,nxc,nyc,1);
+	allocArr3(&Bzc, nxc, nyc, 1);
+	//rhoc   = newArr3(double,nxc,nyc,1);
+	allocArr3(&rhoc, nxc, nyc, 1);
+	//rhoh   = newArr3(double,nxc,nyc,1);
+	allocArr3(&rhoh, nxc, nyc, 1);
 
 	// temporary arrays
-	tempXC = newArr3(double,nxc,nyc,1);
-	tempYC = newArr3(double,nxc,nyc,1);
-	tempZC = newArr3(double,nxc,nyc,1);
-	tempXN = newArr3(double,nxn,nyn,1);
-	tempYN = newArr3(double,nxn,nyn,1);
-	tempZN = newArr3(double,nxn,nyn,1);
-	tempC  = newArr3(double,nxc,nyc,1);
-	tempX  = newArr3(double,nxn,nyn,1);
-	tempY  = newArr3(double,nxn,nyn,1);
-	tempZ  = newArr3(double,nxn,nyn,1);
-	temp2X = newArr3(double,nxn,nyn,1);
-	temp2Y = newArr3(double,nxn,nyn,1);
-	temp2Z = newArr3(double,nxn,nyn,1);
-	imageX = newArr3(double,nxn,nyn,1);
-	imageY = newArr3(double,nxn,nyn,1);
-	imageZ = newArr3(double,nxn,nyn,1);
-	Dx = newArr3(double,nxn,nyn,1);
-	Dy = newArr3(double,nxn,nyn,1);
-	Dz = newArr3(double,nxn,nyn,1);
-	vectX  = newArr3(double,nxn,nyn,1);
-	vectY  = newArr3(double,nxn,nyn,1);
-	vectZ  = newArr3(double,nxn,nyn,1);
-	divC  = newArr3(double,nxc,nyc,1);
-
+	//tempXC = newArr3(double,nxc,nyc,1);
+	allocArr3(&tempXC, nxc, nyc, 1);
+	//tempYC = newArr3(double,nxc,nyc,1);
+	allocArr3(&tempYC, nxc, nyc, 1);
+	//tempZC = newArr3(double,nxc,nyc,1);
+	allocArr3(&tempZC, nxc, nyc, 1);
+	//tempXN = newArr3(double,nxn,nyn,1);
+	allocArr3(&tempXN, nxn, nyn, 1);
+	//tempYN = newArr3(double,nxn,nyn,1);
+	allocArr3(&tempYN, nxn, nyn, 1);
+	//tempZN = newArr3(double,nxn,nyn,1);
+	allocArr3(&tempZN, nxn, nyn, 1);
+	//tempC  = newArr3(double,nxc,nyc,1);
+	allocArr3(&tempC, nxc, nyc, 1);
+	//tempX  = newArr3(double,nxn,nyn,1);
+	allocArr3(&tempX, nxn, nyn, 1);
+	//tempY  = newArr3(double,nxn,nyn,1);
+	allocArr3(&tempY, nxn, nyn, 1);
+	//tempZ  = newArr3(double,nxn,nyn,1);
+	allocArr3(&tempZ, nxn, nyn, 1);
+	//temp2X = newArr3(double,nxn,nyn,1);
+	allocArr3(&temp2X, nxn, nyn, 1);
+	//temp2Y = newArr3(double,nxn,nyn,1);
+	allocArr3(&temp2Y, nxn, nyn, 1);
+	//temp2Z = newArr3(double,nxn,nyn,1);
+	allocArr3(&temp2Z, nxn, nyn, 1);
+	//imageX = newArr3(double,nxn,nyn,1);
+	allocArr3(&imageX, nxn, nyn, 1);
+	//imageY = newArr3(double,nxn,nyn,1);
+	allocArr3(&imageY, nxn, nyn, 1);
+	//imageZ = newArr3(double,nxn,nyn,1);
+	allocArr3(&imageZ, nxn, nyn, 1);
+	//Dx = newArr3(double,nxn,nyn,1);
+	allocArr3(&Dx, nxn, nyn, 1);
+	//Dy = newArr3(double,nxn,nyn,1);
+	allocArr3(&Dy, nxn, nyn, 1);
+	//Dz = newArr3(double,nxn,nyn,1);
+	allocArr3(&Dz, nxn, nyn, 1);
+	//vectX  = newArr3(double,nxn,nyn,1);
+	allocArr3(&vectX, nxn, nyn, 1);
+	//vectY  = newArr3(double,nxn,nyn,1);
+	allocArr3(&vectY, nxn, nyn, 1);
+	//vectZ  = newArr3(double,nxn,nyn,1);
+	allocArr3(&vectZ, nxn, nyn, 1);
+	//divC  = newArr3(double,nxc,nyc,1);
+	allocArr3(&divC, nxc, nyc, 1);
 }
 /** destructor: deallocate arrays*/
 inline EMfields::~EMfields(){
-	// nodes
-	delArr3(Ex,nxn,nyn);
-	delArr3(Ey,nxn,nyn);
-	delArr3(Ez,nxn,nyn);
-	delArr3(Ex_old,nxn,nyn);
-	delArr3(Ey_old,nxn,nyn);
-	delArr3(Ez_old,nxn,nyn);
-	delArr3(Ex_recvbufferproj,nxn,nyn);
-	delArr3(Ey_recvbufferproj,nxn,nyn);
-	delArr3(Ez_recvbufferproj,nxn,nyn);
-	delArr3(Exth,nxn,nyn);
-	delArr3(Eyth,nxn,nyn);
-	delArr3(Ezth,nxn,nyn);
-	delArr3(Bxn,nxn,nyn);
-	delArr3(Byn,nxn,nyn);
-	delArr3(Bzn,nxn,nyn);
-	delArr3(Bxc_old,nxc,nyc);
-	delArr3(Byc_old,nxc,nyc);
-	delArr3(Bzc_old,nxc,nyc);
-	delArr3(Bxn_new,nxn,nyn);
-	delArr3(Byn_new,nxn,nyn);
-	delArr3(Bzn_new,nxn,nyn);
-	delArr3(Bxn_recvbufferproj,nxn,nyn);
-	delArr3(Byn_recvbufferproj,nxn,nyn);
-	delArr3(Bzn_recvbufferproj,nxn,nyn);
-	delArr3(rhon,nxn,nyn);
-	delArr3(Jx,nxn,nyn);
-	delArr3(Jy,nxn,nyn);
-	delArr3(Jz,nxn,nyn);
-	delArr3(Jxh,nxn,nyn);
-	delArr3(Jyh,nxn,nyn);
-	delArr3(Jzh,nxn,nyn);
-	delArr3(weightBC,2*(nxn+nyn-2)*ratio,4);
-	delArr4(weightProj,nxn,nyn,4);
-	delArr3(normalizeProj,nxnproj,nynproj);
-	delArr3(reducedEx,nxnproj,nynproj);
-	delArr3(reducedEy,nxnproj,nynproj);
-	delArr3(reducedEz,nxnproj,nynproj);
-	delArr3(reducedBxn,nxnproj,nynproj);
-	delArr3(reducedByn,nxnproj,nynproj);
-	delArr3(reducedBzn,nxnproj,nynproj);
-	delArr3(normalizerecvProj,nxn,nyn);
-        delete[] bufferBC;
-        delete[] bufferProj;
-        delete[] bufferBCExxm ;
-        delete[] bufferBCExxp ;
-        delete[] bufferBCExym ;
-        delete[] bufferBCExyp ;
-        delete[] bufferBCEyxm ;
-        delete[] bufferBCEyxp ;
-        delete[] bufferBCEyym ;
-        delete[] bufferBCEyyp ;
-        delete[] bufferBCEzxm ;
-        delete[] bufferBCEzxp ;
-        delete[] bufferBCEzym ;
-        delete[] bufferBCEzyp ;
-       
-	// nodes and species
-	delArr4(rhons,ns,nxn,nyn);
-	delArr4(rhocs,ns,nxc,nyc);
-	delArr4(Jxs,ns,nxn,nyn);
-	delArr4(Jys,ns,nxn,nyn);
-	delArr4(Jzs,ns,nxn,nyn);
-	delArr4(pXXsn,ns,nxn,nyn);
-	delArr4(pXYsn,ns,nxn,nyn);
-	delArr4(pXZsn,ns,nxn,nyn);
-	delArr4(pYYsn,ns,nxn,nyn);
-	delArr4(pYZsn,ns,nxn,nyn);
-	delArr4(pZZsn,ns,nxn,nyn);
-	// central points
-	delArr3(PHI,nxc,nyc);
-	delArr3(Bxc,nxc,nyc);
-	delArr3(Byc,nxc,nyc);
-	delArr3(Bzc,nxc,nyc);
-	delArr3(rhoc,nxc,nyc);
-	delArr3(rhoh,nxc,nyc);
-	// various stuff needs to be deallocated too
-	delArr3(tempXC,nxc,nyc);
-	delArr3(tempYC,nxc,nyc);
-	delArr3(tempZC,nxc,nyc);
-	delArr3(tempXN,nxn,nyn);
-	delArr3(tempYN,nxn,nyn);
-	delArr3(tempZN,nxn,nyn);
-	delArr3(tempC,nxc,nyc);
-	delArr3(tempX,nxn,nyn);
-	delArr3(tempY,nxn,nyn);
-	delArr3(tempZ,nxn,nyn);
-	delArr3(temp2X,nxn,nyn);
-	delArr3(temp2Y,nxn,nyn);
-	delArr3(temp2Z,nxn,nyn);
-	delArr3(imageX,nxn,nyn);
-	delArr3(imageY,nxn,nyn);
-	delArr3(imageZ,nxn,nyn);
-	delArr3(Dx,nxn,nyn);
-	delArr3(Dy,nxn,nyn);
-	delArr3(Dz,nxn,nyn);
-	delArr3(vectX,nxn,nyn);
-	delArr3(vectY,nxn,nyn);
-	delArr3(vectZ,nxn,nyn);
-	delArr3(divC,nxc,nyc);
+  // nodes
+  //delArr3(Ex,nxn,nyn);
+  freeArr3(&Ex);
+  //delArr3(Ey,nxn,nyn);
+  freeArr3(&Ey);
+  //delArr3(Ez,nxn,nyn);
+  freeArr3(&Ez);
+  //delArr3(Ex_old,nxn,nyn);
+  freeArr3(&Ex_old);
+  //delArr3(Ey_old,nxn,nyn);
+  freeArr3(&Ey_old);
+  //delArr3(Ez_old,nxn,nyn);
+  freeArr3(&Ez_old);
+  //delArr3(Ex_recvbufferproj,nxn,nyn);
+  freeArr3(&Ex_recvbufferproj);
+  //delArr3(Ey_recvbufferproj,nxn,nyn);
+  freeArr3(&Ey_recvbufferproj);
+  //delArr3(Ez_recvbufferproj,nxn,nyn);
+  freeArr3(&Ez_recvbufferproj);
+  //delArr3(Exth,nxn,nyn);
+  freeArr3(&Exth);
+  //delArr3(Eyth,nxn,nyn);
+  freeArr3(&Eyth);
+  //delArr3(Ezth,nxn,nyn);
+  freeArr3(&Ezth);
+  //delArr3(Bxn,nxn,nyn);
+  freeArr3(&Bxn);
+  //delArr3(Byn,nxn,nyn);
+  freeArr3(&Byn);
+  //delArr3(Bzn,nxn,nyn);
+  freeArr3(&Bzn);
+  //delArr3(Bxc_old,nxc,nyc);
+  freeArr3(&Bxc_old);
+  //delArr3(Byc_old,nxc,nyc);
+  freeArr3(&Byc_old);
+  //delArr3(Bzc_old,nxc,nyc);
+  freeArr3(&Bzc_old);
+  //delArr3(Bxn_new,nxn,nyn);
+  freeArr3(&Bxn_new);
+  //delArr3(Byn_new,nxn,nyn);
+  freeArr3(&Byn_new);
+  //delArr3(Bzn_new,nxn,nyn);
+  freeArr3(&Bzn_new);
+  //delArr3(Bxn_recvbufferproj,nxn,nyn);
+  freeArr3(&Bxn_recvbufferproj);
+  //delArr3(Byn_recvbufferproj,nxn,nyn);
+  freeArr3(&Byn_recvbufferproj);
+  //delArr3(Bzn_recvbufferproj,nxn,nyn);
+  freeArr3(&Bzn_recvbufferproj);
+  //delArr3(rhon,nxn,nyn);
+  freeArr3(&rhoh);
+  //delArr3(Jx,nxn,nyn);
+  freeArr3(&Jx);
+  //delArr3(Jy,nxn,nyn);
+  freeArr3(&Jy);
+  //delArr3(Jz,nxn,nyn);
+  freeArr3(&Jz);
+  //delArr3(Jxh,nxn,nyn);
+  freeArr3(&Jxh);
+  //delArr3(Jyh,nxn,nyn);
+  freeArr3(&Jyh);
+  //delArr3(Jzh,nxn,nyn);
+  freeArr3(&Jzh);
+  //delArr3(weightBC,2*(nxn+nyn-2)*ratio,4);
+  freeArr3(&weightBC);
+  //delArr4(weightProj,nxn,nyn,4);
+  freeArr4(&weightProj);
+  //delArr3(normalizeProj,nxnproj,nynproj);
+  freeArr3(&normalizeProj);
+  //delArr3(reducedEx,nxnproj,nynproj);
+  freeArr3(&reducedEx);
+  //delArr3(reducedEy,nxnproj,nynproj);
+  freeArr3(&reducedEy);
+  //delArr3(reducedEz,nxnproj,nynproj);
+  freeArr3(&reducedEz);
+  //delArr3(reducedBxn,nxnproj,nynproj);
+  freeArr3(&reducedBxn);
+  //delArr3(reducedByn,nxnproj,nynproj);
+  freeArr3(&reducedByn);
+  //delArr3(reducedBzn,nxnproj,nynproj);
+  freeArr3(&reducedBzn);
+  
+  //delArr3(normalizerecvProj,nxn,nyn);
+  freeArr3(&normalizerecvProj);
+  //delete[] bufferBC;
+  freeArr1(&bufferBC);
+  //delete[] bufferProj;
+  freeArr1(&bufferProj);
+  //delete[] bufferBCExxm ;
+  freeArr1(&bufferBCExxm);
+  //delete[] bufferBCExxp ;
+  freeArr1(&bufferBCExxp);
+  //delete[] bufferBCExym ;
+  freeArr1(&bufferBCExym);
+  //delete[] bufferBCExyp ;
+  freeArr1(&bufferBCExyp);
+  //delete[] bufferBCEyxm ;
+  freeArr1(&bufferBCEyxm);
+  //delete[] bufferBCEyxp ;
+  freeArr1(&bufferBCEyym);
+  //delete[] bufferBCEyym ;
+  freeArr1(&bufferBCEyym);
+  //delete[] bufferBCEyyp ;
+  freeArr1(&bufferBCEyyp);
+  //delete[] bufferBCEzxm ;
+  freeArr1(&bufferBCEzxm);
+  //delete[] bufferBCEzxp ;
+  freeArr1(&bufferBCEzxp);
+  //delete[] bufferBCEzym ;
+  freeArr1(&bufferBCEzym);
+  //delete[] bufferBCEzyp ;
+  freeArr1(&bufferBCEzyp);
+	   
+  // Nodes () and species
+  //delArr4(rhons,ns,nxn,nyn);
+  freeArr4(&rhons);
+  //delArr4(rhocs,ns,nxc,nyc);
+  freeArr4(&rhocs);
+  //delArr4(Jxs,ns,nxn,nyn);
+  freeArr4(&Jxs);
+  //delArr4(Jys,ns,nxn,nyn);
+  freeArr4(&Jys);
+  //delArr4(Jzs,ns,nxn,nyn);
+  freeArr4(&Jzs);
+  //delArr4(pXXsn,ns,nxn,nyn);
+  freeArr4(&pXXsn);
+  //delArr4(pXYsn,ns,nxn,nyn);
+  freeArr4(&pXYsn);
+  //delArr4(pXZsn,ns,nxn,nyn);
+  freeArr4(&pXZsn);
+  //delArr4(pYYsn,ns,nxn,nyn);
+  freeArr4(&pYYsn);
+  //delArr4(pYZsn,ns,nxn,nyn);
+  freeArr4(&pYZsn);
+  //delArr4(pZZsn,ns,nxn,nyn);
+  freeArr4(&pZZsn);
+  // central points
+  //delArr3(PHI,nxc,nyc);
+  freeArr3(&PHI);
+  //delArr3(Bxc,nxc,nyc);
+  freeArr3(&Bxc);
+  //delArr3(Byc,nxc,nyc);
+  freeArr3(&Byc);
+  //delArr3(Bzc,nxc,nyc);
+  freeArr3(&Bzc);
+  //delArr3(rhoc,nxc,nyc);
+  freeArr3(&rhoc);
+  //delArr3(rhoh,nxc,nyc);
+  freeArr3(&rhoh);
+  // various stuff needs to be deallocated too
+  //delArr3(tempXC,nxc,nyc);
+  freeArr3(&tempXC);
+  //delArr3(tempYC,nxc,nyc);
+  freeArr3(&tempYC);
+  //delArr3(tempZC,nxc,nyc);
+  freeArr3(&tempZC);
+  //delArr3(tempXN,nxn,nyn);
+  freeArr3(&tempXN);
+  //delArr3(tempYN,nxn,nyn);
+  freeArr3(&tempYN);
+  //delArr3(tempZN,nxn,nyn);
+  freeArr3(&tempZN);
+  //delArr3(tempC,nxc,nyc);
+  freeArr3(&tempC);
+  //delArr3(tempX,nxn,nyn);
+  freeArr3(&tempX);
+  //delArr3(tempY,nxn,nyn);
+  freeArr3(&tempY);
+  //delArr3(tempZ,nxn,nyn);
+  freeArr3(&tempZ);
+  //delArr3(temp2X,nxn,nyn);
+  freeArr3(&temp2X);
+  //delArr3(temp2Y,nxn,nyn);
+  freeArr3(&temp2Y);
+  //delArr3(temp2Z,nxn,nyn);
+  freeArr3(&temp2Z);
+  //delArr3(imageX,nxn,nyn);
+  freeArr3(&imageX);
+  //delArr3(imageY,nxn,nyn);
+  freeArr3(&imageY);
+  //delArr3(imageZ,nxn,nyn);
+  freeArr3(&imageZ);
+  //delArr3(Dx,nxn,nyn);
+  freeArr3(&Dx);
+  //delArr3(Dy,nxn,nyn);
+  freeArr3(&Dy);
+  //delArr3(Dz,nxn,nyn);
+  freeArr3(&Dz);
+  //delArr3(vectX,nxn,nyn);
+  freeArr3(&vectX);
+  //delArr3(vectY,nxn,nyn);
+  freeArr3(&vectY);
+  //delArr3(vectZ,nxn,nyn);
+  freeArr3(&vectZ);
+  //delArr3(divC,nxc,nyc);
+  freeArr3(&divC);
 
-	// AMR, ME
-	delete[] BCSide;
-	// end AMR, ME
+  delete[] BCSide;
 
 }
 

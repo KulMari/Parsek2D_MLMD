@@ -1377,8 +1377,10 @@ int Particles2D::inject_Yright_Wall(double u_beam, double v_beam, double w_beam,
 }
 /** interpolation Particle->Grid only for pressure tensor */    
 void Particles2D::interpP2G_onlyP(Field* EMf, Grid *grid, VirtualTopology* vct){
-	double*** weight = newArr3(double,2,2,1);
-	double*** temp = newArr3(double,2,2,1);
+  double*** weight;// = newArr3(double,2,2,1);
+  allocArr3(&weight, 2, 2, 1);
+  double*** temp;// = newArr3(double,2,2,1);
+  allocArr3(&temp, 2, 2, 1);
 	int ix,iy, temp2,temp1;
 	for (register int i=0; i < nop; i++){
 		ix = 2 +  int(floor((x[i]-xstart)/dx))  ;
@@ -1414,13 +1416,17 @@ void Particles2D::interpP2G_onlyP(Field* EMf, Grid *grid, VirtualTopology* vct){
 		addscale(w[i]*w[i],temp,weight,2,2);
 		EMf->addPzz(temp,ix,iy,0,ns);
 	}
-	delArr3(weight,2,2);
-	delArr3(temp,2,2);
+	//delArr3(weight,2,2);
+	freeArr3(&weight);
+	//delArr3(temp,2,2);
+	freeArr3(&temp);
 }
 /** interpolation Particle->Grid only charge density, current */    
 void Particles2D::interpP2G_notP(Field* EMf, Grid *grid, VirtualTopology* vct){
-	double*** weight = newArr3(double,2,2,1);
-	double*** temp = newArr3(double,2,2,1);
+  double*** weight;// = newArr3(double,2,2,1);
+  allocArr3(&weight, 2, 2, 1);
+  double*** temp;// = newArr3(double,2,2,1);
+  allocArr3(&temp, 2, 2, 1);
 	int ix,iy, temp2,temp1;
 	for (register int i=0; i < nop; i++){
 		ix = 2 +  int(floor((x[i]-xstart)/dx));
@@ -1450,8 +1456,10 @@ void Particles2D::interpP2G_notP(Field* EMf, Grid *grid, VirtualTopology* vct){
 	}
 	// communicate contribution from ghost cells     
 	EMf->communicateGhostP2G(ns,0,0,0,0,vct);
-	delArr3(weight,2,2);
-	delArr3(temp,2,2);
+	//delArr3(weight,2,2);
+	freeArr3(&weight);
+	//delArr3(temp,2,2);
+	freeArr3(&temp);
 	
 }
 /** apply a linear perturbation to particle distribution */

@@ -463,8 +463,11 @@ void Particles2Dcomm::allocate(int species, CollectiveIO* col, VirtualTopology* 
 
 /** Interpolation Particle --> Grid */
 void Particles2Dcomm::interpP2G(Field* EMf, Grid *grid, VirtualTopology* vct){
-  double*** weight = newArr3(double,2,2,1);
-  double*** temp = newArr3(double,2,2,1);
+  double*** weight;// = newArr3(double,2,2,1);
+  allocArr3(&weight, 2, 2, 1);
+  double*** temp;// = newArr3(double,2,2,1);
+  allocArr3(&temp, 2, 2, 1);
+
   int ix,iy, temp2,temp1;
   double inv_dx, inv_dy;
   inv_dx = 1.0/dx;
@@ -548,8 +551,10 @@ void Particles2Dcomm::interpP2G(Field* EMf, Grid *grid, VirtualTopology* vct){
   //cout << "R" <<vct->getCartesian_rank_COMMTOTAL() << "ns " << ns <<"norm2 bef commG " << sum<<endl;
   // communicate contribution from ghost cells     
   EMf->communicateGhostP2G(ns,0,0,0,0,vct);
-  delArr3(weight,2,2);
-  delArr3(temp,2,2);
+  //delArr3(weight,2,2);
+  freeArr3(&weight);
+  //delArr3(temp,2,2);
+  freeArr3(&temp);
 
   return;
 }
@@ -3458,8 +3463,10 @@ int Particles2Dcomm::interpP2G_OS(Field* EMf, Grid *grid, VirtualTopology* vct)
 	}*/
 
   //cout <<"R" <<vct->getCartesian_rank_COMMTOTAL() << " InterpP2G OS" << endl;
-  double*** weight = newArr3(double,2,2,1);
-  double*** temp = newArr3(double,2,2,1);
+  double*** weight;// = newArr3(double,2,2,1);
+  allocArr3(&weight, 2, 2, 1);
+  double*** temp;// = newArr3(double,2,2,1);
+  allocArr3(&temp, 2, 2, 1);
   int ix,iy, temp2,temp1;
   double inv_dx, inv_dy;
   inv_dx = 1.0/dx;
@@ -3527,8 +3534,10 @@ int Particles2Dcomm::interpP2G_OS(Field* EMf, Grid *grid, VirtualTopology* vct)
   // communicate contribution from ghost cells     
   // commented for debug
   EMf->communicateGhostP2GOS(ns,0,0,0,0,vct); // just to fix the ghost corners
-  delArr3(weight,2,2);
-  delArr3(temp,2,2);
+  //delArr3(weight,2,2);
+  freeArr3(&weight);
+  //delArr3(temp,2,2);
+  freeArr3(&temp);
   
   /*//debug ops
     if (0 && vct->getCartesian_rank_COMMTOTAL() == 16 && ns==0 )
