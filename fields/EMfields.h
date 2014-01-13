@@ -376,6 +376,7 @@ public:
         void printVecC(double ****vec, VirtualTopology *vct, int is);
 	void printJxs(int ns, VirtualTopology *vct);
 	void printPxxsn(int ns, VirtualTopology *vct);
+
 private:
 	/** light speed */
 	double c;
@@ -530,19 +531,19 @@ private:
 	/** Electric potential, defined on central points of the cell*/
 	double***  PHI;
 	/** Electric field X-component, defined on nodes */
-	double***  Ex;
+	//double***  Ex;
 	double***  Ex_old;
 	double***  Ex_recvbufferproj;
 	/** Implicit electric field X-component, defined on nodes */
 	double***  Exth;
 	/** Electric field Y-component, defined on nodes */
-	double***  Ey;
+	//double***  Ey;
 	double***  Ey_old;
 	double***  Ey_recvbufferproj;
 	/** Implicit electric field Y-component, defined on nodes */
 	double***  Eyth;
 	/** Electric field Z-component, defined on nodes */
-	double***  Ez;
+	//double***  Ez;
 	double***  Ez_old;
 	double***  Ez_recvbufferproj;
 	/** Implicit electric field Z-component, defined on nodes */
@@ -554,17 +555,17 @@ private:
 	/** Magnetic field Z-component, defined on central points of the cell*/
 	double***  Bzc;
 	/** Magnetic field X-component, defined on nodes*/
-	double***  Bxn;
+	//double***  Bxn;
 	double***  Bxc_old;
 	double***  Bxn_new;
 	double***  Bxn_recvbufferproj;
 	/** Magnetic field Y-component, defined on nodes*/
-	double***  Byn;
+	//double***  Byn;
 	double***  Byc_old;
 	double***  Byn_new;
 	double***  Byn_recvbufferproj;
 	/** Magnetic field Z-component, defined on nodes*/
-	double***  Bzn;
+	//double***  Bzn;
 	double***  Bzc_old;
 	double***  Bzn_new;
 	double***  Bzn_recvbufferproj;
@@ -2430,7 +2431,7 @@ inline  void EMfields::addIMF(double B_IMF, double theta, Grid *grid){
 
 /** set to 0 all the densities fields */
 inline  void EMfields::setZeroDensities(){
-  for (register int i=0; i < nxn; i++)
+  /*for (register int i=0; i < nxn; i++)
     for (register int j=0; j < nyn; j++){
       Jx[i][j][0]   = 0.0;
       Jxh[i][j][0]  = 0.0;
@@ -2439,13 +2440,31 @@ inline  void EMfields::setZeroDensities(){
       Jz[i][j][0]   = 0.0;
       Jzh[i][j][0]  = 0.0;
       rhon[i][j][0] = 0.0;
-    }
-  for (register int i=0; i < nxc; i++)
+      }*/
+
+  for (int i=0; i<nxn*nyn; i++)
+    {
+      (**Jx)[i]   = 0.0;         
+      (**Jxh)[i]  = 0.0;            
+      (**Jy)[i]   = 0.0;      
+      (**Jyh)[i]  = 0.0;                  
+      (**Jz)[i]   = 0.0;         
+      (**Jzh)[i]  = 0.0;                                      
+      (**rhon)[i] = 0.0;   
+      }
+
+  /*  for (register int i=0; i < nxc; i++)
     for (register int j=0; j < nyc; j++){
       rhoc[i][j][0] = 0.0;
       rhoh[i][j][0] = 0.0;
-    }
-  for (register int kk=0; kk < ns; kk++)
+      }*/
+    for (int i=0; i< nxc*nyc; i++)
+    {
+      (**rhoc)[i] = 0.0;                                                                                           
+      (**rhoh)[i] = 0.0;  
+      }
+
+  /*for (register int kk=0; kk < ns; kk++)
     for (register int i=0; i < nxn; i++)
       for (register int j=0; j < nyn; j++){
 	rhons[kk][i][j][0] = 0.0;
@@ -2458,7 +2477,21 @@ inline  void EMfields::setZeroDensities(){
 	pYYsn[kk][i][j][0] = 0.0;
 	pYZsn[kk][i][j][0] = 0.0;
 	pZZsn[kk][i][j][0] = 0.0;
+	}*/
+  for (int i=0; i<ns*nxn*nyn; i++)
+    {
+      (***rhons)[i] = 0.0;                                                                                     
+      (***Jxs)[i]   = 0.0;                                                                                     
+      (***Jys)[i]   = 0.0;                                                                                     
+      (***Jzs)[i]   = 0.0;                                                                                     
+      (***pXXsn)[i] = 0.0;                                                                                     
+      (***pXYsn)[i] = 0.0;                                                                                     
+      (***pXZsn)[i] = 0.0;                                                                                     
+      (***pYYsn)[i] = 0.0;                                                                                     
+      (***pYZsn)[i] = 0.0;                                                                                     
+      (***pZZsn)[i] = 0.0; 
       }
+
 }
 
 /** communicate ghost for grid -> Particles interpolation */
@@ -2899,11 +2932,12 @@ inline void EMfields::sumOverSpecies(VirtualTopology *vct){
 	//adjustNonPeriodicDensities(vct);
 
 	// sum to get the total density
-	for (int is=0; is<ns; is++)
+  for (int is=0; is<ns; is++)
 		for (register int i=0; i <nxn; i++)
 			for (register int j=0; j <nyn; j++)
-				rhon[i][j][0]     +=rhons[is][i][j][0];
-	communicateNode(nxn,nyn,rhon,vct);  // this added by STEF in KU Leuven
+			rhon[i][j][0]     +=rhons[is][i][j][0];
+
+  communicateNode(nxn,nyn,rhon,vct);  // this added by STEF in KU Leuven
 
 }
 

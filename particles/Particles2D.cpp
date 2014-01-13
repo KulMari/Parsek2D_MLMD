@@ -638,11 +638,7 @@ int Particles2D::mover_PC(Grid* grid,VirtualTopology* vct, Field* EMf){
   int BC_partCommunicate;
   int cartesian_rank_total;
   MPI_Comm_rank(vct->getCART_COMM_TOTAL(), &cartesian_rank_total);     
-  /*if (0)
-    {
-      cout <<"R" <<vct->getCartesian_rank_COMMTOTAL()<<"qom" <<qom << "Nop Before Mover: " << nop << endl;
-      cout <<"R" <<vct->getCartesian_rank_COMMTOTAL()<<"qom" <<qom << " np_REPOP_b_BOTTOM " << np_REPOP_b_BOTTOM << " np_REPOP_b_TOP " << np_REPOP_b_TOP << " np_REPOP_b_LEFT " << np_REPOP_b_LEFT << " np_REPOP_b_RIGHT " << np_REPOP_b_RIGHT << endl;
-      }*/
+
 
   int innter,temp1,temp2;
   int avail;
@@ -671,25 +667,34 @@ int Particles2D::mover_PC(Grid* grid,VirtualTopology* vct, Field* EMf){
       ix = 2 +  int(floor((x[i]-xstart)/dx));
       iy = 2 +  int(floor((y[i]-ystart)/dy));
                   
-      // ME, AMR
-      /*if (ix-1 <0 || iy-1 <0 || ix> grid->getNXN()-1 || iy> grid->getNYN()-1)
-      {
-	cout <<"R" <<vct->getCartesian_rank_COMMTOTAL()  << "Particle mess in the mover, exiting " << endl;
-	cout << "x: " << x[i] << ", y: " << y[i] << ", qom: " << qom << ", ID: " << ParticleID[i]<< ", PRA_oxStartLeft: " <<  PRA_oxStartLeft <<", PRA_oyStartLeft: " <<  PRA_oyStartLeft<< ", xstart: " << xstart << ", xend: " << xend << ", ystart: " << ystart << ", yend: " << yend<<", xstart-dx: " << xstart-dx <<",ystart-dy: " << ystart-dy<<", Lx: " <<Lx <<", Ly: " <<Ly  << ", i: " <<i << ", nop: "<<nop <<", innter: " <<innter <<  endl;
-	return -1;
-	}*/
-      // end ME, AMR
       weight11 = ((x[i] - grid->getXN(ix-1,iy-1,0))*inv_dx)*((y[i] - grid->getYN(ix-1,iy-1,0))*inv_dy);
       weight10 = ((x[i] - grid->getXN(ix-1,iy,0))*inv_dx)*((grid->getYN(ix-1,iy,0) - y[i])*inv_dy);
       weight01 = ((grid->getXN(ix,iy-1,0) - x[i])*inv_dx)*((y[i] - grid->getYN(ix,iy-1,0))*inv_dy);
       weight00 = ((grid->getXN(ix,iy,0) - x[i])*inv_dx)*((grid->getYN(ix,iy,0) - y[i])*inv_dy);
-      Exl = weight00*EMf->getEx(ix-1,iy-1,0) + weight01*EMf->getEx(ix-1,iy,0) + weight10*EMf->getEx(ix,iy-1,0) + weight11*EMf->getEx(ix,iy,0);
+
+      /*Exl = weight00*EMf->getEx(ix-1,iy-1,0) + weight01*EMf->getEx(ix-1,iy,0) + weight10*EMf->getEx(ix,iy-1,0) + weight11*EMf->getEx(ix,iy,0);
       Eyl = weight00*EMf->getEy(ix-1,iy-1,0) + weight01*EMf->getEy(ix-1,iy,0) + weight10*EMf->getEy(ix,iy-1,0) + weight11*EMf->getEy(ix,iy,0);
       Ezl = weight00*EMf->getEz(ix-1,iy-1,0) + weight01*EMf->getEz(ix-1,iy,0) + weight10*EMf->getEz(ix,iy-1,0) + weight11*EMf->getEz(ix,iy,0);
       Bxl = weight00*EMf->getBx(ix-1,iy-1,0) + weight01*EMf->getBx(ix-1,iy,0) + weight10*EMf->getBx(ix,iy-1,0) + weight11*EMf->getBx(ix,iy,0);
       Byl = weight00*EMf->getBy(ix-1,iy-1,0) + weight01*EMf->getBy(ix-1,iy,0) + weight10*EMf->getBy(ix,iy-1,0) + weight11*EMf->getBy(ix,iy,0);
-      Bzl = weight00*EMf->getBz(ix-1,iy-1,0) + weight01*EMf->getBz(ix-1,iy,0) + weight10*EMf->getBz(ix,iy-1,0) + weight11*EMf->getBz(ix,iy,0);
-      
+      Bzl = weight00*EMf->getBz(ix-1,iy-1,0) + weight01*EMf->getBz(ix-1,iy,0) + weight10*EMf->getBz(ix,iy-1,0) + weight11*EMf->getBz(ix,iy,0);*/
+    
+      Exl = weight00*EMf->Ex[ix-1][iy-1][0] + weight01*EMf->Ex[ix-1][iy][0] + weight10*EMf->Ex[ix][iy-1][0] + weight11*EMf->Ex[ix][iy][0];
+      Eyl = weight00*EMf->Ey[ix-1][iy-1][0] + weight01*EMf->Ey[ix-1][iy][0] + weight10*EMf->Ey[ix][iy-1][0] + weight11*EMf->Ey[ix][iy][0];
+      Ezl = weight00*EMf->Ez[ix-1][iy-1][0] + weight01*EMf->Ez[ix-1][iy][0] + weight10*EMf->Ez[ix][iy-1][0] + weight11*EMf->Ez[ix][iy][0];
+      Bxl = weight00*EMf->Bxn[ix-1][iy-1][0] + weight01*EMf->Bxn[ix-1][iy][0] + weight10*EMf->Bxn[ix][iy-1][0] + weight11*EMf->Bxn[ix][iy][0];
+      Byl = weight00*EMf->Byn[ix-1][iy-1][0] + weight01*EMf->Byn[ix-1][iy][0] + weight10*EMf->Byn[ix][iy-1][0] + weight11*EMf->Byn[ix][iy][0];
+      Bzl = weight00*EMf->Bzn[ix-1][iy-1][0] + weight01*EMf->Bzn[ix-1][iy][0] + weight10*EMf->Bzn[ix][iy-1][0] + weight11*EMf->Bzn[ix][iy][0];
+
+      //inverting the two indexes should allow vectorization without changing results
+      // nothing improved, so commented out
+      /*Exl = weight00*EMf->Ex[ix-1][0][iy-1] + weight01*EMf->Ex[ix-1][0][iy] + weight10*EMf->Ex[ix][0][iy-1] + weight11*EMf->Ex[ix][iy][0];
+      Eyl = weight00*EMf->Ey[ix-1][0][iy-1] + weight01*EMf->Ey[ix-1][0][iy] + weight10*EMf->Ey[ix][0][iy-1] + weight11*EMf->Ey[ix][iy][0];
+      Ezl = weight00*EMf->Ez[ix-1][0][iy-1] + weight01*EMf->Ez[ix-1][0][iy] + weight10*EMf->Ez[ix][0][iy-1] + weight11*EMf->Ez[ix][iy][0];
+      Bxl = weight00*EMf->Bxn[ix-1][0][iy-1] + weight01*EMf->Bxn[ix-1][0][iy] + weight10*EMf->Bxn[ix][0][iy-1] + weight11*EMf->Bxn[ix][0][iy];
+      Byl = weight00*EMf->Byn[ix-1][0][iy-1] + weight01*EMf->Byn[ix-1][0][iy] + weight10*EMf->Byn[ix][0][iy-1] + weight11*EMf->Byn[ix][0][iy];
+      Bzl = weight00*EMf->Bzn[ix-1][0][iy-1] + weight01*EMf->Bzn[ix-1][0][iy] + weight10*EMf->Bzn[ix][0][iy-1] + weight11*EMf->Bzn[ix][0][iy];*/
+
       // end interpolation
       omdtsq = qomdt*qomdt/c/c*(Bxl*Bxl+Byl*Byl+Bzl*Bzl);
       denom = 1.0/(1.0 + omdtsq);

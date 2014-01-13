@@ -16,6 +16,14 @@ developers: Stefano Markidis, Enrico Camporeale, Giovanni Lapenta, David Burgess
 */
 class Field {
 public:
+
+  double***  Ex;
+  double***  Ey;
+  double***  Ez;
+  double***  Bxn;
+  double***  Byn;
+  double***  Bzn;
+  
      /** print field information */
      virtual void print(void)const=0;
      
