@@ -284,7 +284,7 @@ void Particles2Dcomm::allocate(int species, CollectiveIO* col, VirtualTopology* 
     }
 
 
-  // if FinerLevels_PRAOps==1,  PRA particles are stored to be passed to finer grids
+  // if FinerLevel_PRAOps==1,  PRA particles are stored to be passed to finer grids
   if (grid->getLevel()< col->getNgrids()-1)
     {FinerLevels_PRAOps=1;}
   else
@@ -710,14 +710,18 @@ int Particles2Dcomm::communicate(VirtualTopology* ptVCT, Grid* grid, int BC_part
 	  // this check does NOT have to be done during the inner iterations cycles,
 	  // so check on LastCommunicate
 	  
-	  if (LastCommunicate==1 && FinerLevels_PRAOps==1 && ( PRACollectionMethod== 0 && AlreadyAccumulated[np_current]== false) )
+	  //BOHif (! ( grid->getLevel()==0 || (grid->getLevel()>0 && FinerLevels_PRAOps==1 ))  || PRAIntersection== false )
+
+	  //if (grid->getLevel()==0 && LastCommunicate==1 && FinerLevels_PRAOps==1 && ( PRACollectionMethod== 0 && AlreadyAccumulated[np_current]== false))
+	  if (LastCommunicate==1 && FinerLevels_PRAOps==1 && ( PRACollectionMethod== 0 && AlreadyAccumulated[np_current]== false)  && PRAIntersection)
 	    {int res;
 	      //cout <<  "R" << ptVCT->getCartesian_rank_COMMTOTAL() <<" PRARepopulationAdd in communicate\n";
-	      /*if (ParticleID[np_current]== 169310 && qom== -1)
+	      if (false)
 		{
-		  cout << "Particle 169310 -1 at PRARepopulationAdd in communicate\n";
-		  cout <<"AlreadyAccumulated[np_current] " << AlreadyAccumulated[np_current] <<endl;
-		  }*/
+		  cout <<"I'm there\n";
+		  //cout << "Particle 169310 -1 at PRARepopulationAdd in communicate\n";
+		  //cout <<"AlreadyAccumulated[np_current] " << AlreadyAccumulated[np_current] <<endl;
+		  }
 
 	      res=PRARepopulationAdd(np_current);
 	      AlreadyAccumulated[np_current]=true;
@@ -1004,6 +1008,8 @@ int Particles2Dcomm::unbuffer(double *b_, VirtualTopology *ptVCT){
 
 	    /*if (ParticleID[nop]== 169310 && qom== -1)
 	      cout <<"Particle 169310 -1 at PRARepopulationAdd in unbuffer\n";*/
+	    
+	    
 
 	    res=PRARepopulationAdd(nop);
 	    AlreadyAccumulated[nop]=true;
@@ -1245,6 +1251,17 @@ int Particles2Dcomm::initPRAVariables(int species, CollectiveIO* col,VirtualTopo
     PRA_CoyEndLeft     = Oy + (PRA_Yleft-1)*finedy + grid->getDY();
     PRA_CoyStartRight  = Oy + finely - (PRA_Yright-1)*finedy - grid->getDY();
     PRA_CoyEndRight    = Oy + finely + finedy + grid->getDY();
+
+    //if (Modified_xstart > PRA_CoxEndLeft or Modified_xend < PRA_CoxStartLeft or Modified_ystart > PRA_CoyEndLeft or Modified_yend < PRA_CoyStartLeft)
+    if (Modified_xstart > PRA_CoxEndRight or Modified_xend < PRA_CoxStartLeft or Modified_ystart > PRA_CoyEndRight or Modified_yend < PRA_CoyStartLeft)
+      {
+	PRAIntersection= false;
+      }	
+    else
+      {
+	PRAIntersection= true;
+      }
+
   }
   else{ //actually not used, initialized anyhow
     PRA_CoxStartLeft   = 0- grid->getDX();;
@@ -1256,6 +1273,9 @@ int Particles2Dcomm::initPRAVariables(int species, CollectiveIO* col,VirtualTopo
     PRA_CoyEndLeft     = 0- grid->getDY();;
     PRA_CoyStartRight  = Ly+ grid->getDY();
     PRA_CoyEndRight    = Ly+ grid->getDY();
+
+
+    PRAIntersection= false;
   } 
 
   // for PRASend, modified from initWeightBC
@@ -1913,15 +1933,17 @@ void Particles2Dcomm::checkAfterInitPRAVariables(int species, CollectiveIO* col,
 
 void Particles2Dcomm::initPRABuffers(Grid* grid, VirtualTopology* vct)
 {
+  
   np_REPOP_b_BOTTOM =0;
   np_REPOP_b_TOP =0;
   np_REPOP_b_LEFT =0;
   np_REPOP_b_RIGHT =0;
 
-  setToMINVAL(REPOP_b_BOTTOM);
+  // Feb 3
+  /*setToMINVAL(REPOP_b_BOTTOM);
   setToMINVAL(REPOP_b_TOP);
   setToMINVAL(REPOP_b_LEFT);
-  setToMINVAL(REPOP_b_RIGHT);
+  setToMINVAL(REPOP_b_RIGHT);*/
 
   nop_OS=0;
 }
@@ -2109,28 +2131,28 @@ int Particles2Dcomm::PRASend(Grid* grid, VirtualTopology* vct)
 
 
   if (targetBOTTOM>1)
-    {PshareBOTTOM=(int) (np_REPOP_b_BOTTOM/targetBOTTOM)+1;}
+    {PshareBOTTOM=(int) floor(np_REPOP_b_BOTTOM/targetBOTTOM)+1;}
   else if (targetBOTTOM==1)
     {PshareBOTTOM=np_REPOP_b_BOTTOM;}
   else if (targetBOTTOM==0)
     {PshareBOTTOM=0;}
 
   if (targetTOP>1)
-    {PshareTOP=(int) (np_REPOP_b_TOP/targetTOP)+1;}
+    {PshareTOP=(int) floor(np_REPOP_b_TOP/targetTOP)+1;}
   else if (targetTOP==1)
     {PshareTOP=np_REPOP_b_TOP;}
   else if (targetTOP==0)
     {PshareTOP=0;}
 
   if (targetLEFT>1)
-    {PshareLEFT=(int) (np_REPOP_b_LEFT/targetLEFT)+1;}
+    {PshareLEFT=(int) floor(np_REPOP_b_LEFT/targetLEFT)+1;}
   else if (targetLEFT==1)
     {PshareLEFT=np_REPOP_b_LEFT;}
   else if (targetLEFT==0)
     {PshareLEFT=0;}
 
   if (targetRIGHT>1)
-    {PshareRIGHT=(int) (np_REPOP_b_RIGHT/targetRIGHT)+1;}
+    {PshareRIGHT=(int) floor(np_REPOP_b_RIGHT/targetRIGHT)+1;}
   else if (targetRIGHT==1)
     {PshareRIGHT=np_REPOP_b_RIGHT;}
   else if (targetRIGHT==0)
@@ -2181,33 +2203,46 @@ int Particles2Dcomm::PRASend(Grid* grid, VirtualTopology* vct)
       if (BCSide[i]==0) //send bottom
 	{
 	  // arrange tmp for send
-	  setToMINVAL(tmp);
-	  memcpy(tmp, REPOP_b_BOTTOM + sentBOTTOM*PshareBOTTOM*nVar, PshareBOTTOM*nVar*sizeof(double));
-	  ierr=MPI_Send(tmp,PshareBOTTOM*nVar, MPI_DOUBLE, targetBC[i], ns, MPI_COMM_WORLD);
+	  //setToMINVAL(tmp); //Feb3
+	  int PshareBOTTOM_r= PshareBOTTOM;
+	  if (sentBOTTOM== targetBOTTOM-1 && targetBOTTOM>1) // to deal with reminders
+	    PshareBOTTOM_r= np_REPOP_b_BOTTOM - (PshareBOTTOM*(targetBOTTOM-1));
+
+	  memcpy(tmp, REPOP_b_BOTTOM + sentBOTTOM*PshareBOTTOM*nVar, PshareBOTTOM_r*nVar*sizeof(double));
+	  ierr=MPI_Send(tmp,PshareBOTTOM_r*nVar, MPI_DOUBLE, targetBC[i], ns, MPI_COMM_WORLD);
 	  //ierr=MPI_Ssend(tmp,PshareBOTTOM*nVar, MPI_DOUBLE, targetBC[i], ns, MPI_COMM_WORLD);  
 	  sentBOTTOM++;
 	}
       else if (BCSide[i]==1) // send top 
 	{
-          setToMINVAL(tmp);
-	  memcpy(tmp, REPOP_b_TOP + sentTOP*PshareTOP*nVar, PshareTOP*nVar*sizeof(double));
-          ierr=MPI_Send(tmp,PshareTOP*nVar, MPI_DOUBLE, targetBC[i], ns, MPI_COMM_WORLD);
+          //setToMINVAL(tmp); //Feb3
+	  int PshareTOP_r= PshareTOP;
+	  if (sentTOP== targetTOP-1 && targetTOP>1) // to deal with reminders            
+            PshareTOP_r= np_REPOP_b_TOP -(PshareTOP*(targetTOP-1));
+	  memcpy(tmp, REPOP_b_TOP + sentTOP*PshareTOP*nVar, PshareTOP_r*nVar*sizeof(double));
+          ierr=MPI_Send(tmp,PshareTOP_r*nVar, MPI_DOUBLE, targetBC[i], ns, MPI_COMM_WORLD);
 	  //ierr=MPI_Ssend(tmp,PshareTOP*nVar, MPI_DOUBLE, targetBC[i], ns, MPI_COMM_WORLD); 
           sentTOP++;
 	}
       else if (BCSide[i]==2) // send left
 	{
-          setToMINVAL(tmp);
-	  memcpy(tmp, REPOP_b_LEFT + sentLEFT*PshareLEFT*nVar, PshareLEFT*nVar*sizeof(double));
-          ierr=MPI_Send(tmp, PshareLEFT*nVar, MPI_DOUBLE, targetBC[i], ns, MPI_COMM_WORLD);
+          //setToMINVAL(tmp); //Feb3
+	  int PshareLEFT_r= PshareLEFT;
+	  if (sentLEFT== targetLEFT-1 && targetLEFT>1) // to deal with reminders  
+            PshareLEFT_r= np_REPOP_b_LEFT -(PshareLEFT*(targetLEFT-1));
+	  memcpy(tmp, REPOP_b_LEFT + sentLEFT*PshareLEFT*nVar, PshareLEFT_r*nVar*sizeof(double));
+          ierr=MPI_Send(tmp, PshareLEFT_r*nVar, MPI_DOUBLE, targetBC[i], ns, MPI_COMM_WORLD);
 	  //ierr=MPI_Ssend(tmp, PshareLEFT*nVar, MPI_DOUBLE, targetBC[i], ns, MPI_COMM_WORLD);   
           sentLEFT++;
 	}
       else if (BCSide[i]==3) // send right
 	{
-	  setToMINVAL(tmp);
-	  memcpy(tmp, REPOP_b_RIGHT + sentRIGHT*PshareRIGHT*nVar, PshareRIGHT*nVar*sizeof(double));
-          ierr=MPI_Send(tmp,PshareRIGHT*nVar, MPI_DOUBLE, targetBC[i], ns, MPI_COMM_WORLD);
+	  //setToMINVAL(tmp); //Feb3
+	  int PshareRIGHT_r= PshareRIGHT;
+	  if (sentRIGHT== targetRIGHT-1 && targetRIGHT>1) // to deal with reminders                         
+            PshareRIGHT_r= np_REPOP_b_RIGHT -(PshareRIGHT*(targetRIGHT-1));
+	  memcpy(tmp, REPOP_b_RIGHT + sentRIGHT*PshareRIGHT*nVar, PshareRIGHT_r*nVar*sizeof(double));
+          ierr=MPI_Send(tmp,PshareRIGHT_r*nVar, MPI_DOUBLE, targetBC[i], ns, MPI_COMM_WORLD);
 	  //ierr=MPI_Ssend(tmp,PshareRIGHT*nVar, MPI_DOUBLE, targetBC[i], ns, MPI_COMM_WORLD);  
           sentRIGHT++;
 	} 
@@ -2280,27 +2315,31 @@ int Particles2Dcomm::PRAReceive(Grid* grid, VirtualTopology *vct, Field* EMf)
   for (int i=0; i< nmessagerecuBC; i++)
     {
       int n_rec_p_eachRec=0;// index in REPOP_receive_b   
-      setToMINVAL(REPOP_receive_b);
+      //setToMINVAL(REPOP_receive_b);  //Feb3
       
       // receive
       ierr = MPI_Recv(REPOP_receive_b,MAX_NP_REPOP_SIZE*nVar,MPI_DOUBLE, MPI_ANY_SOURCE, ns,MPI_COMM_WORLD, &status);
       // count the number of doubles received
+      //Feb3
       int Recv_Double;
-      /*MPI_Get_count(&status, MPI_DOUBLE, &Recv_Double);
+      MPI_Get_count(&status, MPI_DOUBLE, &Recv_Double);
       if (Recv_Double>= (MAX_NP_REPOP_SIZE-1)*nVar )
 	{
 	  cout << "PRAReceive: insufficient buffer size" << endl;
           return -1;
-	  }*/
+	  }
 
-      if (REPOP_receive_b[MAX_NP_REPOP_SIZE*nVar -1] != MIN_VAL)// in this case, exit and ask for a buffer resize
+      /*if (REPOP_receive_b[MAX_NP_REPOP_SIZE*nVar -1] != MIN_VAL)// in this case, exit and ask for a buffer resize
 	  {
 	  cout << "PRAReceive: insufficient buffer size" << endl;
 	  return -1;
-	  }
+	  }*/
+      //end Feb3
       // split
-      while (REPOP_receive_b[n_rec_p_eachRec*nVar]!= MIN_VAL)    // start examining a particle block
-      //while (REPOP_receive_b[n_rec_p_eachRec*nVar]!= MIN_VAL && (n_rec_p_eachRec+1)*nVar<=Recv_Double )    // start examining a particle block
+      //while (REPOP_receive_b[n_rec_p_eachRec*nVar]!= MIN_VAL)    // start examining a particle block
+      // //while (REPOP_receive_b[n_rec_p_eachRec*nVar]!= MIN_VAL && (n_rec_p_eachRec+1)*nVar<=Recv_Double )    // start examining a particle block
+      while ((n_rec_p_eachRec+1)*nVar<=Recv_Double ) //Feb3
+
 	{
 	  //cout << "Test:" << REPOP_receive_b[n_rec_p_eachRec*nVar] << " and " <<REPOP_receive_b[n_rec_p_eachRec*nVar+10]<< endl;
 	  out= SplitCoarseParticle(vct, grid, n_rec_p_eachRec);    
@@ -3033,7 +3072,8 @@ int Particles2Dcomm::getPRACollectionMethod()
 int Particles2Dcomm::CollectivePRARepopulationAdd(VirtualTopology* ptVCT, Grid* grid)
 {
   int out;
-  if (! ( grid->getLevel()==0 || (grid->getLevel()>0 && FinerLevels_PRAOps==1 )) )
+  //if (! ( grid->getLevel()==0 || (grid->getLevel()>0 && FinerLevels_PRAOps==1 )) )
+  if (! ( grid->getLevel()==0 || (grid->getLevel()>0 && FinerLevels_PRAOps==1 ))  || PRAIntersection== false ) 
   {
     //cout << "R" << ptVCT->getCartesian_rank_COMMTOTAL()<<": no need for CollectivePRARepopulationAdd\n";
     return 1;

@@ -368,6 +368,9 @@ class Particles2Dcomm : public Particles {
     /**y end right*/
     double PRA_CoyEndRight;
 
+    //for coarse grid, to see if a refined grid is intersecting you for PRA purposes
+    bool PRAIntersection;
+
     /* needed 
        -- for level 0 to mark wether the communicate is the last one, with definitive position, or one in the inner mover
           (in the other levels difference with communicateFirst and Second)
