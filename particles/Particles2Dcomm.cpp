@@ -3981,3 +3981,77 @@ double Particles2Dcomm::roundPrec(double x, int prec)
 
   return x;
 }
+int Particles2Dcomm::RandomizePositionPRAParticles(int species, VirtualTopology* vct,  Grid* grid)
+{
+  // only for refined grids                                                                                                                                  
+  if (grid->getLevel()==0) return 1;
+
+  //only for boundary cores, since PRA cannot extent further than them                                                                                            
+  if (! (vct->getXright_neighbor()==MPI_PROC_NULL or vct->getXleft_neighbor()==MPI_PROC_NULL) or vct->getYright_neighbor()==MPI_PROC_NULL or vct->getYleft_neighbor()==MPI_PROC_NULL)
+    return 1;
+
+  srand((unsigned)time(NULL)+ species + vct->getCartesian_rank()+1); // try not to have the same sequence                                                        
+  double  dx = grid->getDX(),dy = grid->getDY();
+  int ix, iy;
+
+  for (int i=0; i<nop; i++)
+    {
+      // X left boundary                                                                                                                                   
+      if (vct->getXleft_neighbor()==MPI_PROC_NULL)
+        {
+          if (x[i]<= grid->getXN(PRA_Xleft, 1, 1))
+            {
+              // fMin + (double)(rand()/(double)RAND_MAX * (fMax- fMin)                                                                                       
+              // x: random in the PRA, x dir                                                                                                                   
+              double range = (grid->getXN(PRA_Xleft, 1, 1)- (-dx));
+              x[i]=-dx + (double)(rand()/(double)RAND_MAX) * range;
+              // y: random in the cell                                                                                                                            
+              iy = 1 +  int(floor((y[i]-ystart)/dy));
+              y[i]= grid->getYN(1, iy, 1) + (double)(rand()/(double)RAND_MAX)* dy;
+            }
+        }
+      // X right boundary   
+      if (vct->getXright_neighbor()==MPI_PROC_NULL)
+        {
+          if (x[i]>= grid->getXN(nxn-PRA_Xright, 1, 1))
+            {
+              // fMin + (double)(rand()/(double)RAND_MAX * (fMax- fMin)                                                                                          
+              // x: random in the PRA, x dir                                                                                                                     
+              double range = grid->getmodifiedXend(vct) - dx*PRA_Xright;
+              x[i]=grid->getXN(nxn-PRA_Xright, 1, 1) + (double)(rand()/(double)RAND_MAX) * range;
+              // y: random in the cell                                                                                                                            
+              iy = 1 +  int(floor((y[i]-ystart)/dy));
+              y[i]= grid->getYN(1, iy, 1) + (double)(rand()/(double)RAND_MAX)* dy;
+            }
+        }
+      // Y left boundary    
+      if (vct->getYleft_neighbor()==MPI_PROC_NULL)
+        {
+          if (y[i]<= grid->getYN(1,PRA_Yleft, 1))
+            {
+              // fMin + (double)(rand()/(double)RAND_MAX * (fMax- fMin)                                                                                              
+              // y: random in the PRA, y dir                                                                                                                      
+              double range = (grid->getYN(1, PRA_Yleft, 1)- (-dy));
+              y[i]=-dy + (double)(rand()/(double)RAND_MAX) * range;
+              // x: random in the cell                                                                                                                           
+              ix = 1 +  int(floor((x[i]-xstart)/dx));
+              x[i]= grid->getXN(ix, 1, 1) + (double)(rand()/(double)RAND_MAX)* dx;
+            }
+        }
+      // Y right boundary   
+      if (vct->getYright_neighbor()==MPI_PROC_NULL)
+        {
+          if (y[i]>= grid->getYN(1, nyn-PRA_Yright, 1))
+            {
+              // fMin + (double)(rand()/(double)RAND_MAX * (fMax- fMin)                                                                                            
+              // y: random in the PRA, y dir                                                                                                                         
+              double range = grid->getmodifiedYend(vct) - dy*PRA_Yright;
+              y[i]=grid->getYN(1, nyn-PRA_Yright, 1) + (double)(rand()/(double)RAND_MAX) * range;
+              // x: random in the cell                                                                                                                               
+              ix = 1 +  int(floor((x[i]-xstart)/dx));
+              x[i]= grid->getXN(ix, 1, 1) + (double)(rand()/(double)RAND_MAX)* dx;
+            }
+        }
+
+    }// end nop                                                                                                                                                     
+}

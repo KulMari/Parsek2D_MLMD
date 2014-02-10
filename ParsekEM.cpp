@@ -47,24 +47,28 @@ using std::cerr;
 using std::endl;
 
 
-
+//#include "epik_user.h"   //for scalasca selective instrumentation- cannot find it!
 
 int main (int argc, char **argv) {
 
   bool TEST=0; //this takes a lot od reduces, put to 0 normally
   bool TEST_B=0; // to eliminate the barriers; when debugging, the barriers mark the beginning/ end of each phase
+  //  bool SCALASCA_SELECTIVE=0;
+  
+  bool RandomizeParticlePos= false;
 
   int proj=1;
- int interp=1;
- int solveFields=1;
- int P2Gops=1;
- int PRASendRcvOps=1; 
- int PRACollectionMethod=1;   /* =0, coarse particle to be used for repopulation collected one by one during communicate ops; WORKING ON
-				    =1, coarse particles collected all together after mover */
- int RefLevelAdj=0; /* options:                                                                      
+  int interp=1;
+  int solveFields=1;
+  int P2Gops=1;
+  int PRASendRcvOps=1; 
+  int PRACollectionMethod=1;   /* =0, coarse particle to be used for repopulation collected one by one during communicate ops; WORKING, not fatser; use 1
+				  =1, coarse particles collected all together after mover */
+  int RefLevelAdj=0; /* options:                                                                      
 		      --0: same adjust for coarse and refined level (multiply)-- chec with double periodic reconnection                      
 		      --1: interp of OS particles for the refined level; more expensive, use it for influxes */
 
+ cout << "PRACollectionMethod is " << PRACollectionMethod <<endl;  
  // initialize MPI environment
  int nprocs, myrank, mem_avail;
  MPIdata *mpi = new MPIdata(&argc,&argv);
@@ -306,6 +310,23 @@ if (coord[0] != coord_particles[0]) {
 
   for (int cycle = first_cycle; cycle < (col->getNcycles()+first_cycle); cycle++)
   {
+
+    /*if (SCALASCA_SELECTIVE)
+      {
+	if( cycle== 30)
+	  {
+	    if (myrank==0 && verbose)
+	      {cout <<"I am cycle 30 and I am starting selective SCALASCA instrumentation\n";}
+	    EPIK_FUNC_START();
+	  }
+	if (cycle==33)
+	  {
+	    if (myrank==0 && verbose)
+              {cout <<"I am cycle 30 and I am starting selective SCALASCA instrumentation\n";}
+	    EPIK_FUNC_END();
+	  }
+	  }*/
+	
     if (myrank==0 && verbose)
     {
       cout << "***********************" << endl;
@@ -445,7 +466,15 @@ if (coord[0] != coord_particles[0]) {
     }//end bracket on species
      //} // end to remove	  
     //MPI_Barrier(vct->getCART_COMM_TOTAL()); //maybe to be kept at Level level?
-    	  
+    
+    if (RandomizeParticlePos)
+      {
+	for (int i=0; i<ns; i++)                                                  
+	  {                                                                         
+	    part[i].RandomizePositionPRAParticles(i, vct, grid);                    
+	  }
+      }
+
     int mem_avail1=2, mem_avail2=2;
     // communicate PRA particles for all species
     if(PRASendRcvOps)

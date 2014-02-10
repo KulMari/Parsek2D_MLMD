@@ -156,7 +156,8 @@ class Particles2Dcomm : public Particles {
      int getPRACollectionMethod();
      // safe way of collective repopulation particles in the coarser levels
      int CollectivePRARepopulationAdd(VirtualTopology* ptVCT, Grid* grid);
-
+     // Randomize position for particles in the PRA, to see if it affects the noise in the refiend grid with high RFs                                          
+     int RandomizePositionPRAParticles(int is, VirtualTopology* vct,  Grid* grid);
      // OS operations (different from the normal buffer / del_pack/ unbuffer because tilde values are not passed)
      /** put a OS particle exiting to X-LEFT in the bufferXLEFT for communication*/
      void bufferXleftOS(double *b_, int np, VirtualTopology* vct);

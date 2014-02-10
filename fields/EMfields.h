@@ -131,6 +131,8 @@ public:
 	void sumOverSpeciesJ();
 	/** Smoothing after the interpolation**/
 	void smooth(int nvolte, double value ,double ***vector,bool type, Grid *grid, VirtualTopology *vct);
+	/** Smoothing E after the projection (only the projected area)*/
+        void smoothProj(int nvolte, double value ,double ***vector,bool type, Grid *grid, VirtualTopology *vct, int xstart, int xend, int ystart, int yend);
 	/** Smoothing for the electric field (never called)**/
 	void smoothE(int nvolte, double value ,double ***vector,bool type, Grid *grid, VirtualTopology *vct);
 	/** SPECIES: Smoothing after the interpolation for species fields**/
@@ -569,6 +571,8 @@ private:
 	double***  Bzc_old;
 	double***  Bzn_new;
 	double***  Bzn_recvbufferproj;
+	/** mask for damping, used to add an external resistivity in the MaxwellImage **/
+        double*** Lambda;
         /** Weights for interpolation between grids (boundary conditions) **/
         double***  weightBC;
         /** Weights for projection between grids **/
@@ -726,6 +730,11 @@ private:
 		/** Injection Velocity from the wall */
 		double Vinj;
 
+		/* to enable field damping ONLY AT THE BOUNDARY */
+		bool LambdaDamping;
+
+		/* to add an extra term in the GMRES to eliminate artificial solutions introduced by the smoothing*/
+		bool ArtificialResistivity;
 };
 
 
@@ -1188,10 +1197,27 @@ inline void EMfields::MaxwellImage(double *im, double *vector, Grid *grid, Virtu
 	sum(imageY,vectY,nxn,nyn);
 	sum(imageZ,vectZ,nxn,nyn);
 
+	/* Lambda damping here, only for refined grid */
+	if (LambdaDamping)
+	  {
+	    sumscalprod(imageX,delt,vectX,Lambda,nxn,nyn); 
+	    sumscalprod(imageY,delt,vectY,Lambda,nxn,nyn); 
+	    sumscalprod(imageZ,delt,vectZ,Lambda,nxn,nyn);	
+	  }
+	/* end lambda damping */
+
         //What is the use of that ??
 	sum(Dx,vectX,nxn,nyn);
 	sum(Dy,vectY,nxn,nyn);
 	sum(Dz,vectZ,nxn,nyn);
+
+	if (ArtificialResistivity)
+	  {
+	    double epsilon=0.1;
+	    addscale(epsilon, imageX, vectX, nxn, nyn); 
+	    addscale(epsilon, imageY, vectY, nxn, nyn); 
+	    addscale(epsilon, imageZ, vectZ, nxn, nyn);
+	  }
 
 	// move from physical space to krylov space
 	phys2solver(im,imageX,imageY,imageZ,nxn,nyn);
@@ -2150,8 +2176,55 @@ inline void EMfields::initDoubleHarris(VirtualTopology *vct, Grid *grid){
 		communicateNode(nxn,nyn,Ez,vct);
 		for (int is=0 ; is<ns; is++)
 			grid->interpN2C_alsoGC(rhocs,is,rhons);
+
+		// Initialize Lambda, boundary damping for the refined grid oly
+		if (LambdaDamping)
+		  {
+		    int DA= 5; //Width of the damping area in all directions, only at grid boundaries                 
+		    double dx= grid->getDX();
+		    double dy= grid->getDY();                                                                   
+		    for (int i=0; i<nxn; i++)                        
+		      {    
+			for (int j=0; j<nyn; j++)                
+			  {       
+			    Lambda[i][j][0]=0.0;  
+			    if (vct->getXleft_neighbor()== MPI_PROC_NULL and i<DA)       
+			      Lambda[i][j][0]=2.0 *M_PI / dx;    
+			    if (vct->getXright_neighbor()== MPI_PROC_NULL and i>=nxn-DA) 
+			      Lambda[i][j][0]=2.0 *M_PI / dx;    
+			    if (vct->getYleft_neighbor()== MPI_PROC_NULL and j<DA)   
+			      Lambda[i][j][0]=2.0 *M_PI / dy; 
+			    if (vct->getYright_neighbor()== MPI_PROC_NULL and j>=nyn-DA) 
+			      Lambda[i][j][0]=2.0 *M_PI / dy;               
+			  }                        
+		      }
+		  }
 	} else {
-		init(vct,grid);  // use the fields from restart file
+	  init(vct,grid);  // use the fields from restart file
+
+	  // Initialize Lambda, boundary damping for the refined grid only       
+	  if (LambdaDamping)
+	    {
+	      int DA= 5; //Width of the damping area in all directions, only at grid boundaries
+	      double dx= grid->getDX();
+	      double dy= grid->getDY();
+	      // with this commented, no boundary damping                           
+	      for (int i=0; i<nxn; i++)                         
+		{      
+		  for (int j=0; j<nyn; j++)  
+		    {                     
+		      Lambda[i][j][0]=0.0;            
+		      if (vct->getXleft_neighbor()== MPI_PROC_NULL and i<DA)   
+			Lambda[i][j][0]=2.0 *M_PI / dx;   
+		      if (vct->getXright_neighbor()== MPI_PROC_NULL and i>=nxn-DA)   
+			Lambda[i][j][0]=2.0 *M_PI / dx;  
+		      if (vct->getYleft_neighbor()== MPI_PROC_NULL and j<DA) 
+			Lambda[i][j][0]=2.0 *M_PI / dy;  
+		      if (vct->getYright_neighbor()== MPI_PROC_NULL and j>=nyn-DA) 
+			Lambda[i][j][0]=2.0 *M_PI / dy;                   
+		    }                     
+		}
+	    }
 	}
 }
 /** initialize with uniform distribution */
@@ -3338,7 +3411,8 @@ Interpolation smoothing:
  type = 0 --> center based vector ;
  type = 1 --> node based vector   ;
  */
-inline void  EMfields::smooth(int nvolte, double value,double ***vector, bool type, Grid *grid, VirtualTopology *vct){
+// replaced later, by another with choice of direction for smoothing   
+/*inline void  EMfields::smooth(int nvolte, double value,double ***vector, bool type, Grid *grid, VirtualTopology *vct){
 	double alpha;
 	int nx, ny;
 
@@ -3416,7 +3490,7 @@ inline void  EMfields::smooth(int nvolte, double value,double ***vector, bool ty
 			freeArr1(&temp);
 		} // end of if (value !=1)
 	}
-}
+	}*/
 
 /**
 Interpolation smoothing:
@@ -3474,7 +3548,8 @@ TO MAKE SMOOTH value as to be different from 1.0
 type = 0 --> center based vector
 type = 1 --> node based vector
 */
-inline void  EMfields::smooth(int nvolte, double value,double ****vector,int is, bool type, Grid *grid, VirtualTopology *vct){
+//substituted later by one which gives the choice of the smoothing direction  
+/*inline void  EMfields::smooth(int nvolte, double value,double ****vector,int is, bool type, Grid *grid, VirtualTopology *vct){
 	double alpha;
 	int nx, ny;
 
@@ -3550,7 +3625,7 @@ inline void  EMfields::smooth(int nvolte, double value,double ****vector,int is,
 			freeArr1(&temp);
 		} // end of if
 	}
-}
+	}*/
 
 
 
@@ -4475,6 +4550,13 @@ if (nmessagerecvProj>0) {
  communicateNode(nxn,nyn,Ey,vct);
  communicateNode(nxn,nyn,Ez,vct);
  
+
+ // THIS IS FUNDAMENTAL                                                                 
+ smooth(Nvolte,Smooth,Ex,1,grid,vct);
+ smooth(Nvolte,Smooth,Ey,1,grid,vct);
+ smooth(Nvolte,Smooth,Ez,1,grid,vct);
+
+
  calculateB_afterProj(grid, vct);
  
  //cout <<"END RECEIVE PROJ" << endl;
@@ -5038,6 +5120,14 @@ inline EMfields::EMfields(CollectiveIO *col,Grid *grid, VCtopology *vct){
 	dt = col->getDt();
 	Smooth = col->getSmooth();
 	Nvolte = col ->getNvolte();
+
+	// I need very high smoothing on the refined grid                               
+        if (grid->getLevel()>0)
+          {
+            Smooth=0.0;
+            Nvolte=5;
+	  }
+
 	th = col->getTh();
 	delt = c*th*dt;
         xnnl = 0;
@@ -5176,6 +5266,17 @@ inline EMfields::EMfields(CollectiveIO *col,Grid *grid, VCtopology *vct){
 	//Bzn_new   = newArr3(double,nxn,nyn,1);
 	allocArr3(&Bzn_new, nxn, nyn, 1);
 	//Bxn_recvbufferproj   = newArr3(double,nxn,nyn,1);
+
+	/** damping mask **/
+	LambdaDamping= false;
+	allocArr3(&Lambda, nxn, nyn, 1);
+	for (int i=0; i< nxn; i++)
+          for (int j=0; j<nyn; j++)
+            Lambda[i][j][0]=0.0;
+	
+	/* Artificial resistivity flag*/
+	ArtificialResistivity= false;
+
 	allocArr3(&Bxn_recvbufferproj, nxn, nyn, 1);
 	//Byn_recvbufferproj   = newArr3(double,nxn,nyn,1);
 	allocArr3(&Byn_recvbufferproj, nxn, nyn, 1);
@@ -6927,5 +7028,421 @@ inline int EMfields::initWeightProj(VirtualTopology *vct, Grid *grid, Collective
   
   return 1;
 }
+/**                                                                                            
+Interpolation smoothing:                                                        
+Smoothing (vector must already have ghost cells)      
+ TO MAKE SMOOTH value as to be different from 1.0  
+type = 0 --> center based vector ;                                             
+type = 1 --> node based vector   ;                           
+smoothing at 45 degrees 
+*/
+inline void  EMfields::smooth(int nvolte, double value,double ****vector,int is, bool type, Grid *grid, VirtualTopology *vct){
+  double alpha;
+  int nx, ny;
+
+  int Dir=0;//=1; //Dir is the direction for the smoothing; 0= 90 deg; 1= 45 deg          
+  for (int icount=1; icount<nvolte+1; icount++)
+    {
+      /*Dir= CounterSm %2;                                                                  
+      CounterSm++;                                                
+      if (CounterSm == 10000)   
+      CounterSm =0;
+      /*      if (icount%2==1){                    
+        value = 0.;             
+      } else {                                                             
+        value=0.5;             
+        } //smooth ipic*/
+
+
+      if (value != 1.0){
+        switch(type){
+        case (0):
+          nx=grid->getNXC();
+          ny=grid->getNYC();
+          break;
+        case(1):
+          nx=grid->getNXN();
+          ny=grid->getNYN();
+          break;
+        }
+	double **temp;// = newArr(double,nx,ny);
+	allocArr2(&temp, nx, ny);                                             
+        alpha=(1.0-value)/4;
+
+        for (int i=1; i<nx-1; i++)
+          for (int j=1; j<ny-1; j++)
+            {
+              if (Dir==0)
+                temp[i][j]=value*vector[is][i][j][0]+alpha*(vector[is][i-1][j][0]+vector[is][i][j-1][0]+vector[is][i+1][j][0]+vector[is][i][j+1][0]); //cross      
+              else if (Dir==1)
+                temp[i][j]=value*vector[is][i][j][0]+alpha*(vector[is][i-1][j-1][0]+vector[is][i+1][j-1][0]+vector[is][i+1][j+1][0]+vector[is][i-1][j+1][0]); //45\
+                                                                              
+            }
+        // Adjust boundary                                                          
+        if (vct->getXleft_neighbor()==MPI_PROC_NULL){
+          if (Dir==0)
+            {
+              alpha=(1.0-value)/3;
+              for (int j=1; j<ny-1;j++)
+                temp[1][j]=value*vector[is][1][j][0]+alpha*(vector[is][1][j-1][0]+vector[is][2][j][0]+vector[is][1][j+1][0]);
+            }
+          else if (Dir==1)
+            {
+              alpha=(1.0-value)/2;
+              for (int j=1; j<ny-1;j++)
+                temp[1][j]=value*vector[is][1][j][0]+alpha*(vector[is][2][j-1][0]+vector[is][2][j+1][0]); // 45                                                    
+            }
+        }
+
+	if (vct->getXright_neighbor()==MPI_PROC_NULL){
+          if (Dir==0)
+            {
+              alpha=(1.0-value)/3;
+              for (int j=1; j<ny-1;j++)
+                temp[nx-2][j]=value*vector[is][nx-2][j][0]+alpha*(vector[is][nx-2][j-1][0]+vector[is][nx-3][j][0]+vector[is][nx-2][j+1][0]);
+            }
+          else if (Dir==1)
+            {
+              alpha=(1.0-value)/2; //45                                               
+              for (int j=1; j<ny-1;j++)
+                temp[nx-2][j]=value*vector[is][nx-2][j][0]+alpha*(vector[is][nx-3][j-1][0]+vector[is][nx-3][j+1][0]); //45                                         
+            }
+        }
+
+        if (vct->getYleft_neighbor()==MPI_PROC_NULL){
+          if (Dir==0)
+            {
+              alpha=(1.0-value)/3;
+              for (int i=1; i<nx-1;i++)
+                temp[i][1]=value*vector[is][i][1][0]+alpha*(vector[is][i-1][1][0]+vector[is][i+1][1][0]+vector[is][i][2][0]);
+            }
+          else if (Dir==1)
+            {
+              alpha=(1.0-value)/2; //45                               
+              for (int i=1; i<nx-1;i++)
+                temp[i][1]=value*vector[is][i][1][0]+alpha*(vector[is][i-1][2][0]+vector[is][i+1][2][0]);  //45                                                    
+            }
+        }
+	if (vct->getYright_neighbor()==MPI_PROC_NULL){
+          if (Dir==0)
+            {
+              alpha=(1.0-value)/3;
+              for (int i=1; i<nx-1;i++)
+                temp[i][ny-2]=value*vector[is][i][ny-2][0]+alpha*(vector[is][i-1][ny-2][0]+vector[is][i][ny-3][0]+vector[is][i+1][ny-2][0]);
+            }
+          else if (Dir==1)
+            {
+              alpha=(1.0-value)/2;
+              for (int i=1; i<nx-1;i++)
+                temp[i][ny-2]=value*vector[is][i][ny-2][0]+alpha*(vector[is][i-1][ny-3][0]+vector[is][i+1][ny-3][0]);
+            }
+        }
+	// corners                                                       
+        if (vct->getXleftYleft_neighbor()==MPI_PROC_NULL)
+          {
+            if (Dir==0)
+              {
+                alpha=(1.0-value)/2;
+                temp[1][1]=value*vector[is][1][1][0]+alpha*(vector[is][2][1][0]+vector[is][1][2][0]);
+              }
+            else if (Dir==1)
+              {
+                alpha=(1.0-value);//45                                             
+                temp[1][1]=value*vector[is][1][1][0]+alpha*(vector[is][2][2][0]);//45  
+              }
+	  }
+        if (vct->getXleftYright_neighbor()==MPI_PROC_NULL){
+          if (Dir==0)
+            {
+              alpha=(1.0-value)/2;
+              //temp[1][ny-2]=value*vector[is][1][ny-2][0]+alpha*(vector[is][2][ny-1][0]+vector[is][1][ny-3][0]); //bug                                            
+              temp[1][ny-2]=value*vector[is][1][ny-2][0]+alpha*(vector[is][2][ny-2][0]+vector[is][1][ny-3][0]);   //cross                                          
+            }
+          else if (Dir==1)
+            {
+              alpha= (1.0-value);
+              temp[1][ny-2]=value*vector[is][1][ny-2][0]+alpha*(vector[is][2][ny-3][0]);
+            }
+        }
+	if (vct->getXrightYleft_neighbor()==MPI_PROC_NULL)
+          {
+            if (Dir ==0)
+              {
+                alpha=(1.0-value)/2;
+                temp[nx-2][1]=value*vector[is][nx-2][1][0]+alpha*(vector[is][nx-3][1][0]+vector[is][nx-2][2][0]);
+              }
+            if (Dir==1)
+              {
+                alpha= (1.0-value);
+                temp[nx-2][1]=value*vector[is][nx-2][1][0]+alpha*(vector[is][nx-3][2][0]);
+              }
+	  }
+        if (vct->getXrightYright_neighbor()==MPI_PROC_NULL){
+          if (Dir==0)
+            {
+              alpha=(1.0-value)/2;
+              temp[nx-2][ny-2]=value*vector[is][nx-2][ny-2][0]+alpha*(vector[is][nx-3][ny-2][0]+vector[is][nx-2][ny-3][0]);
+            }
+          else if (Dir==1)
+            {
+              alpha=(1.0-value)/1;
+              temp[nx-2][ny-2]=value*vector[is][nx-2][ny-2][0]+alpha*(vector[is][nx-3][ny-3][0]);
+            }
+	}
+        // copy temp in vector                                                   
+        for (int i=1; i < nx-1;i++)
+          for (int j=1; j < ny-1;j++)
+            vector[is][i][j][0] = temp[i][j];
+        // communicate                  
+        if (type == 0)
+          communicateCenter(nx, ny, vector, is, vct);
+        else
+          communicateNode(nx, ny, vector, is, vct);
+
+        //delArr(temp,nx);
+	freeArr1(temp);
+
+      } // end of if                                  
+    }
+
+}
+
+inline void  EMfields::smooth(int nvolte, double value,double ***vector, bool type, Grid *grid, VirtualTopology *vct){
+  double alpha;
+  int nx, ny;
+
+  int Dir=0;//=1; //Dir is the direction for the smoothing; 0= 90 deg; 1= 45 deg
+  for (int icount=1; icount<nvolte+1; icount++)
+    {
+      /*Dir= CounterSm %2;
+      CounterSm++;                                             
+      if (CounterSm == 10000)                                             
+      CounterSm =0;*/
+
+
+      /*if (icount%2==1){                                    
+        value = 0.;                                            
+      } else {                                                                  
+        value=0.5;                                         
+        } //smooth ipic                                    
+      */
+      if (value != 1.0){
+        switch(type){
+        case (0):
+          nx=grid->getNXC();
+          ny=grid->getNYC();
+          break;
+        case(1):
+          nx=grid->getNXN();
+          ny=grid->getNYN();
+          break;
+        }
+        //cout << "I am "  << vct->getCartesian_rank_COMMTOTAL() << ": I am smoothing, value " << value <<" nvolte " << nvolte <<"  \n" <<endl;                    
+
+        double **temp;// = newArr(double,nx,ny);
+        allocArr2(&temp, nx, ny);                                                        
+        alpha=(1.0-value)/4;
+
+        for (int i=1; i<nx-1; i++)
+          for (int j=1; j<ny-1; j++)
+            {
+              if (Dir==0)
+                temp[i][j]=value*vector[i][j][0]+alpha*(vector[i-1][j][0]+vector[i][j-1][0]+vector[i+1][j][0]+vector[i][j+1][0]); //cross                          
+              else if (Dir==1)
+                temp[i][j]=value*vector[i][j][0]+alpha*(vector[i-1][j-1][0]+vector[i+1][j-1][0]+vector[i+1][j+1][0]+vector[i-1][j+1][0]); //45                     
+            }
+	// Adjust boundary                                                               
+        if (vct->getXleft_neighbor()==MPI_PROC_NULL){
+          if (Dir==0)
+            {
+              alpha=(1.0-value)/3;
+              for (int j=1; j<ny-1;j++)
+                temp[1][j]=value*vector[1][j][0]+alpha*(vector[1][j-1][0]+vector[2][j][0]+vector[1][j+1][0]);
+            }
+          else if (Dir==1)
+            {
+              alpha=(1.0-value)/2;
+              for (int j=1; j<ny-1;j++)
+                temp[1][j]=value*vector[1][j][0]+alpha*(vector[2][j-1][0]+vector[2][j+1][0]); // 45                                                                
+            }
+        }
+	if (vct->getXright_neighbor()==MPI_PROC_NULL){
+          if (Dir==0)
+            {
+              alpha=(1.0-value)/3;
+              for (int j=1; j<ny-1;j++)
+                temp[nx-2][j]=value*vector[nx-2][j][0]+alpha*(vector[nx-2][j-1][0]+vector[nx-3][j][0]+vector[nx-2][j+1][0]);
+            }
+          else if (Dir==1)
+            {
+              alpha=(1.0-value)/2; //45                                           
+              for (int j=1; j<ny-1;j++)
+                temp[nx-2][j]=value*vector[nx-2][j][0]+alpha*(vector[nx-3][j-1][0]+vector[nx-3][j+1][0]); //45                                                     
+            }
+        }
+
+        if (vct->getYleft_neighbor()==MPI_PROC_NULL){
+          if (Dir==0)
+            {
+              alpha=(1.0-value)/3;
+              for (int i=1; i<nx-1;i++)
+                temp[i][1]=value*vector[i][1][0]+alpha*(vector[i-1][1][0]+vector[i+1][1][0]+vector[i][2][0]);
+            }
+          else if (Dir==1)
+            {
+              alpha=(1.0-value)/2; //45                                                                                                                            
+              for (int i=1; i<nx-1;i++)
+                temp[i][1]=value*vector[i][1][0]+alpha*(vector[i-1][2][0]+vector[i+1][2][0]);  //45                                                                
+            }
+        }
+
+        if (vct->getYright_neighbor()==MPI_PROC_NULL){
+          if (Dir==0)
+            {
+              alpha=(1.0-value)/3;
+              for (int i=1; i<nx-1;i++)
+                temp[i][ny-2]=value*vector[i][ny-2][0]+alpha*(vector[i-1][ny-2][0]+vector[i][ny-3][0]+vector[i+1][ny-2][0]);
+            }
+          else if (Dir==1)
+            {
+              alpha=(1.0-value)/2;
+              for (int i=1; i<nx-1;i++)
+                temp[i][ny-2]=value*vector[i][ny-2][0]+alpha*(vector[i-1][ny-3][0]+vector[i+1][ny-3][0]);
+            }
+        }
+	// corners                                                           
+        if (vct->getXleftYleft_neighbor()==MPI_PROC_NULL)
+          {
+            if (Dir==0)
+              {
+                alpha=(1.0-value)/2;
+                temp[1][1]=value*vector[1][1][0]+alpha*(vector[2][1][0]+vector[1][2][0]);
+              }
+            else if (Dir==1)
+              {
+                alpha=(1.0-value);//45
+		temp[1][1]=value*vector[1][1][0]+alpha*(vector[2][2][0]);//45   
+              }
+	  }
+	if (vct->getXleftYright_neighbor()==MPI_PROC_NULL){
+          if (Dir==0)
+            {
+              alpha=(1.0-value)/2;
+              //temp[1][ny-2]=value*vector[1][ny-2][0]+alpha*(vector[2][ny-1][0]+vector[1][ny-3][0]); //bug                                                        
+              temp[1][ny-2]=value*vector[1][ny-2][0]+alpha*(vector[2][ny-2][0]+vector[1][ny-3][0]);   //cross                                                      
+            }
+          else if (Dir==1)
+            {
+              alpha= (1.0-value);
+              temp[1][ny-2]=value*vector[1][ny-2][0]+alpha*(vector[2][ny-3][0]);
+            }
+        }
+        if (vct->getXrightYleft_neighbor()==MPI_PROC_NULL)
+          {
+            if (Dir ==0)
+              {
+                alpha=(1.0-value)/2;
+                temp[nx-2][1]=value*vector[nx-2][1][0]+alpha*(vector[nx-3][1][0]+vector[nx-2][2][0]);
+              }
+            if (Dir==1)
+              {
+                alpha= (1.0-value);
+                temp[nx-2][1]=value*vector[nx-2][1][0]+alpha*(vector[nx-3][2][0]);
+              }
+	  }
+        if (vct->getXrightYright_neighbor()==MPI_PROC_NULL){
+          if (Dir==0)
+            {
+              alpha=(1.0-value)/2;
+              temp[nx-2][ny-2]=value*vector[nx-2][ny-2][0]+alpha*(vector[nx-3][ny-2][0]+vector[nx-2][ny-3][0]);
+            }
+          else if (Dir==1)
+            {
+              alpha=(1.0-value)/1;
+              temp[nx-2][ny-2]=value*vector[nx-2][ny-2][0]+alpha*(vector[nx-3][ny-3][0]);
+            }
+        }
+        // copy temp in vector                     
+        for (int i=1; i < nx-1;i++)
+          for (int j=1; j < ny-1;j++)
+            vector[i][j][0] = temp[i][j];
+        // communicate                                                
+        if (type == 0)
+          communicateCenter(nx, ny, vector, vct);
+        else
+          communicateNode(nx, ny, vector, vct);
+
+        //delArr(temp,nx);
+	freeArr1(temp);
+      } // end of if                     
+    }
+
+}
+
+inline void  EMfields::smoothProj(int nvolte, double value,double ***vector, bool type, Grid *grid, VirtualTopology *vct, int xstart, int xend, int ystart, int yend){
+  double alpha;
+  int nx, ny;
+
+  int Dir=0; //=1; //Dir is the direction for the smoothing; 0= 90 deg; 1= 45 deg
+  xstart+=1;
+  xend-=1;
+  ystart+=1;
+  yend-=1;  // to avoid smoothing outside the projected area (in case it is 0 or something else)
+  for (int icount=1; icount<nvolte+1; icount++)
+    {
+      /*Dir= CounterSm %2;
+        CounterSm++;                                                
+        if (CounterSm == 10000)                                      
+        CounterSm=0;*/
+      /* if (icount%2==1){                                               
+        value = 0.;                                               
+      } else {                                               
+        value=0.5;                                                     
+        } // smooth iPIC*/
+
+      //cout << "rank " << vct->getCartesian_rank_COMMTOTAL() <<": my nmessagerecvProj is " << nmessagerecvProj <<" \n";                                           
+      double **temp;// = newArr(double,nxn,nyn);
+      allocArr2(&temp, nxn, nyn);
+      if (value != 1.0){
+        if (nmessagerecvProj>0) //projected area here                                      
+          {
+            /*switch(type){              
+              case (0):                                           
+              nx=grid->getNXC();                                      
+              ny=grid->getNYC();                                 
+              break;                                        
+              case(1):                                          
+              nx=grid->getNXN();                                             
+              ny=grid->getNYN();                                 
+              break;                                         
+              }*/
+	    nx= xend;
+            ny= yend;
+
+            alpha=(1.0-value)/4;
+
+            for (int i=xstart; i<nx+1; i++)
+              for (int j=ystart; j<ny+1; j++)
+                {
+                  if (Dir==0)
+                    temp[i][j]=value*vector[i][j][0]+alpha*(vector[i-1][j][0]+vector[i][j-1][0]+vector[i+1][j][0]+vector[i][j+1][0]); //cross                      
+                  else if (Dir ==1)
+                    temp[i][j]=value*vector[i][j][0]+alpha*(vector[i-1][j-1][0]+vector[i+1][j-1][0]+vector[i+1][j+1][0]+vector[i-1][j+1][0]); //45                 
+		}
+	    //eq(vector,temp,nx,ny);                                                  
+            // copy temp in vector                                                     
+            for (int i=xstart; i < nx+1;i++)
+              for (int j=ystart; j < ny+1;j++)
+                vector[i][j][0] = temp[i][j];
+          } // end if refined area                               
+        // communicate, also for procs without projected area                         
+        communicateNode(nxn, nyn, vector, vct); // communicate all, not only the updated part
+        //delArr(temp,nxn);
+	freeArr1(temp);
+
+      } // end of if (value !=1)                                            
+    } // end of for                                           
+}
+
 
 #endif

@@ -440,4 +440,10 @@ inline double eps(){
 		  out[i-1][j-1]=in[i][j];  
 }    
 
+/** method to calculate vec1= vec1 + alfa *(vec2 dot vec3)  */
+inline void sumscalprod(double ***vect1, double alfa, double ***vect2, double ***vect3, int nx, int ny )
+{  for (register int i=0; i< nx; i++)
+    for (register int j=0; j< ny; j++)
+      vect1[i][j][0] = vect1[i][j][0] + alfa*vect2[i][j][0]*vect3[i][j][0];
+}
 #endif
