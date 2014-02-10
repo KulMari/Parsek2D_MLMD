@@ -657,16 +657,35 @@ int Particles2D::mover_PC(Grid* grid,VirtualTopology* vct, Field* EMf){
         AlreadyAccumulated[i]= false;
       }
   }
+
+  int nxn = grid->getNXN();
+  int ll, lu, ul, uu;
+
+  // pointers for field access
+  /*double *ex = **(EMf->Ex),
+         *ey = **(EMf->Ey),
+         *ez = **(EMf->Ez),
+         *bxn = **(EMf->Bxn),
+         *byn = **(EMf->Byn),
+         *bzn = **(EMf->Bzn);*/
+
   innter=0;
   while (innter< NiterMover)
-  {	  
+  {
     // move each particle with new fields
     for (int i=0; i <  nop; i++)
     {
       // interpolation G-->P
-      ix = 2 +  int(floor((x[i]-xstart)/dx));
-      iy = 2 +  int(floor((y[i]-ystart)/dy));
-                  
+      ix = 2 +  int((x[i]-xstart)/dx);
+      iy = 2 +  int((y[i]-ystart)/dy);
+
+      //indices for interpolation
+      
+      /*uu = ix * nyn + iy;               
+      ul = uu - 1;        
+      lu = uu - nyn;
+      ll = lu - 1;*/
+
       weight11 = ((x[i] - grid->getXN(ix-1,iy-1,0))*inv_dx)*((y[i] - grid->getYN(ix-1,iy-1,0))*inv_dy);
       weight10 = ((x[i] - grid->getXN(ix-1,iy,0))*inv_dx)*((grid->getYN(ix-1,iy,0) - y[i])*inv_dy);
       weight01 = ((grid->getXN(ix,iy-1,0) - x[i])*inv_dx)*((y[i] - grid->getYN(ix,iy-1,0))*inv_dy);
@@ -686,14 +705,12 @@ int Particles2D::mover_PC(Grid* grid,VirtualTopology* vct, Field* EMf){
       Byl = weight00*EMf->Byn[ix-1][iy-1][0] + weight01*EMf->Byn[ix-1][iy][0] + weight10*EMf->Byn[ix][iy-1][0] + weight11*EMf->Byn[ix][iy][0];
       Bzl = weight00*EMf->Bzn[ix-1][iy-1][0] + weight01*EMf->Bzn[ix-1][iy][0] + weight10*EMf->Bzn[ix][iy-1][0] + weight11*EMf->Bzn[ix][iy][0];
 
-      //inverting the two indexes should allow vectorization without changing results
-      // nothing improved, so commented out
-      /*Exl = weight00*EMf->Ex[ix-1][0][iy-1] + weight01*EMf->Ex[ix-1][0][iy] + weight10*EMf->Ex[ix][0][iy-1] + weight11*EMf->Ex[ix][iy][0];
-      Eyl = weight00*EMf->Ey[ix-1][0][iy-1] + weight01*EMf->Ey[ix-1][0][iy] + weight10*EMf->Ey[ix][0][iy-1] + weight11*EMf->Ey[ix][iy][0];
-      Ezl = weight00*EMf->Ez[ix-1][0][iy-1] + weight01*EMf->Ez[ix-1][0][iy] + weight10*EMf->Ez[ix][0][iy-1] + weight11*EMf->Ez[ix][iy][0];
-      Bxl = weight00*EMf->Bxn[ix-1][0][iy-1] + weight01*EMf->Bxn[ix-1][0][iy] + weight10*EMf->Bxn[ix][0][iy-1] + weight11*EMf->Bxn[ix][0][iy];
-      Byl = weight00*EMf->Byn[ix-1][0][iy-1] + weight01*EMf->Byn[ix-1][0][iy] + weight10*EMf->Byn[ix][0][iy-1] + weight11*EMf->Byn[ix][0][iy];
-      Bzl = weight00*EMf->Bzn[ix-1][0][iy-1] + weight01*EMf->Bzn[ix-1][0][iy] + weight10*EMf->Bzn[ix][0][iy-1] + weight11*EMf->Bzn[ix][0][iy];*/
+      /*Exl = weight00*ex[ll] + weight01*ex[lu] + weight10*ex[ul] + weight11*ex[uu];
+      Eyl = weight00*ey[ll] + weight01*ey[lu] + weight10*ey[ul] + weight11*ey[uu];
+      Ezl = weight00*ez[ll] + weight01*ez[lu] + weight10*ez[ul] + weight11*ez[uu];
+      Bxl = weight00*bxn[ll] + weight01*bxn[lu] + weight10*bxn[ul] + weight11*bxn[uu];
+      Byl = weight00*byn[ll] + weight01*byn[lu] + weight10*byn[ul] + weight11*byn[uu];
+      Bzl = weight00*bzn[ll] + weight01*bzn[lu] + weight10*bzn[ul] + weight11*bzn[uu];*/
 
       // end interpolation
       omdtsq = qomdt*qomdt/c/c*(Bxl*Bxl+Byl*Byl+Bzl*Bzl);
@@ -730,13 +747,13 @@ int Particles2D::mover_PC(Grid* grid,VirtualTopology* vct, Field* EMf){
     avail = communicate(vct, grid, BC_partCommunicate);
     if (avail < 0)
       return(-1);
-    MPI_Barrier(vct->getCART_COMM());
+    //MPI_Barrier(vct->getCART_COMM()); // Feb3
     while(isMessagingDone(vct) >0)
     {
       avail = communicate(vct, grid, BC_partCommunicate);
       if (avail < 0)
 	return(-1);
-      MPI_Barrier(vct->getCART_COMM());
+      //MPI_Barrier(vct->getCART_COMM()); //Feb3
     }
     innter++;
   }  // end inner iterations
@@ -786,15 +803,16 @@ int Particles2D::mover_PC(Grid* grid,VirtualTopology* vct, Field* EMf){
   //  cout<<"R" <<vct->getCartesian_rank_COMMTOTAL() << ": (last) communicate, qom " <<qom <<"\n";
   if (avail < 0)
     return(-1);
-  MPI_Barrier(vct->getCART_COMM());
+  //MPI_Barrier(vct->getCART_COMM()); // Feb3
   while(isMessagingDone(vct) >0)
   {
     avail = communicate(vct, grid, BC_partCommunicate);
     //cout <<"R" <<vct->getCartesian_rank_COMMTOTAL() << ": (last) communicate, qom " <<qom <<"\n";
     if (avail < 0)
       return(-1);
-    MPI_Barrier(vct->getCART_COMM());
+    // MPI_Barrier(vct->getCART_COMM()); Feb 3
   }
+
   //cout <<"R" <<vct->getCartesian_rank_COMMTOTAL()  << "L" << grid->getLevel() <<"QOM" << qom<<": end communicate after definitive params\n";
 
   /*if (0)

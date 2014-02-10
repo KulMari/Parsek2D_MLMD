@@ -578,16 +578,11 @@ int Particles2Dcomm::communicate(VirtualTopology* ptVCT, Grid* grid, int BC_part
   int npExitingMax;
   // variable for memory availability of space for new particles
   int avail, availALL, avail1, avail2, avail3, avail4;
-  /*for (int i=0; i < buffer_size; i++){
-    b_XDX[i] = MIN_VAL;
-    b_XSN[i] = MIN_VAL;
-    b_YDX[i] = MIN_VAL;
-    b_YSN[i] = MIN_VAL;
-    }*/
-  setToMINVAL_comm(b_XDX);
+  // Feb4, substituted at the end by just putting to MIN_VAL the difference between the particles to really send and the total # of particles
+  /*setToMINVAL_comm(b_XDX);
   setToMINVAL_comm(b_XSN);
   setToMINVAL_comm(b_YDX);
-  setToMINVAL_comm(b_YSN);
+  setToMINVAL_comm(b_YSN);*/
 
   npExitXright =0, npExitXleft =0, npExitYright =0, npExitYleft =0, npExit=0, rightDomain = 0, rightDomainX=0, rightDomainY=0;
   npDeletedBoundary = 0;
@@ -615,10 +610,7 @@ int Particles2Dcomm::communicate(VirtualTopology* ptVCT, Grid* grid, int BC_part
 	// enter here if you need to be communicated
 	// the first two conditions legitimate, the others to catch errors and eventually to eliminate
 	if ( (x[np_current] < xstart && ptVCT->getCoordinates(0) != 0 ) || (x[np_current] > xend && ptVCT->getCoordinates(0) != (ptVCT->getXLEN()-1)) || (x[np_current] < Modified_xstart && ptVCT->getCoordinates(0) == 0 )|| (x[np_current] > Modified_xend && ptVCT->getCoordinates(0) == (ptVCT->getXLEN()-1) )  ){
-	  //if ( (x[np_current] < xstart && fabs(x[np_current] - xstart)>2*DBL_EPSILON && ptVCT->getCoordinates(0) != 0 ) || (x[np_current] > xend && fabs (x[np_current]- xend)> 2*DBL_EPSILON && ptVCT->getCoordinates(0) != (ptVCT->getXLEN()-1)) || (x[np_current] < Modified_xstart  && fabs(x[np_current] - Modified_xstart)>2*DBL_EPSILON   && ptVCT->getCoordinates(0) == 0 )|| (x[np_current] > Modified_xend && fabs(x[np_current] -Modified_xend)> 2*DBL_EPSILON && ptVCT->getCoordinates(0) == (ptVCT->getXLEN()-1) )  )  {
 
-	  /*if (fabs(x[np_current])< 2*DBL_EPSILON || fabs(y[np_current])< 2*DBL_EPSILON)
-	    cout<< "R" << ptVCT->getCartesian_rank_COMMTOTAL() << "particle (0 or 0) checked for x\n";*/
 	// communicate if they don't belong to the domain
 	  if (x[np_current] < xstart && ptVCT->getCoordinates(0) != 0){
 	    // check if there is enough space in the buffer before putting in the particle
@@ -659,10 +651,6 @@ int Particles2Dcomm::communicate(VirtualTopology* ptVCT, Grid* grid, int BC_part
 	  }
 	} //end condition on x
     else if ( (y[np_current] < ystart && ptVCT->getCoordinates(1) != 0 ) || (y[np_current] > yend && ptVCT->getCoordinates(1) != (ptVCT->getYLEN()-1)) || (y[np_current] < Modified_ystart && ptVCT->getCoordinates(1) == 0 )|| (y[np_current] > Modified_yend && ptVCT->getCoordinates(1) == (ptVCT->getYLEN()-1))     ){
-
-      //else if ( (y[np_current] < ystart && fabs(y[np_current] - ystart) >2*DBL_EPSILON && ptVCT->getCoordinates(1) != 0 ) || (y[np_current] > yend && fabs (y[np_current] - yend )> 2*DBL_EPSILON &&  ptVCT->getCoordinates(1) != (ptVCT->getYLEN()-1)) || (y[np_current] < Modified_ystart && fabs (y[np_current] - Modified_ystart)> 2*DBL_EPSILON && ptVCT->getCoordinates(1) == 0 )|| (y[np_current] > Modified_yend && fabs(y[np_current] - Modified_yend)>2*DBL_EPSILON  && ptVCT->getCoordinates(1) == (ptVCT->getYLEN()-1))     ){
-      /*if (fabs(x[np_current])< 2*DBL_EPSILON || fabs(y[np_current])< 2*DBL_EPSILON)
-	cout<< "R" << ptVCT->getCartesian_rank_COMMTOTAL() << "particle (0 or 0) checked for y\n";*/
 
 	  // communicate if they don't belong to the domain
 	 if (y[np_current] < ystart && ptVCT->getCoordinates(1) != 0){
@@ -715,13 +703,6 @@ int Particles2Dcomm::communicate(VirtualTopology* ptVCT, Grid* grid, int BC_part
 	  //if (grid->getLevel()==0 && LastCommunicate==1 && FinerLevels_PRAOps==1 && ( PRACollectionMethod== 0 && AlreadyAccumulated[np_current]== false))
 	  if (LastCommunicate==1 && FinerLevels_PRAOps==1 && ( PRACollectionMethod== 0 && AlreadyAccumulated[np_current]== false)  && PRAIntersection)
 	    {int res;
-	      //cout <<  "R" << ptVCT->getCartesian_rank_COMMTOTAL() <<" PRARepopulationAdd in communicate\n";
-	      if (false)
-		{
-		  cout <<"I'm there\n";
-		  //cout << "Particle 169310 -1 at PRARepopulationAdd in communicate\n";
-		  //cout <<"AlreadyAccumulated[np_current] " << AlreadyAccumulated[np_current] <<endl;
-		  }
 
 	      res=PRARepopulationAdd(np_current);
 	      AlreadyAccumulated[np_current]=true;
@@ -749,19 +730,7 @@ int Particles2Dcomm::communicate(VirtualTopology* ptVCT, Grid* grid, int BC_part
   /*           SEND AND RECEIVE MESSAGES               */
   /*****************************************************/
 	
-  //new_buffer_size = npExitingMax*nVar + 1;
   
-  /*  if (new_buffer_size > buffer_size){
-    cout << "R" << ptVCT->getCartesian_rank_COMMTOTAL() << "communicate resizing the receiving buffer" << endl;
-    if (buffer_size*2 > new_buffer_size) // this way, it's not resizing all the time
-      new_buffer_size= buffer_size*2;
-    if (!resize_buffers((int) (new_buffer_size)))
-      {
-	cout<<"communicate: increase MAX_BUFFER_SIZE\nExiting...";
-	return -1;
-      }         
-      } */
-
   new_buffer_size = buffer_size;
   while (npExitingMax*nVar + 1> new_buffer_size  )
     {
@@ -778,7 +747,14 @@ int Particles2Dcomm::communicate(VirtualTopology* ptVCT, Grid* grid, int BC_part
 	  return -1;                                                                      
 	} 
     }
-  //cout << "R" <<ptVCT->getCartesian_rank_COMMTOTAL() << " in communicate before comPar & after resize\n";
+
+  // Feb 4: the stopping condition for the unbuffer
+  b_XSN[nVar*npExitXleft]=MIN_VAL; 
+  b_XDX[nVar*npExitXright]=MIN_VAL;
+  b_YSN[nVar*npExitYleft]=MIN_VAL;
+  b_YDX[nVar*npExitYright]=MIN_VAL;
+  // end Feb 4: the stopping condition for the unbuffer  
+
   if (npExitingMax > 0){
     communicateParticles(npExitingMax*nVar + 1,b_XSN,b_XDX,b_YSN,b_YDX,ptVCT);
     
@@ -982,6 +958,11 @@ int Particles2Dcomm::unbuffer(double *b_, VirtualTopology *ptVCT){
     wptilde[nop] = b_[nVar*np_current+10];
     if (TrackParticleID)
       ParticleID[nop]=(unsigned long) b_[nVar*np_current+11];
+
+    //Feb 3
+    if(FinerLevels_PRAOps==1 && PRACollectionMethod ==0)
+      AlreadyAccumulated[nop]= false;
+    // end Feb 3
     np_current++;
     
     if (cVERBOSE)
@@ -2647,10 +2628,13 @@ int Particles2Dcomm::communicateSP(VirtualTopology* ptVCT, Grid* grid){
   // variable for memory availability of space for new particles
   int avail, availALL, avail1, avail2, avail3, avail4;
 
-  setToMINVAL_SP(SplittedParticles_Comm_BOTTOM, max_np_SplitPartComm); 
+
+  //Feb 4
+  /*setToMINVAL_SP(SplittedParticles_Comm_BOTTOM, max_np_SplitPartComm); 
   setToMINVAL_SP(SplittedParticles_Comm_TOP, max_np_SplitPartComm);                
   setToMINVAL_SP(SplittedParticles_Comm_LEFT, max_np_SplitPartComm);
-  setToMINVAL_SP(SplittedParticles_Comm_RIGHT, max_np_SplitPartComm);  
+  setToMINVAL_SP(SplittedParticles_Comm_RIGHT, max_np_SplitPartComm);  */
+  // end Feb 4
   //cout <<"R" <<ptVCT->getCartesian_rank_COMMTOTAL() << "entered communicate SP" <<endl;
   npExitXright =0, npExitXleft =0, npExitYright =0, npExitYleft =0, npExit=0, rightDomain = 0, rightDomainX=0, rightDomainY=0;
   npDeletedBoundary = 0;
@@ -2745,16 +2729,7 @@ int Particles2Dcomm::communicateSP(VirtualTopology* ptVCT, Grid* grid){
 	// delete the particle and pack the particle array, the value of nplast changes
 	del_pack(np_current,&nplast);
 	npExitYright++;
-      } /*else if (y[np_current] < Modified_ystart && ptVCT->getCoordinates(1) == 0 ){
-	cout <<"CommunicateSP: problem with particle position, exiting";
-	cout <<"R" <<ptVCT->getCartesian_rank_COMMTOTAL() << " y[np_current] " << y[np_current] << " Modified_ystart "<< Modified_ystart << endl;
-        return -1;
-	//      } else if (y[np_current] > Modified_yend && y[np_current]>Ly){
-      } else if (y[np_current] > Modified_yend && ptVCT->getCoordinates(1) == (ptVCT->getYLEN()-1)){
-	cout <<"CommunicateSP: problem with particle position, exiting";
-	cout <<"R" <<ptVCT->getCartesian_rank_COMMTOTAL() << " y[np_current] " << y[np_current] << " Modified_yend "<< Modified_yend << endl;
-        return -1;
-	}*/
+      }
     }  
     else {
       // particle is still in the domain, procede with the next particle
@@ -2764,10 +2739,6 @@ int Particles2Dcomm::communicateSP(VirtualTopology* ptVCT, Grid* grid){
   } // end while
 
   
-  //cout <<"R" <<ptVCT->getCartesian_rank_COMMTOTAL() << "communicateSP: after for on particles" <<endl;
-  /*MPI_Barrier(ptVCT->getCART_COMM());
-  if (ptVCT->getCartesian_rank() ==0 || ptVCT->getCartesian_rank_COMMTOTAL() == 2000)
-  cout <<"communictaeSP: after for on particles\n";*/
   
   nop = nplast+1;
   if (nop > (npmax - (int) (.01*npmax) ) ){
@@ -2853,6 +2824,11 @@ int Particles2Dcomm::communicateSP(VirtualTopology* ptVCT, Grid* grid){
 	CommID=3;
       }// if both are different from MPI_COMM_NULL, YLEN=1 and the communicators point to the same groups of procs; then, only BOTTOM will perform all the communication
 
+    //Feb 4
+    SplittedParticles_Comm_LEFT[nVar*npExitXleft]= MIN_VAL;
+    SplittedParticles_Comm_RIGHT[nVar*npExitXright]=MIN_VAL;
+    //end Feb 4
+
     if(!communicateParticles_BoundaryComm(CommID,(npExitingMaxX+1)*nVar,SplittedParticles_Comm_LEFT, SplittedParticles_Comm_RIGHT,ptVCT))
       return -1;
     //cout << "R" <<ptVCT->getCartesian_rank_COMMTOTAL() << "unbuffer in communicateSP" <<endl;          
@@ -2882,6 +2858,11 @@ int Particles2Dcomm::communicateSP(VirtualTopology* ptVCT, Grid* grid){
         Comm= ptVCT->getCOMM_B_RIGHT();
         CommID=1;
       }// if both are different from MPI_COMM_NULL, YLEN=1 and the communicators point to the same groups of procs; then, only BOTTOM will perform all the communication       
+
+    //Feb 4
+    SplittedParticles_Comm_BOTTOM[nVar*npExitYleft]=MIN_VAL;
+    SplittedParticles_Comm_TOP[nVar*npExitYright]=MIN_VAL;
+    // end Feb 4
 
     if(!communicateParticles_BoundaryComm(CommID,(npExitingMaxY+1)*nVar,SplittedParticles_Comm_BOTTOM, SplittedParticles_Comm_TOP,ptVCT))
       return -1;
