@@ -804,7 +804,7 @@ inline void EMfields::calculateField(Grid *grid, VirtualTopology *vct){
           }
 
 	// Adjust E calculating laplacian(PHI) = div(E)  -4*PI*rho
-        PoissonCorrection=true;
+        PoissonCorrection=false;
 	if (PoissonCorrection){
 		if (vct->getCartesian_rank() ==0)
 		  cout << "Level " << grid->getLevel() << ": *** POISSON CORRECTION ***" << endl;
@@ -3412,7 +3412,7 @@ Interpolation smoothing:
  type = 1 --> node based vector   ;
  */
 // replaced later, by another with choice of direction for smoothing   
-/*inline void  EMfields::smooth(int nvolte, double value,double ***vector, bool type, Grid *grid, VirtualTopology *vct){
+inline void  EMfields::smooth(int nvolte, double value,double ***vector, bool type, Grid *grid, VirtualTopology *vct){
 	double alpha;
 	int nx, ny;
 
@@ -3490,7 +3490,7 @@ Interpolation smoothing:
 			freeArr1(&temp);
 		} // end of if (value !=1)
 	}
-	}*/
+	}
 
 /**
 Interpolation smoothing:
@@ -3549,7 +3549,7 @@ type = 0 --> center based vector
 type = 1 --> node based vector
 */
 //substituted later by one which gives the choice of the smoothing direction  
-/*inline void  EMfields::smooth(int nvolte, double value,double ****vector,int is, bool type, Grid *grid, VirtualTopology *vct){
+inline void  EMfields::smooth(int nvolte, double value,double ****vector,int is, bool type, Grid *grid, VirtualTopology *vct){
 	double alpha;
 	int nx, ny;
 
@@ -3625,7 +3625,7 @@ type = 1 --> node based vector
 			freeArr1(&temp);
 		} // end of if
 	}
-	}*/
+}
 
 
 
@@ -7036,22 +7036,22 @@ type = 0 --> center based vector ;
 type = 1 --> node based vector   ;                           
 smoothing at 45 degrees 
 */
-inline void  EMfields::smooth(int nvolte, double value,double ****vector,int is, bool type, Grid *grid, VirtualTopology *vct){
+/*inline void  EMfields::smooth(int nvolte, double value,double ****vector,int is, bool type, Grid *grid, VirtualTopology *vct){
   double alpha;
   int nx, ny;
 
   int Dir=0;//=1; //Dir is the direction for the smoothing; 0= 90 deg; 1= 45 deg          
   for (int icount=1; icount<nvolte+1; icount++)
     {
-      /*Dir= CounterSm %2;                                                                  
-      CounterSm++;                                                
-      if (CounterSm == 10000)   
-      CounterSm =0;
-      /*      if (icount%2==1){                    
-        value = 0.;             
-      } else {                                                             
-        value=0.5;             
-        } //smooth ipic*/
+      //Dir= CounterSm %2;                                                                  
+      //CounterSm++;                                                
+      //if (CounterSm == 10000)   
+      //CounterSm =0;
+      //      if (icount%2==1){                    
+      //  value = 0.;             
+      //} else {                                                             
+      //  value=0.5;             
+      //  } //smooth ipic
 
 
       if (value != 1.0){
@@ -7193,6 +7193,7 @@ inline void  EMfields::smooth(int nvolte, double value,double ****vector,int is,
         for (int i=1; i < nx-1;i++)
           for (int j=1; j < ny-1;j++)
             vector[is][i][j][0] = temp[i][j];
+
         // communicate                  
         if (type == 0)
           communicateCenter(nx, ny, vector, is, vct);
@@ -7205,27 +7206,26 @@ inline void  EMfields::smooth(int nvolte, double value,double ****vector,int is,
       } // end of if                                  
     }
 
-}
+    }*/
 
-inline void  EMfields::smooth(int nvolte, double value,double ***vector, bool type, Grid *grid, VirtualTopology *vct){
+/*inline void  EMfields::smooth(int nvolte, double value,double ***vector, bool type, Grid *grid, VirtualTopology *vct){
   double alpha;
   int nx, ny;
 
   int Dir=0;//=1; //Dir is the direction for the smoothing; 0= 90 deg; 1= 45 deg
   for (int icount=1; icount<nvolte+1; icount++)
     {
-      /*Dir= CounterSm %2;
-      CounterSm++;                                             
-      if (CounterSm == 10000)                                             
-      CounterSm =0;*/
+      //Dir= CounterSm %2;
+      //CounterSm++;                                             
+      //if (CounterSm == 10000)                                             
+      //CounterSm =0;
 
-
-      /*if (icount%2==1){                                    
-        value = 0.;                                            
-      } else {                                                                  
-        value=0.5;                                         
-        } //smooth ipic                                    
-      */
+      //if (icount%2==1){                                    
+      //  value = 0.;                                            
+      //} else {                                                                  
+      //  value=0.5;                                         
+      //  } //smooth ipic                                    
+      //
       if (value != 1.0){
         switch(type){
         case (0):
@@ -7238,7 +7238,7 @@ inline void  EMfields::smooth(int nvolte, double value,double ***vector, bool ty
           break;
         }
         //cout << "I am "  << vct->getCartesian_rank_COMMTOTAL() << ": I am smoothing, value " << value <<" nvolte " << nvolte <<"  \n" <<endl;                    
-
+	
         double **temp;// = newArr(double,nx,ny);
         allocArr2(&temp, nx, ny);                                                        
         alpha=(1.0-value)/4;
@@ -7366,6 +7366,7 @@ inline void  EMfields::smooth(int nvolte, double value,double ***vector, bool ty
         for (int i=1; i < nx-1;i++)
           for (int j=1; j < ny-1;j++)
             vector[i][j][0] = temp[i][j];
+
         // communicate                                                
         if (type == 0)
           communicateCenter(nx, ny, vector, vct);
@@ -7375,11 +7376,11 @@ inline void  EMfields::smooth(int nvolte, double value,double ***vector, bool ty
         //delArr(temp,nx);
 	freeArr1(temp);
       } // end of if                     
-    }
+    }// end of count
 
-}
+    }*/
 
-inline void  EMfields::smoothProj(int nvolte, double value,double ***vector, bool type, Grid *grid, VirtualTopology *vct, int xstart, int xend, int ystart, int yend){
+/*inline void  EMfields::smoothProj(int nvolte, double value,double ***vector, bool type, Grid *grid, VirtualTopology *vct, int xstart, int xend, int ystart, int yend){
   double alpha;
   int nx, ny;
 
@@ -7390,15 +7391,15 @@ inline void  EMfields::smoothProj(int nvolte, double value,double ***vector, boo
   yend-=1;  // to avoid smoothing outside the projected area (in case it is 0 or something else)
   for (int icount=1; icount<nvolte+1; icount++)
     {
-      /*Dir= CounterSm %2;
-        CounterSm++;                                                
-        if (CounterSm == 10000)                                      
-        CounterSm=0;*/
-      /* if (icount%2==1){                                               
-        value = 0.;                                               
-      } else {                                               
-        value=0.5;                                                     
-        } // smooth iPIC*/
+      //Dir= CounterSm %2;
+      //  CounterSm++;                                                
+      //  if (CounterSm == 10000)                                      
+      //  CounterSm=0;
+      // if (icount%2==1){                                               
+      //  value = 0.;                                               
+      //} else {                                               
+      //  value=0.5;                                                     
+      //  } // smooth iPIC
 
       //cout << "rank " << vct->getCartesian_rank_COMMTOTAL() <<": my nmessagerecvProj is " << nmessagerecvProj <<" \n";                                           
       double **temp;// = newArr(double,nxn,nyn);
@@ -7406,16 +7407,16 @@ inline void  EMfields::smoothProj(int nvolte, double value,double ***vector, boo
       if (value != 1.0){
         if (nmessagerecvProj>0) //projected area here                                      
           {
-            /*switch(type){              
-              case (0):                                           
-              nx=grid->getNXC();                                      
-              ny=grid->getNYC();                                 
-              break;                                        
-              case(1):                                          
-              nx=grid->getNXN();                                             
-              ny=grid->getNYN();                                 
-              break;                                         
-              }*/
+             //switch(type){              
+              //case (0):                                           
+              //nx=grid->getNXC();                                      
+              //ny=grid->getNYC();                                 
+              //break;                                        
+              //case(1):                                          
+              //nx=grid->getNXN();                                             
+              //ny=grid->getNYN();                                 
+              //break;                                         
+              //}
 	    nx= xend;
             ny= yend;
 
@@ -7442,7 +7443,7 @@ inline void  EMfields::smoothProj(int nvolte, double value,double ***vector, boo
 
       } // end of if (value !=1)                                            
     } // end of for                                           
-}
+    }*/
 
 
 #endif
