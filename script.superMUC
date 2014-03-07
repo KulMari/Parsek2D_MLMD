@@ -1,0 +1,19 @@
+#!/bin/bash
+#
+#@ job_type = MPICH
+#@ class = test
+#@ island_count=1
+#@ node = 8
+#@ total_tasks=128   
+#@ wall_clock_limit = 1:20:30 
+#@ job_name = Test1
+#@ network.MPI = sn_all,not_shared,us
+#@ initialdir = /home/hpc/pr87di/di68qug/Parsek2D_MLMD
+#@ output = job$(jobid).out
+#@ error = job$(jobid).err
+#@ notification=always
+#@ notify_user=mariaelena.innocenti@wis.kuleuven.be
+#@ queue
+. /etc/profile
+. /etc/profile.d/modules.sh
+mpiexec -n 128 ./ParsekEM INPUTFILE_Mari_NewFormat/DoubleHarris_NewFormat 
