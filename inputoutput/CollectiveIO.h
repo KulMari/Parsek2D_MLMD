@@ -41,6 +41,10 @@ class CollectiveIO {
     virtual double getDy(void)=0;
     /** get the time step */
     virtual double getDt()=0;
+    /** get the SubCycling */
+    virtual int getSubCycling()=0;
+    /** get the TimeRatio */
+    virtual int getTimeRatio()=0;
     /** get the decentering parameter */
     virtual double getTh()=0;
     /** get the Smoothing value*/

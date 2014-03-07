@@ -55,6 +55,10 @@ class Collective : public CollectiveIO {
     double getDy();
     /** get the time step */
     double getDt();
+    /** get if subCycling */
+    int getSubCycling();
+    /** get the Time Ratio between the grids */
+    int getTimeRatio();
     /** get the decentering parameter */
     double getTh();
     /** get the Smoothing value*/
@@ -187,6 +191,10 @@ class Collective : public CollectiveIO {
     double fourpi;
     /** time step */
     double dt;
+    /** SubCycling */
+    int SubCycling;
+    /** TimeRatio */
+    int TimeRatio;
     /** decentering parameter */
     double th;
     /** Smoothing value*/

@@ -100,12 +100,19 @@ Particles2Dcomm::~Particles2Dcomm(){
   // end this buffer exists only if level >0
   // this buffer exists only if the level is a coarse one
   delete [] AlreadyAccumulated;
-  // end AMR, ME
-}
+
+  delete[] RP_x;
+  delete[] RP_y;
+  delete[] RP_u;
+  delete[] RP_v;
+  delete[] RP_w;
+  delete[] RP_q;
+  delete[] RP_ParticleID;
+ }
 /** constructors fo a single species*/
 void Particles2Dcomm::allocate(int species, CollectiveIO* col, VirtualTopology* vct, Grid* grid){
 
-  bool PrintSize= true; // memory prints useful for estimating memory consumption
+  bool PrintSize= false; // memory prints useful for estimating memory consumption
 
   // info from collectiveIO
   ns = species;
@@ -126,6 +133,14 @@ void Particles2Dcomm::allocate(int species, CollectiveIO* col, VirtualTopology* 
   v0    = col->getV0(species);
   w0    = col->getW0(species);
   dt    = col->getDt();
+  int level= grid->getLevel();
+  double ratio= grid->getRatio();
+  int TimeRatio= col->getTimeRatio();
+  SubCycling= col->getSubCycling();
+  if (level and SubCycling)
+    dt= dt/(double)pow(TimeRatio,level);
+  //cout << "level " << level << ", dt " <<dt <<endl;
+
   Lx     = col->getLx()/pow(col->getRatio(),grid->getLevel());
   Ly     = col->getLy()/pow(col->getRatio(),grid->getLevel());
   delta  = col->getDelta();
@@ -312,9 +327,9 @@ void Particles2Dcomm::allocate(int species, CollectiveIO* col, VirtualTopology* 
       MIN_VAL_VEC_SP = new double [MAX_NP_SPLIPARTCOMM* nVar];
       for (int i=0; i<MAX_NP_SPLIPARTCOMM* nVar; i++ )
 	{MIN_VAL_VEC_SP[i]= MIN_VAL;}
+
     }
   
-  //Debug1-4                                                                                                                                                                      
   if (PrintSize)
     {
       MPI_Barrier(vct->getCART_COMM());
@@ -364,7 +379,19 @@ void Particles2Dcomm::allocate(int species, CollectiveIO* col, VirtualTopology* 
         {MIN_VAL_VEC_OS[i]= MIN_VAL;}
     }
 
-  // end AMR, ME 
+  // to host Repopulated Particles when subcycling
+  SizeRP_Sub= (int) (nop);
+  if (grid->getLevel() and SubCycling)
+    {
+      RP_x= new double[SizeRP_Sub];
+      RP_y= new double[SizeRP_Sub];
+      RP_u= new double[SizeRP_Sub];
+      RP_v= new double[SizeRP_Sub];
+      RP_w= new double[SizeRP_Sub];
+      RP_q= new double[SizeRP_Sub];
+      if (TrackParticleID)
+	RP_ParticleID= new unsigned long[SizeRP_Sub];
+    }
 
   // if RESTART is true initialize the particle in allocate method
   restart = col->getRestart_status();
@@ -477,6 +504,11 @@ void Particles2Dcomm::interpP2G(Field* EMf, Grid *grid, VirtualTopology* vct){
 
   for (register int i=0; i < nop; i++){
 
+    if (i> npmax)
+      {
+	cout << "R" <<vct->getCartesian_rank_COMMTOTAL() << " in interpP2G, i " << i << " npmax " <<npmax <<endl;
+      }
+
 
     ix = 2 +  int(floor((x[i]-xstart)*inv_dx));
     iy = 2 +  int(floor((y[i]-ystart)*inv_dy));
@@ -488,7 +520,8 @@ void Particles2Dcomm::interpP2G(Field* EMf, Grid *grid, VirtualTopology* vct){
 	cout <<"R" <<vct->getCartesian_rank_COMMTOTAL()  << "Particle mess in P2G, exiting " << endl;
 	cout <<"R" <<vct->getCartesian_rank_COMMTOTAL() << " ix " << ix << " iy " << iy  << " x: " << x[i] << ", y: " << y[i] << ", qom: " << qom << ", ID: " << ParticleID[i]<< ", PRA_oxStartLeft: " << PRA_oxStartLeft <<", PRA_oyStartLeft: " <<  PRA_oyStartLeft<< ", xstart: " << xstart << ", xend: " << xend << ", ystart: " << ystart << ", yend: " << yend<<", xstart-dx: " << xstart-dx <<",ystart-dy: " << ystart-dy<<", Lx: " <<Lx <<", Ly: " <<Ly  << ", i: " <<i << ", nop: "<<nop  <<  endl;
 	fflush(stdout);
-	exit(-1);
+	//exit(-1);
+	continue;
       }
         
     weight[1][1][0] = ((x[i] - grid->getXN(ix-1,iy-1,0))*inv_dx)*((y[i] - grid->getYN(ix-1,iy-1,0))*inv_dy);
@@ -496,7 +529,7 @@ void Particles2Dcomm::interpP2G(Field* EMf, Grid *grid, VirtualTopology* vct){
     weight[0][1][0] = ((grid->getXN(ix,iy-1,0) - x[i])*inv_dx)*((y[i] - grid->getYN(ix,iy-1,0))*inv_dy);
     weight[0][0][0] = ((grid->getXN(ix,iy,0) - x[i])*inv_dx)*((grid->getYN(ix,iy,0) - y[i])*inv_dy);
 
-    if (0 && vct->getCartesian_rank_COMMTOTAL()== 16 && ix ==2 && iy ==2)
+    if (0 && vct->getCartesian_rank_COMMTOTAL()== 496)
       {
 	cout << "x[i] " << x[i] << " y[i] " << y[i] << " ix " << ix << " iy " << iy  << " xstart "<< xstart << " xend " << xend << " grid->getXN(ix,iy,0) " << grid->getXN(ix,iy,0) << " grid->getYN(ix,iy,0) " << grid->getYN(ix,iy,0) << " weight[1][1][0] " << weight[1][1][0] <<" weight[0][0][0] " <<weight[0][0][0] <<" weight[1][0][0] " <<weight[1][0][0] <<" weight[0][1][0] " <<weight[0][1][0] << " dx " << grid->getDX()<< endl;
       }
@@ -1167,8 +1200,8 @@ void Particles2Dcomm::PrintNp(VirtualTopology* ptVCT)const{
 }
 
 /**AMR methods, ME*/
-/**init operations connected with the repopulation of particles...*/
-int Particles2Dcomm::initPRAVariables(int species, CollectiveIO* col,VirtualTopology* vct, Grid* grid, Field* EMf){
+/**init operations connected with the repopulation of particles, sometimes fails on ALL_TARGETS== ALL_RECEIVERS*/
+/*int Particles2Dcomm::initPRAVariables(int species, CollectiveIO* col,VirtualTopology* vct, Grid* grid, Field* EMf){
   // the buffer for communication of PRA variables are defined in allocate, 
   // together with the other particle communication buffers
 
@@ -1177,13 +1210,13 @@ int Particles2Dcomm::initPRAVariables(int species, CollectiveIO* col,VirtualTopo
 
   ratio= col->getRatio();
 
-      /**number of cells, ghost cell INCLUDED, for particle repopulation; x left*/
+  //number of cells, ghost cell INCLUDED, for particle repopulation; x left
   PRA_Xleft = col->GetPRA_Xleft(); 
-     /**number of cells, ghost cell INCLUDED, for particle repopulation; x right*/
+  //number of cells, ghost cell INCLUDED, for particle repopulation; x right
   PRA_Xright = col->GetPRA_Xright();
-     /**number of cells, ghost cell INCLUDED, for particle repopulation; y left*/
+  //number of cells, ghost cell INCLUDED, for particle repopulation; y left
   PRA_Yleft = col->GetPRA_Yleft();
-     /**number of cells, ghost cell INCLUDED, for particle repopulation; y right*/
+  //number of cells, ghost cell INCLUDED, for particle repopulation; y right
   PRA_Yright = col->GetPRA_Yright();
   
   if (grid->getLevel() >0){  //PRA area, native particles falling here are deleted and substituted with repopulated particles 
@@ -1209,7 +1242,7 @@ int Particles2Dcomm::initPRAVariables(int species, CollectiveIO* col,VirtualTopo
     PRA_oyEndRight    = Ly+ grid->getDY();
   }
       
-  /**if Level< Levels-1 (this grid is the coarser grid for some other grid), limits for thr PRA area of the child in local coords*/
+  //if Level< Levels-1 (this grid is the coarser grid for some other grid), limits for thr PRA area of the child in local coords
   if ( grid->getLevel() < vct->getNgrids()-1){
 
     double Ox = grid->getOx(grid->getLevel()+1); //Origin x of finer grid
@@ -1296,20 +1329,11 @@ int Particles2Dcomm::initPRAVariables(int species, CollectiveIO* col,VirtualTopo
       xfirstnext = ceil((grid->getXend()-Ox)/finedx)*finedx;
       xlast  = min(PRA_CoxEndRight-Ox , floor((grid->getXend()-xfirst-Ox)/finedx)*finedx+xfirst);
 
-      /*// to remove
-      if (vct->getCartesian_rank_COMMTOTAL()== 18 || vct->getCartesian_rank_COMMTOTAL()== 26)
-	{
-	  cout <<"R" << vct->getCartesian_rank_COMMTOTAL() << " xlast1: " << xlast <<endl;
-	  cout << "grid->getXend() " <<grid->getXend() << " xlast " <<xlast << " Ox " <<Ox <<" fabs(grid->getXend()-xlast-Ox) " << fabs(grid->getXend()-xlast-Ox) << " DBL_EPSILON " << DBL_EPSILON << " fabs(grid->getXend()-xlast-Ox)*0.99999 "<<fabs(grid->getXend()-xlast-Ox)*0.99999  <<endl;
-	  }*/
-
       //if(fabs(grid->getXend()-xlast-Ox) < DBL_EPSILON){ //If the fine subdivision overlap coarse subdivision 
       if(fabs(grid->getXend()-xlast-Ox)*0.99999 < DBL_EPSILON){ //If the fine subdivision overlap coarse subdivision; 0.99999 because the obvious choices of ratios often bring to overlapping that this alone does not resolve
 	xlast = xlast - finedx;
       }
-      /*// to remove                                                                                                                                                       
-      if (vct->getCartesian_rank_COMMTOTAL()== 18 || vct->getCartesian_rank_COMMTOTAL()== 26)
-      cout <<"R" << vct->getCartesian_rank_COMMTOTAL() << " xlast2: "<< xlast <<endl;*/
+
 
       xnnl = floor((xlast-xfirst)/finedx+0.5)+1; //floor(x+0.5) used to round to closest integer in case the division is not working properly                                     
       for (i =0;i<xnnl;i++) {
@@ -1702,8 +1726,8 @@ if (grid->getLevel() > 0){
  }// end check on grid level 
   // end for PRAReceive, modified from initWeightBC 
 
-  /**some safety checks: for a grid (remind the PRA limits for the coarser grid), check that its finer grid's PRA does not fall into its PRA*/
-  /**it may be a problem with the modifications to the particle mover*/
+  //some safety checks: for a grid (remind the PRA limits for the coarser grid), check that its finer grid's PRA does not fall into its PRA
+  //it may be a problem with the modifications to the particle mover
   // NB: this part has never been tester
    if (grid->getLevel() < vct->getNgrids()-1){
     bool GoodCondition = (PRA_CoxStartLeft > PRA_oxEndLeft) && (PRA_CoxEndRight< PRA_oxStartRight) && (PRA_CoyStartLeft > PRA_oyEndLeft) && (PRA_CoyEndRight< PRA_oyStartRight);
@@ -1746,7 +1770,7 @@ if (grid->getLevel() > 0){
       }
 
   }
-  /**for how the particle motion routines are modified, I need at least 1 PRA cell for side; exit if not*/
+//for how the particle motion routines are modified, I need at least 1 PRA cell for side; exit if not//
     if (PRA_Xleft<1 || PRA_Xright<1 || PRA_Yleft<1 || PRA_Xright<1){
     cout << "At least 1 PRA cell per side is needed: modify your input file...\n Exiting...";
     return -1;
@@ -1763,23 +1787,6 @@ if (grid->getLevel() >0)
 	return -1;
       }
   }
-
-/*for (int i=0; i< nmessageBC; i++)
-  {
-    if (BCSide[i]==0 && ns==0)
-    {
-      cout <<"R" << vct->getCartesian_rank_COMMTOTAL() << "sends BC bottom to R" << targetBC[i] <<" ns "<<ns <<endl;
-    }
-  }
-
-for (int i=0; i<nmessagerecuBC; i++)
-  {
-    if (BCSidecu[i]==0 && ns ==0)
-      {
-	cout <<"R" << vct->getCartesian_rank_COMMTOTAL() << "receives BC bottom from R" << fromBC[i] <<" ns "<<ns<<endl;
-      }
-      }*/
-      
 
 // check that the number of sends match the number of receives
 int ALL_TARGETS;
@@ -1833,12 +1840,9 @@ if (ALL_TARGETS!=ALL_RECEIVERS)
       }
   }
 
-
- 
 return 1; // OK
+}**/ // end old version of initPRAVariables
 
-
-}
 /**prints some info about the PRA area; only in verbose mode*/
 void Particles2Dcomm::checkAfterInitPRAVariables(int species, CollectiveIO* col,VirtualTopology* vct, Grid* grid)
 {
@@ -1848,8 +1852,9 @@ void Particles2Dcomm::checkAfterInitPRAVariables(int species, CollectiveIO* col,
 
   double lengthx=col->getLx()/(double)pow(col->getRatio(),grid->getLevel()); //Total length of the grid in x
   double lengthy=col->getLy()/(double)pow(col->getRatio(),grid->getLevel()); //Total length of the grid in y
-  if (! (vct->getCartesian_rank_COMMTOTAL()%(vct->getXLEN()*vct->getYLEN()))) // print only from the lower rank from each level
-    {
+  //if (! (vct->getCartesian_rank_COMMTOTAL()%(vct->getXLEN()*vct->getYLEN())) and ns ==0) // print only from the lower rank from each level
+  if (0)
+      {
 
       cout << "R" << vct->getCartesian_rank_COMMTOTAL() << "L" << grid->getLevel() <<":";
       cout << "Preliminary check on PRA variables, rank (local to the grid) " << vct->getCartesian_rank() <<", Level " << grid->getLevel() << ", species " << species <<endl;
@@ -2267,6 +2272,7 @@ void Particles2Dcomm::setToMINVAL(double *vec)
 int Particles2Dcomm::PRAReceive(Grid* grid, VirtualTopology *vct, Field* EMf)
 {
 
+  
   // return <0 if problems
   MPI_Status status;
   int ierr;
@@ -2278,7 +2284,7 @@ int Particles2Dcomm::PRAReceive(Grid* grid, VirtualTopology *vct, Field* EMf)
       cout <<"R" <<vct->getCartesian_rank_COMMTOTAL()<<"qom" <<qom << "Nop before PRAReceive: " << nop << endl;
       }*/
 
-  nop_BeforeSplit = nop; // for communicateSP 
+  int nop_BeforeSplit = nop; // for communicateSP 
   n_ref_p_comm_BOTTOM=0;   // n refined grid particles generated from the received ones THAT NEED COMMUNICATION
   n_ref_p_comm_TOP=0;   // n refined grid particles generated from the received ones THAT NEED COMMUNICATION
   n_ref_p_comm_LEFT=0;   // n refined grid particles generated from the received ones THAT NEED COMMUNICATION
@@ -2310,15 +2316,6 @@ int Particles2Dcomm::PRAReceive(Grid* grid, VirtualTopology *vct, Field* EMf)
           return -1;
 	  }
 
-      /*if (REPOP_receive_b[MAX_NP_REPOP_SIZE*nVar -1] != MIN_VAL)// in this case, exit and ask for a buffer resize
-	  {
-	  cout << "PRAReceive: insufficient buffer size" << endl;
-	  return -1;
-	  }*/
-      //end Feb3
-      // split
-      //while (REPOP_receive_b[n_rec_p_eachRec*nVar]!= MIN_VAL)    // start examining a particle block
-      // //while (REPOP_receive_b[n_rec_p_eachRec*nVar]!= MIN_VAL && (n_rec_p_eachRec+1)*nVar<=Recv_Double )    // start examining a particle block
       while ((n_rec_p_eachRec+1)*nVar<=Recv_Double ) //Feb3
 
 	{
@@ -2368,7 +2365,6 @@ int Particles2Dcomm::PRAReceive(Grid* grid, VirtualTopology *vct, Field* EMf)
       return(-1);
     }
   
-  //Nov8 MPI_Barrier(vct->getCART_COMM());
   while(isMessagingDoneSP(vct) >0){
     // COMMUNICATION
     avail = communicateSP(vct, grid);
@@ -2381,18 +2377,6 @@ int Particles2Dcomm::PRAReceive(Grid* grid, VirtualTopology *vct, Field* EMf)
     //Nov8 MPI_Barrier(vct->getCART_COMM()); // do I really need this???
   }// end isMessagingDone
   
-  /*// debug
-  int nop_OS_all_before=0;
-  
-  if (1)
-    {
-      MPI_Allreduce(&nop_OS, &nop_OS_all_before, 1, MPI_INT, MPI_SUM, vct->getCART_COMM());    
-    }
-    // end debug*/
-
-
-  //MPI_Barrier(vct->getCART_COMM()); // is this really needed???
-
   if (grid->getLevel()>0 && vct->getRefLevelAdj()==1) // communication OS particles done under condition RefLevelAdj
     {
 
@@ -2414,7 +2398,6 @@ int Particles2Dcomm::PRAReceive(Grid* grid, VirtualTopology *vct, Field* EMf)
 	    cout << "Insufficient buffer size in communicating OS particles" << endl;
 	    return(-1);
 	  }
-	//MPI_Barrier(vct->getCART_COMM()); // do I really need this???               
       }// end isMessagingDone   
       cout << "R" <<vct->getCartesian_rank_COMMTOTAL() << "nop_OS after communicateOS: " <<nop_OS <<endl;
     }  // end communicate OS particles
@@ -2422,34 +2405,28 @@ int Particles2Dcomm::PRAReceive(Grid* grid, VirtualTopology *vct, Field* EMf)
 
   // debug                                                                                                                                               
   int nop_OS_all_after=0;
+  // copying the newly received repopulated particles to buffers to set them up again during cycles when no particles from the coarse grid
+  if (SubCycling)
+    {
+      RP_nop= nop- nop_BeforeSplit;
 
-  /*if (1) // debug
-    {
-      MPI_Allreduce(&nop_OS, &nop_OS_all_after, 1, MPI_INT, MPI_SUM, vct->getCART_COMM());
-      
-      if (vct->getCartesian_rank_COMMTOTAL()== 16)
+      if (RP_nop > SizeRP_Sub-1)
 	{
-	  cout << "total nop_OS before " <<nop_OS_all_before <<" after " <<nop_OS_all_after <<endl;
-	  
-	  cout << "All before " << nop_OS_all_before << " all after " << nop_OS_all_after << endl;
-	  if (nop_OS_all_before != nop_OS_all_after)
-	    {
-	      cout << "mess in number before/ afetr communicateOS \n";
-	      return -1; 
-	    }
-	}
-	}// end debug*/
-  
-  /*// check, debug
-  for (int i=0; i< nop_OS; i++)
-    {
-      if (OS_y[i] > PRA_oyStartLeft &&  OS_y[i] < PRA_oyEndRight && OS_x[i] > PRA_oxStartLeft &&  OS_x[i] < PRA_oxEndRight) // this is not OS particle!!!
-	{
-	  cout << "R" << vct->getCartesian_rank_COMMTOTAL()<< "wrong particle in OS bottom\n";
+	  cout << "Increase SizeRP_Sub, exiting" <<endl;
 	  return -1;
 	}
-	}*/ 
-  if (0)// debug                                                                                                                   
+
+      memcpy(RP_x, x+nop_BeforeSplit, sizeof(double)*RP_nop);
+      memcpy(RP_y, y+nop_BeforeSplit, sizeof(double)*RP_nop);
+      memcpy(RP_u, u+nop_BeforeSplit, sizeof(double)*RP_nop);
+      memcpy(RP_v, v+nop_BeforeSplit, sizeof(double)*RP_nop);
+      memcpy(RP_w, w+nop_BeforeSplit, sizeof(double)*RP_nop);
+      memcpy(RP_q, q+nop_BeforeSplit, sizeof(double)*RP_nop);
+      if (TrackParticleID)
+	memcpy(RP_ParticleID, ParticleID+nop_BeforeSplit, sizeof(unsigned long)*RP_nop);
+
+  }
+  if (0)// debug                                 
     {
       int total_particle=0;
       MPI_Allreduce(&nop, &total_particle, 1, MPI_INT, MPI_SUM, vct->getCART_COMM());
@@ -3986,72 +3963,756 @@ int Particles2Dcomm::RandomizePositionPRAParticles(int species, VirtualTopology*
   // only for refined grids                                                                                                                                  
   if (grid->getLevel()==0) return 1;
 
-  //only for boundary cores, since PRA cannot extent further than them                                                                                            
-  if (! (vct->getXright_neighbor()==MPI_PROC_NULL or vct->getXleft_neighbor()==MPI_PROC_NULL) or vct->getYright_neighbor()==MPI_PROC_NULL or vct->getYleft_neighbor()==MPI_PROC_NULL)
+  //only for boundary cores, since PRA cannot extent further than them                                                         
+  if (! (vct->getXright_neighbor()==MPI_PROC_NULL or vct->getXleft_neighbor()==MPI_PROC_NULL or vct->getYright_neighbor()==MPI_PROC_NULL or vct->getYleft_neighbor()==MPI_PROC_NULL))
     return 1;
 
   srand((unsigned)time(NULL)+ species + vct->getCartesian_rank()+1); // try not to have the same sequence                                                        
   double  dx = grid->getDX(),dy = grid->getDY();
   int ix, iy;
 
+  int ExtraCells=0;  //0 to Randomize only on repopulated particles
+
+
+  if (nop> npmax-1)
+    {
+      cout << "nop problem, Exiting\n";
+      return -1;
+    }
   for (int i=0; i<nop; i++)
     {
-      // X left boundary                                                                                                                                   
+      // X left boundary                                     
       if (vct->getXleft_neighbor()==MPI_PROC_NULL)
         {
-          if (x[i]<= grid->getXN(PRA_Xleft, 1, 1))
+
+          if (x[i]<= grid->getXN(PRA_Xleft, 1, 0) + ExtraCells*dx)
             {
-              // fMin + (double)(rand()/(double)RAND_MAX * (fMax- fMin)                                                                                       
-              // x: random in the PRA, x dir                                                                                                                   
-              double range = (grid->getXN(PRA_Xleft, 1, 1)- (-dx));
+              // fMin + (double)(rand()/(double)RAND_MAX * (fMax- fMin)          
+              // x: random in the PRA, x dir                        
+	      double range= dx*(PRA_Xleft + ExtraCells);
               x[i]=-dx + (double)(rand()/(double)RAND_MAX) * range;
-              // y: random in the cell                                                                                                                            
+	      while (! (x[i]> -dx and x[i] <Lx +dx))
+		{
+		  cout << "Randomize: x[i] " <<x[i] << " -dx: " << -dx << " Lx+dx: " << Lx+dx <<endl;
+		  x[i]=-dx + (double)(rand()/(double)RAND_MAX) * range;
+		  cout << "Randomize: this was a potential seg fault\n";
+		}
+	      //cout<< "lower: " << "limit " << grid->getXN(PRA_Xleft, 1, 1) + ExtraCells*dx  << " -dx+range " << -dx+range <<endl;
+              // y: random in the cell                     
               iy = 1 +  int(floor((y[i]-ystart)/dy));
-              y[i]= grid->getYN(1, iy, 1) + (double)(rand()/(double)RAND_MAX)* dy;
+	      // diagn
+	      if (iy <0 or iy> nyn-1)
+		{
+		  cout << "X left B, iy out of range; iy " <<iy <<", y[i]  " <<y[i] <<" Ly+ dy " <<Ly+dy<<endl; 
+		  return -1;
+		}
+              y[i]= grid->getYN(1, iy, 0) + (double)(rand()/(double)RAND_MAX)* dy;
             }
         }
       // X right boundary   
       if (vct->getXright_neighbor()==MPI_PROC_NULL)
         {
-          if (x[i]>= grid->getXN(nxn-PRA_Xright, 1, 1))
+          if (x[i]>= grid->getXN(nxn-1-PRA_Xright, 1, 0) - ExtraCells*dx)
             {
-              // fMin + (double)(rand()/(double)RAND_MAX * (fMax- fMin)                                                                                          
-              // x: random in the PRA, x dir                                                                                                                     
-              double range = grid->getmodifiedXend(vct) - dx*PRA_Xright;
-              x[i]=grid->getXN(nxn-PRA_Xright, 1, 1) + (double)(rand()/(double)RAND_MAX) * range;
-              // y: random in the cell                                                                                                                            
+              // fMin + (double)(rand()/(double)RAND_MAX * (fMax- fMin)      
+              // x: random in the PRA, x dir                                                  
+	      double range= dx*(PRA_Xright + ExtraCells);
+              x[i]=grid->getXN(nxn-1-PRA_Xright, 1, 0) - ExtraCells*dx  + (double)(rand()/(double)RAND_MAX) * range;
+	      while (! (x[i]> -dx and x[i] <Lx +dx))
+		{
+		  cout << "Randomize: x[i] " <<x[i] << " -dx: "<< -dx << " Lx+dx: " <<Lx+dx <<endl;
+		  x[i]=grid->getXN(nxn-1-PRA_Xright, 1, 0) - ExtraCells*dx  + (double)(rand()/(double)RAND_MAX) * range;
+		  cout << "Randomize: this was a potential seg fault\n";
+		}
+              // y: random in the cell                            
+	      //cout << "upper: " << " limit " << grid->getXN(nxn-1-PRA_Xright, 1, 1) - ExtraCells*dx << " limit + range " << grid->getXN(nxn-1-PRA_Xright, 1, 1) - ExtraCells*dx + range << " Lx +dx " << Lx+dx <<endl;
               iy = 1 +  int(floor((y[i]-ystart)/dy));
-              y[i]= grid->getYN(1, iy, 1) + (double)(rand()/(double)RAND_MAX)* dy;
+	      if (iy <0 or iy> nyn-1)
+                {
+                  cout << "X right B, iy out of range; iy " <<iy <<", y[i]  " <<y[i] <<" Ly+ dy " <<Ly+dy<<endl;
+		  return -1;
+                }
+              y[i]= grid->getYN(1, iy, 0) + (double)(rand()/(double)RAND_MAX)* dy;
             }
         }
       // Y left boundary    
       if (vct->getYleft_neighbor()==MPI_PROC_NULL)
         {
-          if (y[i]<= grid->getYN(1,PRA_Yleft, 1))
+          if (y[i]<= grid->getYN(1,PRA_Yleft, 0) + ExtraCells*dy)
             {
-              // fMin + (double)(rand()/(double)RAND_MAX * (fMax- fMin)                                                                                              
-              // y: random in the PRA, y dir                                                                                                                      
-              double range = (grid->getYN(1, PRA_Yleft, 1)- (-dy));
+              // fMin + (double)(rand()/(double)RAND_MAX * (fMax- fMin)      
+              // y: random in the PRA, y dir          
+	      double range= dy*(PRA_Yleft + ExtraCells);
               y[i]=-dy + (double)(rand()/(double)RAND_MAX) * range;
-              // x: random in the cell                                                                                                                           
+	      while (! (y[i]> -dy and y[i] <Ly +dy))
+		{
+		  cout << "Randomize: y[i] " <<y[i] << " -dy: "<< -dy << " Ly+dy: " <<Ly+dy <<endl;
+		  y[i]=-dy + (double)(rand()/(double)RAND_MAX) * range;
+		  cout << "Randomize: this was a potential seg fault\n";
+		}
+              // x: random in the cell                                 
               ix = 1 +  int(floor((x[i]-xstart)/dx));
-              x[i]= grid->getXN(ix, 1, 1) + (double)(rand()/(double)RAND_MAX)* dx;
+	      if (ix <0 or ix> nxn-1)
+                {
+                  cout << "Y left B, iy out of range; ix " <<ix <<", x[i]  " <<x[i] <<" Lx+ dx " <<Lx+dx<<endl;
+		  return -1;
+                }
+              x[i]= grid->getXN(ix, 1, 0) + (double)(rand()/(double)RAND_MAX)* dx;
             }
         }
       // Y right boundary   
       if (vct->getYright_neighbor()==MPI_PROC_NULL)
         {
-          if (y[i]>= grid->getYN(1, nyn-PRA_Yright, 1))
+          if (y[i]>= grid->getYN(1, nyn-1-PRA_Yright, 0) - ExtraCells*dy)
             {
-              // fMin + (double)(rand()/(double)RAND_MAX * (fMax- fMin)                                                                                            
-              // y: random in the PRA, y dir                                                                                                                         
-              double range = grid->getmodifiedYend(vct) - dy*PRA_Yright;
-              y[i]=grid->getYN(1, nyn-PRA_Yright, 1) + (double)(rand()/(double)RAND_MAX) * range;
-              // x: random in the cell                                                                                                                               
+              // fMin + (double)(rand()/(double)RAND_MAX * (fMax- fMin)   
+              // y: random in the PRA, y dir               
+              double range = dy*(PRA_Yright + ExtraCells);
+              y[i]=grid->getYN(1, nyn-1-PRA_Yright, 0)- ExtraCells*dy + (double)(rand()/(double)RAND_MAX) * range;
+	      while (! (y[i]> -dy and y[i] <Ly +dy))
+		{
+		  cout << "Randomize: y[i] " <<y[i] << " -dy: "<< -dy << " Ly+dy: " <<Ly+dy <<endl;
+		  y[i]=grid->getYN(1, nyn-1-PRA_Yright, 0)- ExtraCells*dy + (double)(rand()/(double)RAND_MAX) * range;
+		  cout << "Randomize: this was a potential seg fault\n";
+		}
+              // x: random in the cell                                                
               ix = 1 +  int(floor((x[i]-xstart)/dx));
-              x[i]= grid->getXN(ix, 1, 1) + (double)(rand()/(double)RAND_MAX)* dx;
+	      if (ix <0 or ix> nxn-1)
+                {
+                  cout << "Y right B, iy out of range; ix " <<ix <<", x[i]  " <<x[i] <<" Lx+ dx " <<Lx+dx<<endl;
+		  return -1;
+                }
+              x[i]= grid->getXN(ix, 1, 0) + (double)(rand()/(double)RAND_MAX)* dx;
             }
         }
 
-    }// end nop                                                                                                                                                     
+    }// end nop                                                                                                       
+  return 1;
 }
+
+int Particles2Dcomm::SubCyclingParticles(Grid* grid, bool CoarseOp, VirtualTopology* ptVCT)
+{
+  if (SubCycling == false or grid->getLevel()==0 or CoarseOp== true)
+    {
+      cout << "You asked to execute SubCyclingParticles in suspicious conditions... Re-check what you are doing...\n";
+      return -1;
+    }
+
+  memcpy (x+nop, RP_x, sizeof(double)*RP_nop);
+  memcpy (y+nop, RP_y, sizeof(double)*RP_nop);
+  memcpy (u+nop, RP_u, sizeof(double)*RP_nop);  
+  memcpy (v+nop, RP_v, sizeof(double)*RP_nop);
+  memcpy (w+nop, RP_w, sizeof(double)*RP_nop);
+  memcpy (q+nop, RP_q, sizeof(double)*RP_nop);
+  if (TrackParticleID)
+    memcpy (ParticleID+nop, RP_ParticleID, sizeof(unsigned long)*RP_nop);
+
+  nop=nop+RP_nop;
+
+  if (nop > (npmax - (int) (.01*npmax) ) )
+    {
+    cout <<"R" <<ptVCT->getCartesian_rank_COMMTOTAL() << "SubCyclingParticles exceeding npmax: Particles \
+need to be resized Save Data and Stop the simulation" << endl;
+    return(-1); // end the simulation because you dont have enough space on the array          
+  }
+
+
+  //cout << "R" <<ptVCT->getCartesian_rank_COMMTOTAL() << " After subcycling particles, nop " << nop << " npmax " <<npmax <<endl;
+  return 1;
+}
+
+
+
+/**AMR methods, ME*/
+/**init operations connected with the repopulation of particles, new version with communiation map*/
+int Particles2Dcomm::initPRAVariables(int species, CollectiveIO* col,VirtualTopology* vct, Grid* grid, Field* EMf){
+  // the buffer for communication of PRA variables are defined in allocate, 
+  // together with the other particle communication buffers
+
+  if (vct->getNgrids()<2)
+    return 1;
+
+  ratio= col->getRatio();
+
+  //number of cells, ghost cell INCLUDED, for particle repopulation; x left
+  PRA_Xleft = col->GetPRA_Xleft(); 
+  //number of cells, ghost cell INCLUDED, for particle repopulation; x right
+  PRA_Xright = col->GetPRA_Xright();
+  //number of cells, ghost cell INCLUDED, for particle repopulation; y left
+  PRA_Yleft = col->GetPRA_Yleft();
+  //number of cells, ghost cell INCLUDED, for particle repopulation; y right
+  PRA_Yright = col->GetPRA_Yright();
+  
+  if (grid->getLevel() >0){  //PRA area, native particles falling here are deleted and substituted with repopulated particles 
+    PRA_oxStartLeft   = 0- grid->getDX();
+    PRA_oxEndLeft     = 0+ (PRA_Xleft-1)*grid->getDX();
+    PRA_oxStartRight  = Lx- (PRA_Xright-1)*grid->getDX();
+    PRA_oxEndRight    = Lx+ grid->getDX();
+    
+    PRA_oyStartLeft   = 0- grid->getDY();
+    PRA_oyEndLeft     = 0+ (PRA_Yleft-1)*grid->getDY();
+    PRA_oyStartRight  = Ly- (PRA_Yright-1)*grid->getDY();
+    PRA_oyEndRight    = Ly+ grid->getDY();
+  }
+  else{   //used only for the safety checks, NOT in the code; initialized anyhow
+    PRA_oxStartLeft   = 0- grid->getDX();
+    PRA_oxEndLeft     = 0;
+    PRA_oxStartRight  = Lx;
+    PRA_oxEndRight    = Lx+ grid->getDX();
+
+    PRA_oyStartLeft   = 0- grid->getDY();
+    PRA_oyEndLeft     = 0;
+    PRA_oyStartRight  = Ly;
+    PRA_oyEndRight    = Ly+ grid->getDY();
+  }
+      
+  //if Level< Levels-1 (this grid is the coarser grid for some other grid), limits for thr PRA area of the child in local coords
+  if ( grid->getLevel() < vct->getNgrids()-1){
+
+    double Ox = grid->getOx(grid->getLevel()+1); //Origin x of finer grid
+    double Oy = grid->getOy(grid->getLevel()+1); //Origin y of finer grid
+
+    double finedx = grid->getDX()/col->getRatio();
+    double finelx = col->getLx()/(double)pow(col->getRatio(),grid->getLevel()+1);
+    double finedy = grid->getDY()/col->getRatio();
+    double finely = col->getLy()/(double)pow(col->getRatio(),grid->getLevel()+1);
+    
+    // when parent particles enter this area, they have to be communicated;  
+    // the parent dx or dy is already taken into account here
+
+    PRA_CoxStartLeft   = Ox - finedx - grid->getDX() ;
+    PRA_CoxEndLeft     = Ox + (PRA_Xleft-1)*finedx + grid->getDX();
+    PRA_CoxStartRight  = Ox + finelx - (PRA_Xright-1)*finedx -  grid->getDX();
+    PRA_CoxEndRight    = Ox + finelx + finedx + grid->getDX();
+
+    PRA_CoyStartLeft   = Oy - finedy - grid->getDY();
+    PRA_CoyEndLeft     = Oy + (PRA_Yleft-1)*finedy + grid->getDY();
+    PRA_CoyStartRight  = Oy + finely - (PRA_Yright-1)*finedy - grid->getDY();
+    PRA_CoyEndRight    = Oy + finely + finedy + grid->getDY();
+
+    //if (Modified_xstart > PRA_CoxEndLeft or Modified_xend < PRA_CoxStartLeft or Modified_ystart > PRA_CoyEndLeft or Modified_yend < PRA_CoyStartLeft)
+    if (Modified_xstart > PRA_CoxEndRight or Modified_xend < PRA_CoxStartLeft or Modified_ystart > PRA_CoyEndRight or Modified_yend < PRA_CoyStartLeft)
+      {
+	PRAIntersection= false;
+      }	
+    else
+      {
+	PRAIntersection= true;
+      }
+
+  }
+  else{ //actually not used, initialized anyhow
+    PRA_CoxStartLeft   = 0- grid->getDX();;
+    PRA_CoxEndLeft     = 0- grid->getDX();;
+    PRA_CoxStartRight  = Lx+ grid->getDX();
+    PRA_CoxEndRight    = Lx+ grid->getDX();
+
+    PRA_CoyStartLeft   = 0- grid->getDY();;
+    PRA_CoyEndLeft     = 0- grid->getDY();;
+    PRA_CoyStartRight  = Ly+ grid->getDY();
+    PRA_CoyEndRight    = Ly+ grid->getDY();
+
+
+    PRAIntersection= false;
+  } 
+
+  // for PRASend, modified from initWeightBC
+  int i,j,nproc;
+  double finedx, finedy,finelx,finely, xfirst, xlast,xfirstnext, Ox, Oy;
+  double coarsedx, coarsedy,coarselx,coarsely;
+  double finelxplusfinedx;
+  double xshift, yshift;
+  int xnnl, xnnu, ynnl, ynnu;
+  // remember that there is always only 1 PRA ghost cell, the other in the active domain
+
+  int expSR;
+  if (col->getXLEN()> col->getYLEN())
+    {
+      expSR= col->getXLEN()*2*4; // a occhio                                                                                                  
+    }
+  else
+    {
+      expSR= col->getYLEN()*2*4;
+    }
+
+  targetBC= new int[expSR];
+  BCSide  = new int[expSR];
+  
+  targetBOTTOM=0;
+  targetTOP=0;
+  targetLEFT=0;
+  targetRIGHT=0;
+  nmessageBC = 0;
+  
+  nmessagerecuBC=0;
+  // for debugging purposes, not actually used anywhere
+  int nmessagerecuBCLEFT=0;
+  int nmessagerecuBCRIGHT=0;
+  int nmessagerecuBCBOTTOM=0;
+  int nmessagerecuBCTOP=0;
+  // end for debugging purposes
+  
+  if (grid->getLevel() > 0){
+    fromBC= new int[expSR];//[col->getXLEN()*col->getYLEN()];  
+    BCSidecu= new int[expSR];//[col->getXLEN()*col->getYLEN()];
+    nmessagerecuBC=0;
+    
+    //If this grid is considered as fine by another grid
+    coarsedx = grid->getDX()*col->getRatio();
+    coarselx = col->getLx()/pow(col->getRatio(),grid->getLevel()-1);
+    coarsedy = grid->getDY()*col->getRatio();
+    coarsely = col->getLy()/pow(col->getRatio(),grid->getLevel()-1);
+    Ox = grid->getOx(grid->getLevel()); //Origin x of the grid
+    Oy = grid->getOy(grid->getLevel()); //Origin y of the grid
+    j=0;
+    if(vct->getCoordinates(1) == 0) {    // BOTTOM
+      double xloc, yloc1, yloc2;
+      if (vct->getCoordinates(0)== 0)
+	{
+	  xfirst=PRA_oxStartLeft- coarsedx ; // coarsedx from def, to have the areas coincide in coarse and fine grid
+	}
+      else
+	{
+	  xfirst= grid->getXstart();
+	}
+      if(vct->getCoordinates(0) == vct->getXLEN()-1) {
+	xlast = PRA_oxEndRight + coarsedx;// coarsedx from def, to have the areas coincide in coarse and fine grid
+      }else{
+	xlast = grid->getXend();
+	if ( fabs(xlast-xfirst) > DBL_EPSILON )//If the fine subdivision overlap coarse subdivision, to avoid catching the next coarse proc
+	  {
+	    xlast= xlast - grid->getDX();
+	  }
+      }
+      
+      yloc1 = Oy + PRA_oyStartLeft- coarsedy;// coarsedy from def, to have the areas coincide in coarse and fine grid
+      yloc2 = Oy + PRA_oyEndLeft + coarsedy; // coarsedy from def, to have the areas coincide in coarse and fine grid
+      double YL= yloc1;
+      int nproc;
+      while (YL < yloc2 || fabs(YL - yloc2)< DBL_EPSILON ){
+	xnnl = floor((xlast-xfirst)/grid->getDX()+0.5)+1; 
+	for (i=0; i< xnnl; i++) {
+	  xloc = max(Ox + xfirst +i*grid->getDX(),0.);// Because when x < 0, it is on the same proc as if x=0  
+	  nproc =floor(YL/((grid->getNYC()-2)*coarsedy))+floor(xloc/((grid->getNXC()-2)*coarsedx))*col->getYLEN()+col->getYLEN()*col->getXLEN()*(grid->getLevel()-1);
+	  bool found=false;
+	  for (int k=0; k< nmessagerecuBC; k++ )
+	    {
+	      if (BCSidecu[k]==0 && fromBC[k]==nproc)
+		{ 
+		  found= true;
+		  break;
+		}
+	    }
+	  if (i==0 && nmessagerecuBC==0){// j must be nmessagerecuBC-1, so not updated the first time
+	    fromBC[0] = nproc;
+	    BCSidecu[0]=0;
+	    nmessagerecuBC++;
+	    nmessagerecuBCBOTTOM++;
+	    //cout <<"R" <<vct->getCartesian_rank_COMMTOTAL() <<  " new bottom from "<<fromBC[nmessagerecuBC-1] << " nmessagerecuBC " << nmessagerecuBC<<endl;
+	  }
+	  
+	  if(nproc != fromBC[j] && !found){ // first part to avoid repetitions with points at the same yloc, second with previous yloc
+	    j++;
+	    nmessagerecuBC++;
+	    nmessagerecuBCBOTTOM++;
+	    fromBC[j]=nproc;
+	    BCSidecu[j]=0;
+	    //cout <<"R" <<vct->getCartesian_rank_COMMTOTAL() <<  " new bottom from "<<fromBC[j] << " nmessagerecuBC " << nmessagerecuBC << " j " << j<<endl;
+	  }
+	}// end xnnl
+	YL += grid->getDY();
+      }// end YL
+    } // end BOTTOM
+    
+    if(vct->getCoordinates(1) == vct->getYLEN()-1) { // TOP
+      double xloc, yloc1, yloc2;
+      if (vct->getCoordinates(0)== 0)
+	{
+	  xfirst=PRA_oxStartLeft - coarsedx; // coarsedx from def, to have the areas coincide in coarse and fine grid
+	}
+      else
+	{
+	  xfirst= grid->getXstart();
+	}
+      if(vct->getCoordinates(0) == vct->getXLEN()-1) {
+	xlast = PRA_oxEndRight + coarsedx;   // coarsedx from def, to have the areas coincide in coarse and fine grid
+      }else{
+	xlast = grid->getXend();
+	if ( fabs(xlast-xfirst) > DBL_EPSILON )//If the fine subdivision overlap coarse subdivision, to avoid catching the next coarse proc               
+	  {
+	    xlast= xlast - grid->getDX();
+	  }
+      }
+      yloc1 = Oy +   PRA_oyStartRight- coarsedy;// coarsedy from def, to have the areas coincide in coarse and fine grid
+      yloc2 = Oy +   PRA_oyEndRight +coarsedy; // coarsedy from def, to have the areas coincide in coarse and fine grid
+      double YL= yloc1;
+      int nproc;
+      while (YL < yloc2 || fabs(YL - yloc2)< DBL_EPSILON ){
+	xnnu = floor((xlast-xfirst)/grid->getDX()+0.5)+1; 
+	for (i=0; i< xnnu; i++) {
+	  xloc = max(Ox + xfirst +i*grid->getDX(),0.);
+	  nproc =floor(YL/((grid->getNYC()-2)*coarsedy))+floor(xloc/((grid->getNXC()-2)*coarsedx))*col->getYLEN()+col->getYLEN()*col->getXLEN()*(grid->getLevel()-1); // rank of the proc on the coarse grid sending this point(in MPI_COMM_WORLD)
+	  bool found=false;
+	  for (int k=0; k< nmessagerecuBC; k++ )
+	    {
+	      if (BCSidecu[k]==1 && fromBC[k]==nproc)
+		{ 
+		  found= true;
+		  //cout <<"R" <<vct->getCartesian_rank_COMMTOTAL()<< " BCSidecu[k] " <<BCSidecu[k] << " fromBC[k] " << fromBC[k] << " nproc " <<nproc <<endl; 
+		  break;
+		}
+	    }
+	  if (i==0 && nmessagerecuBC==0){// j must be nmessagerecuBC-1, so not updated the first time
+	    fromBC[0] = nproc;
+	    BCSidecu[0]=1;
+	    nmessagerecuBC++;
+	    nmessagerecuBCTOP++;
+	    //cout <<"R" <<vct->getCartesian_rank_COMMTOTAL() <<  " new bottom from "<<fromBC[nmessagerecuBC-1] << " nmessagerecuBC " << nmessagerecuBC<<endl;
+	  }
+	  // (nproc == fromBC[j] && BCSidecu[j]!= 1) othewise procs are not included if they are the last in a different side
+	  if((nproc != fromBC[j] || (nproc == fromBC[j] && BCSidecu[j]!= 1)) && !found){
+	    j++;
+	    nmessagerecuBC++;
+	    nmessagerecuBCTOP++;
+	    fromBC[j]=nproc;
+	    BCSidecu[j]=1;
+	    //cout <<"R" <<vct->getCartesian_rank_COMMTOTAL() <<  " new top from "<<fromBC[j] << " nmessagerecuBC " << nmessagerecuBC<<endl;
+	  }
+	}// end xnnu
+	YL += grid->getDY();
+      }// end YL
+    } // end TOP
+    
+    if(vct->getCoordinates(0) == 0) {   // LEFT
+      double yloc, xloc1, xloc2;      
+      if (vct->getCoordinates(1)== 0)
+	{
+	  xfirst=PRA_oyEndLeft + coarsedy;// this actually spans the y dir // coarsedy from def, to have the areas coincide in coarse and fine grid   
+	}
+      else
+	{
+	  xfirst= grid->getYstart();
+	}
+      if(vct->getCoordinates(1) == vct->getYLEN()-1) {
+	xlast = PRA_oyStartRight - coarsedy; // coarsedy from def, to have the areas coincide in coarse and fine grid
+      }else{
+	xlast = grid->getYend();
+	if ( fabs(xlast-xfirst) > DBL_EPSILON )//If the fine subdivision overlap coarse subdivision, to avoid catching the next coarse proc              
+	  {
+	    xlast= xlast - grid->getDY();
+	  }
+      }
+      xloc1 = Ox + PRA_oxStartLeft -coarsedx;// coarsedy from def, to have the areas coincide in coarse and fine grid
+      xloc2 = Ox + PRA_oxEndLeft+ coarsedx;// coarsedy from def, to have the areas coincide in coarse and fine grid
+      double XL= xloc1;
+      int nproc;
+      while (XL < xloc2 || fabs(XL - xloc2)< DBL_EPSILON) {
+	ynnl = floor((xlast-xfirst)/grid->getDY()+0.5)+1; 
+	for (i=0; i< ynnl; i++) {
+	  yloc = Oy + xfirst +i*grid->getDY();
+	  nproc =floor(yloc/((grid->getNYC()-2)*coarsedy))+floor(XL/((grid->getNXC()-2)*coarsedx))*col->getYLEN()+col->getYLEN()*col->getXLEN()*(grid->getLevel()-1); // rank of the proc on the coarse grid sending this point(in MPI_COMM_WORLD)
+	  bool found=false;
+	  for (int k=0; k< nmessagerecuBC; k++ )
+	    {
+	      if (BCSidecu[k]==2 && fromBC[k]==nproc)
+		{ 
+		  found= true;
+		  break;
+		}
+	    }
+	  if (i==0 && nmessagerecuBC==0){// j must be nmessagerecuBC-1, so not updated the first time
+	    fromBC[0] = nproc;
+	    BCSidecu[0]=2;
+	    nmessagerecuBC++;
+	    nmessagerecuBCLEFT++;
+	    //cout <<"R" <<vct->getCartesian_rank_COMMTOTAL() <<  " new left from "<<fromBC[nmessagerecuBC-1] << " nmessagerecuBC " << nmessagerecuBC<<endl;
+	  }
+	  if((nproc != fromBC[j] || (nproc == fromBC[j] && BCSidecu[j]!= 2)) && !found){
+	    //if(nproc != fromBC[j] && !found){ // first part to avoid repetitions with points at the same yloc, second with previous yloc
+	    j++;
+	    nmessagerecuBC++;
+	    nmessagerecuBCLEFT++;
+	    fromBC[j]=nproc;
+	    BCSidecu[j]=2;
+	    //cout <<"R" <<vct->getCartesian_rank_COMMTOTAL() <<  " new left from "<<fromBC[j] << " nmessagerecuBC " << nmessagerecuBC << " j " << j<<endl;
+	  }
+	} // end ynnl
+	XL += grid->getDX();
+      }// end XL
+    } // end left
+    
+    if(vct->getCoordinates(0) == vct->getXLEN()-1) {  //RIGHT
+      double yloc, xloc1, xloc2;
+      if (vct->getCoordinates(1)== 0)
+	{
+	  xfirst=PRA_oyEndLeft + coarsedy;// this actually spans the y dir // coarsedy from def, to have the areas coincide in coarse and fine grid
+	}
+      else
+	{
+	  xfirst= grid->getYstart();
+	}
+      if(vct->getCoordinates(1) == vct->getYLEN()-1) {
+	xlast = PRA_oyStartRight- coarsedy;// coarsedy from def, to have the areas coincide in coarse and fine grid 
+      }else{
+	xlast = grid->getYend();
+	if ( fabs(xlast-xfirst) > DBL_EPSILON )//If the fine subdivision overlap coarse subdivision, to avoid catching the next coarse proc
+	  {
+	    xlast= xlast - grid->getDY();
+	  }
+      }
+      xloc1 = Ox + PRA_oxStartRight - coarsedx;// coarsedy from def, to have the areas coincide in coarse and fine grid  
+      xloc2 = Ox + PRA_oxEndRight + coarsedx;// coarsedy from def, to have the areas coincide in coarse and fine grid
+      double XL= xloc1;
+      int nproc;
+      ynnu = floor((xlast-xfirst)/grid->getDY()+0.5)+1;
+      while (XL < xloc2 || fabs(XL - xloc2)< DBL_EPSILON ){
+	for (i=0; i< ynnu; i++) {
+	  yloc = Oy + xfirst +i*grid->getDY(); 
+	  nproc =floor(yloc/((grid->getNYC()-2)*coarsedy))+floor(XL/((grid->getNXC()-2)*coarsedx))*col->getYLEN()+col->getYLEN()*col->getXLEN()*(grid->getLevel()-1); // rank of the proc on the coarse grid sending this point(in MPI_COMM_WORLD)
+	  //cout <<"R" <<vct->getCartesian_rank_COMMTOTAL() << " right nproc1 " << nproc1 << " nproc2 "<< nproc2 << " xloc1 " <<xloc1 <<" xloc2 "<<xloc2 <<" yloc "<< yloc <<endl;
+	  bool found=false;
+	  for (int k=0; k< nmessagerecuBC; k++ )
+	    {
+	      if (BCSidecu[k]==3 && fromBC[k]==nproc)
+		{ 
+		  found= true;
+		  break;
+		}
+	    }
+	  if (i==0 && nmessagerecuBC==0){// j must be nmessagerecuBC-1, so not updated the first time
+	    fromBC[0] = nproc;
+	    BCSidecu[0]=3;
+	    nmessagerecuBC++;
+	    nmessagerecuBCRIGHT++;
+	    //cout <<"R" <<vct->getCartesian_rank_COMMTOTAL() <<  " new right from "<<fromBC[0] << " nmessagerecuBC " << nmessagerecuBC << " nproc " << nproc<<endl;
+	  }
+	  if((nproc != fromBC[j] || (nproc == fromBC[j] && BCSidecu[j]!= 3)) && !found){
+	    //if(nproc != fromBC[j] && !found){ // first part to avoid repetitions with points at the same yloc, second with previous yloc
+	    j++;
+	    nmessagerecuBC++;
+	    nmessagerecuBCRIGHT++;
+	    fromBC[j]=nproc;
+	    BCSidecu[j]=3;
+	    //cout <<"R" <<vct->getCartesian_rank_COMMTOTAL() <<  " new right from "<<fromBC[j] << " nmessagerecuBC " << nmessagerecuBC << " j " << j<<endl;
+	  }
+	}// end ynnu
+	XL += grid->getDX();
+      }// end XL
+    } // end RIGHT
+    
+    
+  }// end check on grid level 
+  
+  
+  // now, the refined grid distributes the info
+  
+  // broadcast part: refined grid broadcast the communication map to the coarse grid
+  
+  int TagMap= 666;
+  MPI_Request requestISend;
+  MPI_Status status;
+  
+  if (grid->getLevel() > 0 )
+    {
+      fromBC[nmessagerecuBC]= -1;// to signal the termination of the list                              
+      for (int r= 0; r< vct->getXLEN()*vct->getYLEN(); r++)
+	{
+	  // +1 to send the -1 for termination of the list as well                                     
+	  MPI_Isend (fromBC, nmessagerecuBC+1, MPI_INT, r, TagMap, vct->getCART_COMM_TOTAL(), &requestISend);
+	  MPI_Wait(&requestISend, &status);
+	}
+    }
+  
+  int *buffer=new int[expSR];//[col->getXLEN()*col->getYLEN()*4];
+  if (grid->getLevel() == 0 )
+    {
+      nmessageBC=0;
+      for (int r=0; r< vct->getXLEN()*vct->getYLEN(); r++)
+	{
+	  MPI_Recv(buffer, expSR,MPI_INT, MPI_ANY_SOURCE, TagMap, vct->getCART_COMM_TOTAL(), &status);
+	  for (int i=0; i< expSR; i++)
+	    {
+	      if (buffer[i]!=-1)
+		{
+		  if (buffer[i]== vct->getCartesian_rank_COMMTOTAL())
+		    nmessageBC++;
+		}
+	      else
+		break;
+	    }
+	}
+    }
+  
+  
+  // specific location part
+  int NInfo= 2;
+  int TagInfo=667; 
+  int *info=new int[NInfo];
+  if (grid->getLevel() > 0 )
+    {
+      for (int i=0; i< nmessagerecuBC; i++)
+	{
+	  info[0]= vct->getCartesian_rank_COMMTOTAL();
+	  info[1]= BCSidecu[i];
+	  
+	  MPI_Isend (info, NInfo, MPI_DOUBLE, fromBC[i], TagInfo, vct->getCART_COMM_TOTAL(), &requestISend);
+	  MPI_Wait(&requestISend, &status);
+	}
+    }
+  if (grid->getLevel() == 0 )
+    {
+      targetTOP=0;
+      targetBOTTOM=0;
+      targetLEFT=0;
+      targetRIGHT=0;
+      for (int i=0; i<nmessageBC; i++)
+	{
+	  MPI_Recv(info, NInfo,MPI_DOUBLE, MPI_ANY_SOURCE, TagInfo, vct->getCART_COMM_TOTAL(), &status);
+	  
+	  targetBC[i]= info[0];
+	  BCSide[i]= info[1];
+	  switch(BCSide[i])
+	    {
+	    case 0:
+	      {
+		targetBOTTOM++;
+		break;
+	      }
+	    case 1:
+	      targetTOP++;
+	      break;
+	      
+	    case 2:
+	      targetLEFT++;
+	      break;
+	      
+	    case 3:
+	      targetRIGHT++;
+	      break;
+	      
+	    default:
+	      {
+		cout << "Problems in initPRAVariables, exiting..." << endl;
+		return -1;
+	      }
+	    }// end switch
+	}// end for
+    }// end coarse grid
+  // end coarse grid receiving the info  
+  
+  //some safety checks: for a grid (remind the PRA limits for the coarser grid), check that its finer grid's PRA does not fall into its PRA
+  //it may be a problem with the modifications to the particle mover
+  // NB: this part has never been tester
+   if (grid->getLevel() < vct->getNgrids()-1){
+    bool GoodCondition = (PRA_CoxStartLeft > PRA_oxEndLeft) && (PRA_CoxEndRight< PRA_oxStartRight) && (PRA_CoyStartLeft > PRA_oyEndLeft) && (PRA_CoyEndRight< PRA_oyStartRight);
+    if (! GoodCondition){
+      cout << "The child grid Particle Repopulation Area overlaps the current grid Particle Repopulation Area: recheck your init parameters...\n Some diagnostics then exiting..." <<endl;
+     cout << "Lx: " << Lx << ", 0-dx: " <<0-grid->getDX() << ", Lx+dx: " <<Lx + grid->getDX() <<endl;
+     cout << "PRA_CoxStartLeft: " <<PRA_CoxStartLeft <<", PRA_oxEndLeft: " <<PRA_oxEndLeft <<endl;
+     if (! (PRA_CoxStartLeft > PRA_oxEndLeft))
+       cout <<"Must be: PRA_CoxStartLeft > PRA_oxEndLeft!!!!" <<endl;
+     cout << "PRA_CoxEndRight: " <<PRA_CoxEndRight <<", PRA_oxStartRight: " <<PRA_oxStartRight <<endl;
+     if (!(PRA_CoxEndRight< PRA_oxStartRight))
+       cout <<"Must be: PRA_CoxEndRight< PRA_oxStartRight!!!!" <<endl;
+     cout << "Ly: " << Ly << ", 0-dy: " <<0-grid->getDY() << ", Ly+dy: " <<Ly + grid->getDY() <<endl;
+     cout << "PRA_CoyStartLeft: " <<PRA_CoyStartLeft <<", PRA_oyEndLeft: " <<PRA_oyEndLeft <<endl;
+     if(! (PRA_CoyStartLeft > PRA_oyEndLeft))
+       cout <<"Must be: PRA_CoyStartLeft > PRA_oyEndLeft!!!!" <<endl;
+     cout << "PRA_CoyEndRight: " <<PRA_CoyEndRight <<", PRA_oyStartRight: " <<PRA_oyStartRight <<endl;
+     if (!(PRA_CoyEndRight< PRA_oyStartRight))
+       cout<<"Must be: PRA_CoyEndRight< PRA_oyStartRight!!!!" <<endl;
+     return -1;
+    }
+    // other safety check: the PRA should not fall into the parent grid's ghost area
+    if (PRA_CoxStartLeft<0 || PRA_CoxEndLeft<0 || PRA_CoxStartRight> Lx || PRA_CoxEndRight> Lx || PRA_CoyStartLeft<0 || PRA_CoyEndLeft<0 || PRA_CoyStartRight> Ly || PRA_CoyEndRight> Ly )
+      {
+	cout << "The child Particle Repopulation Area is falling into the current grid  ghost area: recheck yout init parameters...\nSome diagnostics then exiting..." << endl;
+	cout <<"PRA_CoxStartLeft: " << PRA_CoxStartLeft <<", PRA_CoxEndLeft: " <<PRA_CoxEndLeft <<endl;
+	if (PRA_CoxEndLeft<0 || PRA_CoxEndLeft<0)
+	  cout <<"PRA_CoxEndLeft and PRA_CoxEndLeft must be >0!!!"<<endl;
+	cout <<"PRA_CoxStartRight: " <<PRA_CoxStartRight <<", PRA_CoxEndRight: " <<PRA_CoxEndRight <<endl;
+	if (PRA_CoxStartRight> Lx || PRA_CoxEndRight> Lx)
+	  cout <<"PRA_CoxStartRight and PRA_CoxEndRight must be <Lx!!!"<<endl;
+	cout <<"PRA_CoyStartLeft: " << PRA_CoyStartLeft <<", PRA_CoyEndLeft: " <<PRA_CoyEndLeft<<endl;
+        if (PRA_CoyEndLeft<0 || PRA_CoyEndLeft<0)
+          cout <<"PRA_CoyEndLeft and PRA_CoyEndLeft must be >0!!!"<<endl;
+	cout <<"PRA_CoyStartRight: " <<PRA_CoyStartRight <<", PRA_CoyEndRight: " <<PRA_CoyEndRight <<endl;
+	if (PRA_CoyStartRight> Ly || PRA_CoyEndRight> Ly)
+          cout <<"PRA_CoyStartRight and PRA_CoyEndRight must be <Ly!!!"<<endl;
+	 
+	return -1;
+      }
+
+  }
+//for how the particle motion routines are modified, I need at least 1 PRA cell for side; exit if not//
+    if (PRA_Xleft<1 || PRA_Xright<1 || PRA_Yleft<1 || PRA_Xright<1){
+    cout << "At least 1 PRA cell per side is needed: modify your input file...\n Exiting...";
+    return -1;
+  }
+
+  //the PRA area cannot be wider than a fine grid processor
+if (grid->getLevel() >0)
+  {// nxc is the number of cells in the processor, not the one from input file
+    if ( PRA_Xleft-1> grid->getNXC()/2.0 || PRA_Xright-1> grid->getNXC()/2.0 || PRA_Yleft-1> grid->getNYC()/2.0  || PRA_Yright-1> grid->getNYC()/2.0   )
+      {
+	cout << "The Particle Repopulation Area is too wide compared with the number of cells per processor: revise input parameters.\nSome diagnostics then exiting...";
+	cout << "Nxc: " << grid->getNXC() << ", PRA_Xleft: "<< PRA_Xleft <<", PRA_Xright: " <<PRA_Xright <<endl;
+	cout << "Nyc: "<< grid->getNYC() << ", PRA_Yleft: "<< PRA_Yleft <<", PRA_Yright: " <<PRA_Yright <<endl;
+	return -1;
+      }
+  }
+
+// check that the number of sends match the number of receives
+int ALL_TARGETS;
+int ALL_RECEIVERS;
+
+if (grid->getLevel() ==0)
+  {
+    MPI_Allreduce ( &nmessageBC, &ALL_TARGETS, 1,  MPI_INT, MPI_SUM, vct->getCART_COMM());  
+  }
+ else
+   {
+     MPI_Allreduce ( &nmessagerecuBC, &ALL_RECEIVERS, 1,MPI_INT, MPI_SUM, vct->getCART_COMM());
+   }
+if (! (vct->getCartesian_rank_COMMTOTAL()%(vct->getXLEN()*vct->getYLEN())) && grid->getLevel() ==0)
+  {
+    cout << "Level 0: ALL_TARGETS= " <<  ALL_TARGETS <<endl;
+  }
+if (! (vct->getCartesian_rank_COMMTOTAL()%(vct->getXLEN()*vct->getYLEN())) && !grid->getLevel() ==0)
+  {
+    cout <<"Level 0: ALL_RECEIVERS= " <<  ALL_RECEIVERS <<endl;
+  }
+//appropriate iniializations done
+MPI_Allreduce( &nmessageBC, &ALL_TARGETS, 1,  MPI_INT, MPI_SUM, vct->getCART_COMM_TOTAL());
+MPI_Allreduce ( &nmessagerecuBC, &ALL_RECEIVERS, 1,MPI_INT, MPI_SUM, vct->getCART_COMM_TOTAL());
+
+int ALLTARGETS_LEFT, ALLTARGETS_RIGHT, ALLTARGETS_BOTTOM, ALLTARGETS_TOP;
+int ALLRECEIVERS_LEFT,  ALLRECEIVERS_RIGHT,  ALLRECEIVERS_BOTTOM,  ALLRECEIVERS_TOP;
+
+MPI_Allreduce( &targetLEFT, &ALLTARGETS_LEFT, 1,  MPI_INT, MPI_SUM, vct->getCART_COMM_TOTAL());
+MPI_Allreduce( &targetRIGHT, &ALLTARGETS_RIGHT, 1,  MPI_INT, MPI_SUM, vct->getCART_COMM_TOTAL());
+MPI_Allreduce( &targetBOTTOM, &ALLTARGETS_BOTTOM, 1,  MPI_INT, MPI_SUM, vct->getCART_COMM_TOTAL());
+MPI_Allreduce( &targetTOP, &ALLTARGETS_TOP, 1,  MPI_INT, MPI_SUM, vct->getCART_COMM_TOTAL());
+
+MPI_Allreduce( &nmessagerecuBCLEFT, &ALLRECEIVERS_LEFT, 1,  MPI_INT, MPI_SUM, vct->getCART_COMM_TOTAL());
+MPI_Allreduce( &nmessagerecuBCRIGHT, &ALLRECEIVERS_RIGHT, 1,  MPI_INT, MPI_SUM, vct->getCART_COMM_TOTAL());
+MPI_Allreduce( &nmessagerecuBCBOTTOM, &ALLRECEIVERS_BOTTOM, 1,  MPI_INT, MPI_SUM, vct->getCART_COMM_TOTAL());
+MPI_Allreduce( &nmessagerecuBCTOP, &ALLRECEIVERS_TOP, 1,  MPI_INT, MPI_SUM, vct->getCART_COMM_TOTAL());
+
+if (ALL_TARGETS!=ALL_RECEIVERS)
+  {
+
+    
+    if (vct->getCartesian_rank_COMMTOTAL()==0)
+      {
+	cout <<"ALL_TARGETS= " <<ALL_TARGETS <<"!= ALL_RECEIVERS= "<<ALL_RECEIVERS <<endl;
+	cout <<"ALLTARGETS_LEFT= " << ALLTARGETS_LEFT << " ALLRECEIVERS_LEFT= " << ALLRECEIVERS_LEFT <<endl;
+	cout <<"ALLTARGETS_RIGHT= " << ALLTARGETS_RIGHT << " ALLRECEIVERS_RIGHT= "<< ALLRECEIVERS_RIGHT <<endl;
+	cout <<"ALLTARGETS_BOTTOM= " << ALLTARGETS_BOTTOM << " ALLRECEIVERS_BOTTOM= "<< ALLRECEIVERS_BOTTOM <<endl;
+	cout <<"ALLTARGETS_TOP= " << ALLTARGETS_TOP << " ALLRECEIVERS_TOP= "<< ALLRECEIVERS_TOP <<endl;
+	return -1;
+      }
+  }
+
+return 1; // OK
+} // end new version of initPRAVariables

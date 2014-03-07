@@ -51,11 +51,11 @@ using std::endl;
 
 int main (int argc, char **argv) {
 
-  bool TEST=0; //this takes a lot od reduces, put to 0 normally
+  bool TEST=1; //this takes a lot od reduces, put to 0 normally
   bool TEST_B=0; // to eliminate the barriers; when debugging, the barriers mark the beginning/ end of each phase
   //  bool SCALASCA_SELECTIVE=0;
   
-  bool RandomizeParticlePos= false;
+  bool RandomizeParticlePos= true;
 
   int proj=1;
   int interp=1;
@@ -63,12 +63,11 @@ int main (int argc, char **argv) {
   int P2Gops=1;
   int PRASendRcvOps=1; 
   int PRACollectionMethod=1;   /* =0, coarse particle to be used for repopulation collected one by one during communicate ops; WORKING, not fatser; use 1
-				  =1, coarse particles collected all together after mover */
+				  =1, coarse particles collected all together after mover; USE THIS WITH SUBCYCLING */
   int RefLevelAdj=0; /* options:                                                                      
 		      --0: same adjust for coarse and refined level (multiply)-- chec with double periodic reconnection                      
 		      --1: interp of OS particles for the refined level; more expensive, use it for influxes */
 
- cout << "PRACollectionMethod is " << PRACollectionMethod <<endl;  
  // initialize MPI environment
  int nprocs, myrank, mem_avail;
  MPIdata *mpi = new MPIdata(&argc,&argv);
@@ -76,6 +75,10 @@ int main (int argc, char **argv) {
  myrank = mpi->rank;   // myrank = rank of the process (ID)
 
  Collective *col = new Collective(argc,argv); // Every proc loads the parameters of simulation from class Collective
+ bool SubCycling= col->getSubCycling();
+ //cout << "SubCycling is " << SubCycling <<endl;
+ int TimeRatio= col->getTimeRatio();
+ //cout << "TimeRatio is " << TimeRatio <<endl;
  bool verbose = col->getVerbose();
  string SaveDirName = col->getSaveDirName();
  string RestartDirName = col->getRestartDirName();
@@ -84,7 +87,7 @@ int main (int argc, char **argv) {
  const int ns = col->getNs(); // get the number of particle species involved in simulation
  const int ngrids = col->getNgrids(); // get the number of particle species involved in simulation
  const int first_cycle = col->getLast_cycle()+1; // get the last cycle from the restart
- double dt = col->getDt();
+ //double dt = col->getDt();
  // initialize the virtual cartesian topology
  VCtopology *vct = new VCtopology();
  VCtopologyparticles *vctparticles = new VCtopologyparticles();
@@ -121,7 +124,7 @@ int main (int argc, char **argv) {
 	  vct->Print();
 	  col->Print();
   }
-  cout << "Prints done"<<endl;
+  
 
 /*** Check grid and particles are on the same level ***/
 int coord[3], coord_particles[3];
@@ -134,20 +137,20 @@ if (coord[0] != coord_particles[0]) {
       return(1);
     }
  }
-  cout << "Checks initializations done"<<endl;
+  
 
 /******************************************************/
   level = coord[0];
   Grid2DCU* grid = new Grid2DCU(col,vct,level); // Create the grids
 
   EMfields *EMf = new EMfields(col, grid, vct); // Create Electromagnetic Fields Object
-  cout << "Grids and fields constructions done"<<endl;
+  
   // Initial Condition for FIELD if you are not starting from RESTART
   //EMf->initUniform(vct,grid); // initialize with constant values
   EMf->initDoubleHarris(vct,grid); // initialize with constant values 
   //EMf->initLightwave(vct,grid); // initialize with a dipole
-  cout << "vct->getNgrids() " << vct->getNgrids() <<endl;
-  cout << "interp " << interp <<endl;
+  
+  
   if (vct->getNgrids()>1 && interp)
     {
       int initBCres;
@@ -220,7 +223,7 @@ if (coord[0] != coord_particles[0]) {
 	}
       part[i].checkAfterInitPRAVariables(i, col, vctparticles, grid);
     }
-  cout << "Allocating particle done"<<endl;
+  
 
   // Initial Condition for PARTICLES if you are not starting from RESTART
   if (restart==0)
@@ -306,52 +309,70 @@ if (coord[0] != coord_particles[0]) {
 
   // time stamping
   Timing *my_clock = new Timing(myrank);
+  bool CoarseOp;
   // end time stamping
+
+  bool TESTSUB= false;
+
 
   for (int cycle = first_cycle; cycle < (col->getNcycles()+first_cycle); cycle++)
   {
-
-    /*if (SCALASCA_SELECTIVE)
+    if (SubCycling)
       {
-	if( cycle== 30)
+	CoarseOp= !(cycle % TimeRatio); //sub
+	if (level == ngrids-1 and vct->getCartesian_rank() ==0)
 	  {
-	    if (myrank==0 && verbose)
-	      {cout <<"I am cycle 30 and I am starting selective SCALASCA instrumentation\n";}
-	    EPIK_FUNC_START();
+	    cout << "Cycle " << cycle << ", CoarseOp " << CoarseOp <<endl;
 	  }
-	if (cycle==33)
-	  {
-	    if (myrank==0 && verbose)
-              {cout <<"I am cycle 30 and I am starting selective SCALASCA instrumentation\n";}
-	    EPIK_FUNC_END();
-	  }
-	  }*/
-	
-    if (myrank==0 && verbose)
+      }
+    else
+      {
+	CoarseOp= true;
+      }
+    //if (myrank==0 && verbose)
+    if (level == ngrids-1 and vct->getCartesian_rank() ==0)
     {
       cout << "***********************" << endl;
       cout << "*   cycle = " << cycle + 1 <<"        *" << endl;
       cout << "***********************" << endl;
     }
-    if (P2Gops)
-    {
+
+    if (TESTSUB==true)
+      {
+      MPI_Barrier(vct->getCART_COMM()) ;
+      if (level==0 and vct->getCartesian_rank() ==0)
+	cout << "level 0, barrier before P2Gops\n";
       
+      if (level==1 and vct->getCartesian_rank() ==0)
+        cout << "level 1, barrier before P2Gops\n";
+      }
+
+    if (P2Gops and (level or (!level and CoarseOp)))
+    {
+     
+      if (level==0 and vct->getCartesian_rank() ==0)
+        cout << "level 0, Inside P2G\n";
+
+      if (level==1 and vct->getCartesian_rank() ==0)
+        cout << "level 1, Inside P2G\n";
+
+ 
       EMf->setZeroDensities(); // set to zero the densities
       for (int i=0; i < ns; i++)
-      {
-	part[i].interpP2G(EMf,grid,vct); // interpolate Particles to Grid(Nodes)
-	if (cycle >0 && level >0 && RefLevelAdj==1)
-	  {
-	    int out= part[i].interpP2G_OS(EMf,grid,vct); 
-	    if (out<0)
-	      {
-		cout << "Error with interpP2G_OS"<<endl;
-		mpi->Abort();
-		return -1;
+	{
+	  part[i].interpP2G(EMf,grid,vct); // interpolate Particles to Grid(Nodes)
+	  if (cycle >0 && level >0 && RefLevelAdj==1)
+	    {
+	      int out= part[i].interpP2G_OS(EMf,grid,vct); 
+	      if (out<0)
+		{
+		  cout << "Error with interpP2G_OS"<<endl;
+		  mpi->Abort();
+		  return -1;
 		}
-	  }
-      }
-       
+	    }
+	}
+      
       // adjustNonPeriodicDensities taken out of sumOverSpecies
       EMf->adjustNonPeriodicDensities(vct, cycle);
 
@@ -362,179 +383,321 @@ if (coord[0] != coord_particles[0]) {
 
       EMf->calculateHatFunctions(grid,vct); // calculate the hat quantities for the implicit method
     }// end P2Gops      
-    MPI_Barrier(vct->getCART_COMM());
-	  
-    // OUTPUT to large file, called proc**
-    if (cycle%(col->getFieldOutputCycle())==0 || cycle==first_cycle)
-    {
-      hdf5_agent.open_append(SaveDirName+"/proc"+num_proc.str()+".hdf");
-      output_mgr.output("k_energy + E_energy + B_energy + pressure",cycle);
-      output_mgr.output("Eall + Ball + rhos + rho + phi + Jsall",cycle);
-      hdf5_agent.close();
 
-    }
-    if (cycle%(col->getParticlesOutputCycle())==0 && col->getParticlesOutputCycle()!=1)
-    {
-      hdf5_agent.open_append(SaveDirName+"/part"+num_proc.str()+".hdf");
-      output_mgr.output("position + velocity + q +ID",cycle, 1);
-      hdf5_agent.close();
-    }
-    if (interp)
+    if (TESTSUB==true)
+      {
+      MPI_Barrier(vct->getCART_COMM()) ;
+      if (level==0 and vct->getCartesian_rank() ==0)
+        cout << "level 0, barrier after P2Gops\n";
+      
+      if (level==1 and vct->getCartesian_rank() ==0)
+	cout << "level 1, barrier after P2Gops\n";
+
+      }
+
+    MPI_Barrier(vct->getCART_COMM()); //leave this here!!!
+	  
+    if  (CoarseOp ) // sub; be careful with timing the output
+      {
+	// OUTPUT to large file, called proc**
+	if (cycle%(col->getFieldOutputCycle())==0 || cycle==first_cycle)
+	  {
+	    hdf5_agent.open_append(SaveDirName+"/proc"+num_proc.str()+".hdf");
+	    output_mgr.output("k_energy + E_energy + B_energy + pressure",cycle);
+	    output_mgr.output("Eall + Ball + rhos + rho + phi + Jsall",cycle);
+	    hdf5_agent.close();
+	    
+	  }
+	if (cycle%(col->getParticlesOutputCycle())==0 && col->getParticlesOutputCycle()!=1)
+	  {
+	    hdf5_agent.open_append(SaveDirName+"/part"+num_proc.str()+".hdf");
+	    output_mgr.output("position + velocity + q +ID",cycle, 1);
+	    hdf5_agent.close();
+	  }// end output
+      }//end sub
+
+    if (TESTSUB==true)
+      {
+      MPI_Barrier(vct->getCART_COMM()) ;
+
+      if (level==0 and vct->getCartesian_rank() ==0)
+        cout << "level 0, barrier before interpolating BC\n";
+      
+      if (level==1 and vct->getCartesian_rank() ==0)
+	cout << "level 1, barrier before interpolating BC\n";
+
+      }
+
+    if (interp) // sub; to be done at ALL CYCLES, also when SubCycling
     {
       if (level > 0)
       {
 	//cout << "receive BC" << endl;
 	//fflush(stdout);
-	EMf->receiveBC(grid,vct, col);
+	if (vct->getCartesian_rank() ==0)
+	  cout <<"Level " << level << " Cycle " << cycle << " I am receiving BC\n";
+	EMf->receiveBC(grid,vct, col, cycle % TimeRatio +1, TimeRatio);
       }
     }//end interp
     // solve Maxwell equations
-    if (solveFields)
+    //if (solveFields)
+
+    if (TESTSUB==true)
+      {
+      MPI_Barrier(vct->getCART_COMM()) ;
+
+      if (level==0 and vct->getCartesian_rank() ==0)
+        cout << "level 0, between interpolation and solver\n";
+      
+      if (level==1 and vct->getCartesian_rank() ==0)
+	cout << "level 1, between interpolation and solver\n";
+
+      }
+
+    if (solveFields and  (level or (!level and CoarseOp) )) // sub
     {
       EMf->calculateField(grid,vct); // calculate the EM fields
     }
 
+    if (TESTSUB==true)
+      {
+      MPI_Barrier(vct->getCART_COMM()) ;
+      if (level==0 and vct->getCartesian_rank() ==0)
+        cout << "level 0, after solver\n";
+      
+      if (level==1 and vct->getCartesian_rank() ==0)
+	cout << "level 1, barrier after solver\n";
+      
+      }
+
     //If needed: receive or send  boundary conditions to other levels
-    if (interp)
+    //if (interp)
+    if (interp and CoarseOp)  //end
     {
       if (level < ngrids - 1 && ngrids >1)
       {
+	if (vct->getCartesian_rank() ==0)
+          cout <<"Level " << level << " Cycle " << cycle << "I am sending BC\n";
 	EMf->sendBC(grid,vct);
       }
-    }//end intero
-    //If needed: receive or send refined fields from/to finer/coarser levels 
-    if(proj)
-    {
-      if (level > 0)
+    }//end interp
+
+
+    if (TESTSUB==true)
       {
-	//cout << "send Proj" << endl;
-	//fflush(stdout);
+      MPI_Barrier(vct->getCART_COMM()) ;
+
+      if (level==0 and vct->getCartesian_rank() ==0)
+        cout << "level 0, barrier after sending BC\n";
+      
+      if (level==1 and vct->getCartesian_rank() ==0)
+	cout << "level 1, barrier after sending BC\n";
+
+      }
+
+    //If needed: receive or send refined fields from/to finer/coarser levels 
+    if (proj and (!SubCycling or (SubCycling and (cycle % (TimeRatio)== TimeRatio-1)  )  )  ) //be careful here!!!
+    {
+      if (level > 0 )
+      {
+	if (vct->getCartesian_rank() ==0)
+          cout <<"Level " << level << " Cycle " << cycle << "I am sending projection\n";
 	EMf->sendProjection(grid,vct);
       }
+    }
+    
+    // to avoid deadlock, if Subcycling collect particles here
+    int mem_avail1;
+    if (SubCycling and level==0 and CoarseOp)
+      {
+	if (vct->getCartesian_rank() ==0)
+          cout <<"Level " << level << " Cycle " << cycle << "I am collecting and sending particles to the refined grid, BEFORE RECEIVING THE PROJ (this are the old particles)\n";
+	for (int i=0; i < ns; i++) // species                                                                       
+	  {
+            //cout << "Collection Method: " << part[i].getPRACollectionMethod()<< endl;                             
+            if (part[i].getPRACollectionMethod()==1)
+              {
+                int resCollMethod;
+                resCollMethod= part[i].CollectivePRARepopulationAdd(vctparticles, grid);
+                if (resCollMethod<0)
+                  {
+                    cout << "CollectivePRARepopulationAdd failed, check buffers\n";
+                    mpi->Abort();
+                    return -1;
+                  }
+	      }
+	    mem_avail1=2;
+	    mem_avail1=part[i].PRASend(grid, vctparticles);
+	    if (mem_avail1 <0)
+	      { // just one of the 2 is tested, according to the level                                              
+		fflush(stdout);
+		cout << "**************************************************************************************" << endl;
+		cout <<"R" << myrank <<"L" << level << endl;
+		cout << "Simulation stopped. Not enough memory allocated for particles after PRA send or receive" << endl;
+		cout << "***************************************************************************************" << endl;
+		//cycle = col->getNcycles()+1;                                                                      
+		mpi->Abort();
+		return (-1);
+	      }
+	   
+	  }//end bracket on species          
+      }// end SubCYling
+
+
+
+    if (proj and CoarseOp)
+      {
       if (level < ngrids - 1)
       {
-	EMf->receiveProjection(col,grid,vct);
+	if (!SubCycling or (SubCycling and cycle+ TimeRatio < col->getNcycles()+first_cycle )) // otherwise stuck because the coarse grid is still waiting for a proj the refined grid won't do because it's over already
+
+	  {	
+	    if (vct->getCartesian_rank() ==0)
+	      cout <<"Level " << level << " Cycle " << cycle << "I am receiving projection\n";
+	    EMf->receiveProjection(col,grid,vct);
+	  }// end if Sub
       }
     }// end projection
-    if ((cycle%(col->getFieldOutputCycle())==0 || cycle==first_cycle) and TEST){
-	    EMf->outputghost(vct, col, cycle);
-	}
+    //if ((cycle%(col->getFieldOutputCycle())==0 || cycle==first_cycle) and TEST){
+    //EMf->outputghost(vct, col, cycle);
+    //	}
     // Here we made the assumption that level n can be updated by non updated level n+1.
-            
-    for (int i=0; i < ns; i++) // move each species
-    {
-      // initialize the buffers for communicatin of PRA particles from the coarser to the finer grids
-      part[i].initPRABuffers (grid, vctparticles);
-	     
-      mem_avail = part[i].mover_PC(grid,vctparticles,EMf); // use the Predictor Corrector scheme
-      if (mem_avail < 0)
-      { // not enough memory space allocated for particles: stop the simulation		
-	cout << "*************************************************************" << endl;
-	cout <<"R" << myrank <<"L" << level << "Simulation stopped. Not enough memory allocated for particles" << endl;
-	cout << "*************************************************************" << endl;
-	mpi->Abort();
-	return (-1);	
-	//cycle = col->getNcycles()+1; // exit from the time loop
-      }// end bracket memavail<0
-
-      //cout << "Collection Method: " << part[i].getPRACollectionMethod()<< endl;
-      if (part[i].getPRACollectionMethod()==1)
-      {
-	int resCollMethod;
-	resCollMethod= part[i].CollectivePRARepopulationAdd(vctparticles, grid);
-	if (resCollMethod<0)
-	{
-	  cout << "CollectivePRARepopulationAdd failed, check buffers\n";
-	  mpi->Abort();
-	  return -1;
-	}
-      }
-
-      /* // debug ops
-      if(0 && i==0)
-      {
-	part[i].printPRAparticles(vct, grid);
-      }
-      //very expensive debug op
-      if (0 && level>0) 
-      { 
-	if (myrank == vct->getXLEN()* vct->getYLEN()) cout << "\n\nPRA particle stats AFTER MOVER\n";
-	if (part[i].CountPRAParticles(vct)<0)
-	  {mpi->Abort(); return -1;}
-	  }*/
       
-    }//end bracket on species
-     //} // end to remove	  
-    //MPI_Barrier(vct->getCART_COMM_TOTAL()); //maybe to be kept at Level level?
-    
-    if (RandomizeParticlePos)
+    if (TESTSUB==true)
       {
-	for (int i=0; i<ns; i++)                                                  
-	  {                                                                         
-	    part[i].RandomizePositionPRAParticles(i, vct, grid);                    
-	  }
+	MPI_Barrier(vct->getCART_COMM()) ;
+	if (level==0 and vct->getCartesian_rank() ==0)
+	  cout << "level 0, barrier after proj\n";
+	
+	if (level==1 and vct->getCartesian_rank() ==0)
+	  cout << "level 1, barrier after proj\n";
       }
+    if  (level or (!level and CoarseOp) )// sub
+      {
+	for (int i=0; i < ns; i++) // move each species
+	  {
+	    // initialize the buffers for communicatin of PRA particles from the coarser to the finer grids
+	    part[i].initPRABuffers (grid, vctparticles);
+	    
+	    mem_avail = part[i].mover_PC(grid,vctparticles,EMf); // use the Predictor Corrector scheme
+	    if (mem_avail < 0)
+	      { // not enough memory space allocated for particles: stop the simulation		
+		cout << "*************************************************************" << endl;
+		cout <<"R" << myrank <<"L" << level << "Simulation stopped. Not enough memory allocated for particles" << endl;
+		cout << "*************************************************************" << endl;
+		mpi->Abort();
+		return (-1);	
+		//cycle = col->getNcycles()+1; // exit from the time loop
+	      }// end bracket memavail<0
+	  }// end species
+      } // end sub
 
-    int mem_avail1=2, mem_avail2=2;
+    if (!SubCycling and level==0 and CoarseOp) // this is done here only if I am not subcyclign
+      {
+	for (int i=0; i < ns; i++) // species
+	{	    
+	    //cout << "Collection Method: " << part[i].getPRACollectionMethod()<< endl;
+	    if (part[i].getPRACollectionMethod()==1)
+	      {
+		int resCollMethod;
+		resCollMethod= part[i].CollectivePRARepopulationAdd(vctparticles, grid);
+		if (resCollMethod<0)
+		  {
+		    cout << "CollectivePRARepopulationAdd failed, check buffers\n";
+		    mpi->Abort();
+		    return -1;
+		  }
+	      }
+	  }//end bracket on species
+      } // end sub
+
+    if (TESTSUB==true)
+      {
+      MPI_Barrier(vct->getCART_COMM()) ;
+      if (level==0 and vct->getCartesian_rank() ==0)
+        cout << "level 0, barrier before PRA S/R\n";
+      
+      if (level==1 and vct->getCartesian_rank() ==0)
+	cout << "level 1, barrier before PRA S/R\n";
+      }
+    
+    mem_avail1=2; 
+    int mem_avail2=2;
     // communicate PRA particles for all species
+    //if(PRASendRcvOps)
+    //if(PRASendRcvOps and (level or (!level and CoarseOp)     ) )
     if(PRASendRcvOps)
     {
       for (int i=0; i < ns; i++) 
       {
-	if (level < ngrids - 1)
-	{
-	  mem_avail1=part[i].PRASend(grid, vctparticles);
-	}
-	
-	if (level>0)
-	{
-	  mem_avail2= part[i].PRAReceive(grid,vctparticles,EMf);
-	}
-	
-	if (mem_avail1 < 0 || mem_avail2<0)
-	{ // just one of the 2 is tested, according to the level	 
-	  fflush(stdout);
-	  cout << "**************************************************************************************" << endl;
-	  cout <<"R" << myrank <<"L" << level << endl;
-	  cout << "Simulation stopped. Not enough memory allocated for particles after PRA send or receive" << endl;
-	  cout << "***************************************************************************************" << endl;
-	  //cycle = col->getNcycles()+1; 
-	  mpi->Abort();
-	  return (-1);
-	}
-	/* debug, remove
-	if (level>0) 
-	{
-	  if (myrank == vct->getXLEN()* vct->getYLEN()) 
-	    {cout << "\n\nPRA particle stats AFTER REPOPULATION\n";}
-	  if (part[i].CountPRAParticles(vct)<0)
-	    {mpi->Abort(); return -1;}
-	    }	  */
+	if (CoarseOp)
+	  {
+	    if (level < ngrids - 1 and !SubCycling) // this is done here only if I am not SubCyclign
+	      {
+		mem_avail1=part[i].PRASend(grid, vctparticles);
+	      }
+	    
+	    if (level>0)
+	      {
+		mem_avail2= part[i].PRAReceive(grid,vctparticles,EMf);
+	      }
+	    
+	    if (mem_avail1 < 0 || mem_avail2<0)
+	      { // just one of the 2 is tested, according to the level	 
+		fflush(stdout);
+		cout << "**************************************************************************************" << endl;
+		cout <<"R" << myrank <<"L" << level << endl;
+		cout << "Simulation stopped. Not enough memory allocated for particles after PRA send or receive" << endl;
+		cout << "***************************************************************************************" << endl;
+		//cycle = col->getNcycles()+1; 
+		mpi->Abort();
+		return (-1);
+	      }
+	  } // end CoarseOP
+	if (level and !CoarseOp) // this has to be executed on the refined grid only when PRAReceive is NOT executed
+	  {
+	    if (vct->getCartesian_rank()==0)
+	      {
+		cout << "Cycle " <<cycle << ": I am executing SubCyclingParticles\n";
+	      }
+	    int RPRes= part[i].SubCyclingParticles(grid, CoarseOp,vctparticles);
+	    if (RPRes==-1)
+	      {
+		cout <<"Simulation stopped, problems with SubCylingParticles\n";
+		mpi->Abort();
+		return (-1);
+	      }
+	    /*if (RandomizeParticlePos)
+	      part[i].RandomizePositionPRAParticles(i, vctparticles, grid);*/
+	  }
+
+	if (RandomizeParticlePos and level)
+	  {
+	    part[i].RandomizePositionPRAParticles(i, vct, grid);
+	    }
       }// end species
     }// end of PRASendRcvOps
-
-    /*// to remove
-    MPI_Barrier(vct->getCART_COMM());// barrier at Level level
-    if (myrank==0 || myrank == 100)
-      {
-	cout << "L " <<level << " Barrier at level levelafter particle mover/send/receive, cycle " << cycle+1 << endl;
-	}*/
-
-
     
-    /*// to remove
-    MPI_Barrier(vct->getCART_COMM_TOTAL()); 
-    if (myrank==0)
-    {
-      cout << "L " <<level << " Barrier TOTAL after particle mover/send/receive, cycle " << cycle+1 << endl;
-      }*/
+    if (TESTSUB==true)
+      {
+      MPI_Barrier(vct->getCART_COMM()) ;
+      if (level==0 and vct->getCartesian_rank() ==0)
+        cout << "level 0, barrier after PRA S/R\n";
+      
+      if (level==1 and vct->getCartesian_rank() ==0)
+	cout << "level 1, barrier after PRA S/R\n";
+      }
 
     // Output save a file for the RESTART
-    if (cycle%(col->getRestartOutputCycle())==0 && cycle != first_cycle)
-      writeRESTART(RestartDirName,myrank,cycle,ns,mpi,vct,col,grid,EMf,part,0); // without ,0 add to restart file	   
+      if  (CoarseOp ) // sub; be careful with timing the output
+	{
+	  if (cycle%(col->getRestartOutputCycle())==0 && cycle != first_cycle)
+	    writeRESTART(RestartDirName,myrank,cycle,ns,mpi,vct,col,grid,EMf,part,0); // without ,0 add to restart file	   
+	}
 
-
-    if (TEST)// and !(cycle%20 ))
+      //if (TEST)// and !(cycle%20 ))
+      //if (TEST and (level or (!level and CoarseOp) )) // sub; be careful with timing the output
+      if (TEST and CoarseOp and (cycle%(col->getFieldOutputCycle())==0 or cycle==first_cycle))
       {
 	Eenergy= EMf->getEenergy(vct);
 	Benergy= EMf->getBenergy(vct);

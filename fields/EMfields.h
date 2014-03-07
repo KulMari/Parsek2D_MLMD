@@ -24,7 +24,7 @@ developers: Stefano Markidis,  Giovanni Lapenta, Arnaud Beck, Maria Elena Innoce
 #include "../solvers/CG.h"
 #include "../solvers/GMRES_new2.h"
 #include "hdf5.h"
-
+#include "string.h" //to compile on superMUC
 #define PI 4*atan(1)
 
 using std::cout;
@@ -94,7 +94,7 @@ public:
 	/** Send the refined fields to coarser level */
 	void sendProjection(Grid *grid, VirtualTopology *vct);
 	/** Receive the boundary conditions from coarser level*/
-	void receiveBC(Grid *grid, VirtualTopology *vct, CollectiveIO *col);
+	void receiveBC(Grid *grid, VirtualTopology *vct, CollectiveIO *col, int n, int N);
 	/** Receive the refined fields from finer level*/
 	void receiveProjection(CollectiveIO *col, Grid *grid, VirtualTopology *vct);
 	/** Image of Poisson Solver (for SOLVER)*/
@@ -129,7 +129,7 @@ public:
 	void sumOverSpecies(VirtualTopology *vct);
 	/** Sum current over different species */
 	void sumOverSpeciesJ();
-	/** Smoothing after the interpolation**/
+	/** Smoothing after the interpolation**/ 
 	void smooth(int nvolte, double value ,double ***vector,bool type, Grid *grid, VirtualTopology *vct);
 	/** Smoothing E after the projection (only the projected area)*/
         void smoothProj(int nvolte, double value ,double ***vector,bool type, Grid *grid, VirtualTopology *vct, int xstart, int xend, int ystart, int yend);
@@ -379,6 +379,7 @@ public:
 	void printJxs(int ns, VirtualTopology *vct);
 	void printPxxsn(int ns, VirtualTopology *vct);
 
+	
 private:
 	/** light speed */
 	double c;
@@ -386,6 +387,8 @@ private:
 	double FourPI;
 	/** time step */
 	double dt;
+	/** SubCyling */
+	int SubCycling;
 	/** decentering parameter */
 	double th;
 	/** Number of smoothing steps */
@@ -550,6 +553,10 @@ private:
 	double***  Ez_recvbufferproj;
 	/** Implicit electric field Z-component, defined on nodes */
 	double***  Ezth;
+	/** to save E before doing smoothing **/
+	double***  Ex_BS;
+	double***  Ey_BS;
+	double***  Ez_BS;
 	/** Magnetic field X-component, defined on central points of the cell*/
 	double***  Bxc;
 	/** Magnetic field Y-component, defined on central points of the cell*/
@@ -590,11 +597,11 @@ private:
         double*  bufferBC;
         double*  bufferProjsend;
         double*  bufferProjrecv;
-	// ME: these two buffer are bufferProjsend and bufferProjrecv with an header of 6 doubles
+	// these two buffer are bufferProjsend and bufferProjrecv with an header of 6 doubles
 	// to build the projection map
 	double*  INFObufferProjsend;
         double*  INFObufferProj;
-	// end ME
+	// end to build the projection mao
         double*  bufferBCExxm ;  
         double*  bufferBCExxp ;
         double*  bufferBCExym ;
@@ -607,6 +614,62 @@ private:
         double*  bufferBCEzxp ;
         double*  bufferBCEzym ;
         double*  bufferBCEzyp ;
+	// when SubCycling, to store info at time {t0}
+	//E
+	double*  bufferBCExxm_t0 ;
+        double*  bufferBCExxp_t0 ;
+        double*  bufferBCExym_t0 ;
+	double*  bufferBCExyp_t0 ;
+	double*  bufferBCEyxm_t0 ;
+	double*  bufferBCEyxp_t0 ;
+        double*  bufferBCEyym_t0 ;
+        double*  bufferBCEyyp_t0 ;
+	double*  bufferBCEzxm_t0 ;
+        double*  bufferBCEzxp_t0 ;
+        double*  bufferBCEzym_t0 ;
+        double*  bufferBCEzyp_t0 ;
+	//B
+	double*  bufferBCBxnxm_t0 ;
+        double*  bufferBCBxnxp_t0 ;
+        double*  bufferBCBxnym_t0 ;
+        double*  bufferBCBxnyp_t0 ;
+        double*  bufferBCBynxm_t0 ;
+        double*  bufferBCBynxp_t0 ;
+        double*  bufferBCBynym_t0 ;
+        double*  bufferBCBynyp_t0 ;
+        double*  bufferBCBznxm_t0 ;
+        double*  bufferBCBznxp_t0 ;
+        double*  bufferBCBznym_t0 ;
+        double*  bufferBCBznyp_t0 ;
+	// end when SubCycling, to store info at time {t0}
+	// when SubCycling, to store info at time {t0+Ndt} 
+	//E
+        double*  bufferBCExxm_Ndt ;
+        double*  bufferBCExxp_Ndt ;
+        double*  bufferBCExym_Ndt ;
+        double*  bufferBCExyp_Ndt ;
+        double*  bufferBCEyxm_Ndt ;
+        double*  bufferBCEyxp_Ndt ;
+        double*  bufferBCEyym_Ndt ;
+        double*  bufferBCEyyp_Ndt ;
+        double*  bufferBCEzxm_Ndt ;
+        double*  bufferBCEzxp_Ndt ;
+        double*  bufferBCEzym_Ndt ;
+        double*  bufferBCEzyp_Ndt ;
+	//B
+        double*  bufferBCBxnxm_Ndt ;
+        double*  bufferBCBxnxp_Ndt ;
+        double*  bufferBCBxnym_Ndt ;
+	double*  bufferBCBxnyp_Ndt ;
+        double*  bufferBCBynxm_Ndt ;
+	double*  bufferBCBynxp_Ndt ;
+        double*  bufferBCBynym_Ndt ;
+        double*  bufferBCBynyp_Ndt ;
+        double*  bufferBCBznxm_Ndt ;
+	double*  bufferBCBznxp_Ndt ;
+        double*  bufferBCBznym_Ndt ;
+	double*  bufferBCBznyp_Ndt ;
+	// end when SubCycling, to store info at time {t0+Ndt}  
        	/**some temporary arrays (for calculate hat functions)*/
 	double*** tempXC;
 	double*** tempYC;
@@ -735,6 +798,8 @@ private:
 
 		/* to add an extra term in the GMRES to eliminate artificial solutions introduced by the smoothing*/
 		bool ArtificialResistivity;
+		// to size communication buffers in initProj/ initWeightBC
+		int expSR;
 };
 
 
@@ -897,7 +962,7 @@ inline void EMfields::calculateField(Grid *grid, VirtualTopology *vct){
     // Advance timestep of E fron n to n+theta
     // find the solution with GMRES: the solution is the in the krylov space
     if (vct->getCartesian_rank() ==0){
-      cout << "Level " << grid->getLevel()  << ": *** MAXWELL SOLVER ***" << endl;
+      cout << "Level " << grid->getLevel()  << ": *** MAXWELL SOLVER, dt " << dt << " ***" << endl;
     }
     MaxwellSource(bkrylov,grid,vct);
     phys2solver(xkrylov,Ex,Ey,Ez,nxn,nyn);
@@ -944,15 +1009,34 @@ inline void EMfields::calculateField(Grid *grid, VirtualTopology *vct){
     addscale(1/th,-(1.0-th)/th,Ex,Exth,nxn,nyn);
     addscale(1/th,-(1.0-th)/th,Ey,Eyth,nxn,nyn);
     addscale(1/th,-(1.0-th)/th,Ez,Ezth,nxn,nyn);
-	// SMOOTHING
-    //if (grid->getLevel() == 1) {
-    smooth(Nvolte,Smooth,Ex,1,grid,vct);
-    smooth(Nvolte,Smooth,Ey,1,grid,vct);
-    smooth(Nvolte,Smooth,Ez,1,grid,vct);
-    //}
-    
+
+    // do not even think about optimizing this out:
+    // calculate B in receiveProjection has to be done on the field WITHOUT SMOOTHING, otherwise major mess
+    if (grid->getLevel()==0 and vct->getNgrids()>1)
+      {
+	for (int i=0; i<nxn; i++)
+	  {
+	    for (int j=0; j<nyn; j++)
+	      {
+		Ex_BS[i][j][0]=Ex[i][j][0];
+		Ey_BS[i][j][0]=Ey[i][j][0];
+		Ez_BS[i][j][0]=Ez[i][j][0];
+	      }
+	  }
+      }
+
+    if (! (grid->getLevel()==0 and vct->getNgrids()>1)) // this way, BC arae passed from the non smoothed E
+      {
+	smooth(Nvolte,Smooth,Ex,1,grid,vct);               
+	smooth(Nvolte,Smooth,Ey,1,grid,vct);                             
+	smooth(Nvolte,Smooth,Ez,1,grid,vct);
+      }
+
     // calculate B
     calculateB(grid,vct);
+
+    // Ok, now BC are taken on B n+1 and on E after smoothing
+        
     // deallocate
     delete[] xkrylov;
     delete[] bkrylov;
@@ -1411,7 +1495,7 @@ inline void EMfields::calculateB(Grid *grid, VirtualTopology *vct){
   if (grid->getLevel() > 0) {
     grid->curlN2C(tempXC,tempYC,tempZC,Exth,Eyth,Ezth);
   } else {
-     grid->curlN2C_withghost(tempXC,tempYC,tempZC,Exth,Eyth,Ezth);
+    grid->curlN2C_withghost(tempXC,tempYC,tempZC,Exth,Eyth,Ezth);
   }
  
   // update the magnetic field
@@ -1456,6 +1540,7 @@ inline void EMfields::calculateB(Grid *grid, VirtualTopology *vct){
       magneticfieldBC(Byn,grid,Byn_new,vct);
       magneticfieldBC(Bzn,grid,Bzn_new,vct);
     }
+
     //Recalculate magnetic field in the ghost centers
     i=0;
     if(vct->getXleft_neighbor()==MPI_PROC_NULL){ 
@@ -1488,7 +1573,42 @@ inline void EMfields::calculateB(Grid *grid, VirtualTopology *vct){
 	Byc[i][j][0] = (Byn[i][j+1][0] + Byn[i+1][j+1][0] + Byc[i][j-1][0])/3.;
 	Bzc[i][j][0] = (Bzn[i][j+1][0] + Bzn[i+1][j+1][0] + Bzc[i][j-1][0])/3.;
       }
-    }
+      }
+     //Mar 5: this was just an attempt; results not particularly different from the others
+    /*double perc= 0.5;
+    i=0;                      
+    if(vct->getXleft_neighbor()==MPI_PROC_NULL){                                                                      
+      for (j=0;j < nyc;j++){                                                                                          
+        Bxc[i][j][0] =perc*Bxc[i][j][0]+(1.0-perc)*(Bxn[i][j][0] + Bxn[i][j+1][0] + Bxc[i+1][j][0])/3.;  
+        Byc[i][j][0] =perc*Byc[i][j][0]+(1.0-perc)*(Byn[i][j][0] + Byn[i][j+1][0] + Byc[i+1][j][0])/3.; 
+        Bzc[i][j][0] =perc*Bzc[i][j][0]+(1.0-perc)*(Bzn[i][j][0] + Bzn[i][j+1][0] + Bzc[i+1][j][0])/3.; 
+      }                                                                                                               
+    }                                                                                                                 
+    i=nxc-1;                                                                                                          
+    if(vct->getXright_neighbor()==MPI_PROC_NULL){                                                                     
+      for (j=0;j < nyc;j++){                                                                                          
+        Bxc[i][j][0] =perc*Bxc[i][j][0]+(1.0-perc)* (Bxn[i+1][j][0] + Bxn[i+1][j+1][0] + Bxc[i-1][j][0])/3.; 
+        Byc[i][j][0] =perc*Byc[i][j][0]+(1.0-perc)* (Byn[i+1][j][0] + Byn[i+1][j+1][0] + Byc[i-1][j][0])/3.; 
+        Bzc[i][j][0] =perc*Bzc[i][j][0]+(1.0-perc)* (Bzn[i+1][j][0] + Bzn[i+1][j+1][0] + Bzc[i-1][j][0])/3.; 
+      }                                                                                                               
+    }                                                                                                   
+    j=0;                                                           
+    if(vct->getYleft_neighbor()==MPI_PROC_NULL){                   
+      for (i=0;i < nxc;i++){                                        
+        Bxc[i][j][0] =perc*Bxc[i][j][0]+(1.0-perc)* (Bxn[i][j][0] + Bxn[i+1][j][0] + Bxc[i][j+1][0])/3.;      
+        Byc[i][j][0] =perc*Byc[i][j][0]+(1.0-perc)* (Byn[i][j][0] + Byn[i+1][j][0] + Byc[i][j+1][0])/3.;   
+	Bzc[i][j][0] =perc*Bzc[i][j][0]+(1.0-perc)* (Bzn[i][j][0] + Bzn[i+1][j][0] + Bzc[i][j+1][0])/3.;           
+      }                                                                                                    
+    }                                                                            
+    j=nyc-1;                                                                     
+    if(vct->getYright_neighbor()==MPI_PROC_NULL){               
+      for (i=0;i < nxc;i++){                                                
+        Bxc[i][j][0] =perc*Bxc[i][j][0]+(1.0-perc)* (Bxn[i][j+1][0] + Bxn[i+1][j+1][0] + Bxc[i][j-1][0])/3.;       
+        Byc[i][j][0] =perc*Byc[i][j][0]+(1.0-perc)* (Byn[i][j+1][0] + Byn[i+1][j+1][0] + Byc[i][j-1][0])/3.;      
+        Bzc[i][j][0] =perc*Bzc[i][j][0]+(1.0-perc)* (Bzn[i][j+1][0] + Bzn[i+1][j+1][0] + Bzc[i][j-1][0])/3.;         
+      }                                                               
+      }*/
+    //end Mar5
     //And now for the corners
     if(vct->getXleft_neighbor()==MPI_PROC_NULL && vct->getYleft_neighbor()==MPI_PROC_NULL){ 
       Bxc[0][0][0] = (Bxn[0][0][0] + Bxn[1][0][0] + Bxn[0][1][0])/3.;
@@ -1509,10 +1629,9 @@ inline void EMfields::calculateB(Grid *grid, VirtualTopology *vct){
       Bxc[nxc-1][nyc-1][0] = (Bxn[nxc][nyc][0] + Bxn[nxc-1][nyc][0] + Bxn[nxc][nyc-1][0])/3.;
       Byc[nxc-1][nyc-1][0] = (Byn[nxc][nyc][0] + Byn[nxc-1][nyc][0] + Byn[nxc][nyc-1][0])/3.;
       Bzc[nxc-1][nyc-1][0] = (Bzn[nxc][nyc][0] + Bzn[nxc-1][nyc][0] + Bzn[nxc][nyc-1][0])/3.;
-    }
-
-  }
-  
+    
+      } 
+  }// end if (grid->getLevel() > 0)
     // interpolate C2N to update the active nodes. Ghost nodes have just been updated by the BCs.
   grid->interpC2N(Bxn,Bxc,vct);
   grid->interpC2N(Byn,Byc,vct);
@@ -1917,7 +2036,7 @@ inline void EMfields::initLightwave(VirtualTopology *vct, Grid *grid){
  */
 inline void EMfields::initGEM(VirtualTopology *vct, Grid *grid){
 	double pertGEM;
-	pertGEM=1.0/10.0*0.0;
+	pertGEM=   1.0/10.0*0.0;
 	double pertX;
 	pertX=0.4;
 	double xpert;
@@ -2027,9 +2146,9 @@ inline void EMfields::initDoubleHarris(VirtualTopology *vct, Grid *grid){
         int i;
         double globalx, globaly,coarsedx,coarsedy;
 	double pertGEM;
-	pertGEM=1.0/10.0*0.0;
+	pertGEM=0.0; //1; //1.0/10.0*0.0;
 	double pertX;
-	pertX=0.4;
+	pertX=0.4; //0.0; //0.4;
 	double xpert;
 	xpert=0.0;
 	double ypert;
@@ -2087,8 +2206,26 @@ inline void EMfields::initDoubleHarris(VirtualTopology *vct, Grid *grid){
 		    // Magnetic field
 		    Bxn[i][j][0] = B0x*(-1.0+tanh((globaly - Ly/4)/delta)+tanh(-(globaly - 3*Ly/4)/delta));
 		    // add the initial GEM perturbation
-		    Bxn[i][j][0] +=(B0x*pertGEM)*(M_PI/Ly)*cos(2*M_PI*globalx/Lx)*sin(M_PI*(globaly- Ly/2)/Ly  );
-		    Byn[i][j][0] = B0y -(B0x*pertGEM)*(2*M_PI/Lx)*sin(2*M_PI*globalx/Lx)*cos(M_PI*(globaly- Ly/2)/Ly);
+		    //Bxn[i][j][0] +=(B0x*pertGEM)*(M_PI/Ly)*cos(2*M_PI*globalx/Lx)*sin(M_PI*(globaly- Ly/2)/Ly  );  //wrong if pertGEM!=0
+		    //Byn[i][j][0] = B0y -(B0x*pertGEM)*(2*M_PI/Lx)*sin(2*M_PI*globalx/Lx)*cos(M_PI*(globaly- Ly/2)/Ly); //wrong if pertGEM!=0   
+		    // add the first initial GEM perturbation
+		    xpert = globalx- Lx/4;
+                    ypert = globaly- Ly/4;
+		    double deltax= Lx/2.0;
+		    double deltay= Ly/2.0;
+		    if (xpert < Lx/2 and ypert < Ly/2)
+		      {
+			Bxn[i][j][0] +=(B0x*pertGEM)*(M_PI/deltay)*cos(2*M_PI*xpert/deltax)*sin(M_PI*ypert/deltay  );  
+			Byn[i][j][0] = B0y -(B0x*pertGEM)*(2*M_PI/deltax)*sin(2*M_PI*xpert/deltax)*cos(M_PI*ypert/deltay); 
+		      }
+		    // add the second initial GEM perturbation
+		    xpert = globalx- 3*Lx/4;
+                    ypert = globaly- 3*Ly/4;
+		    if (xpert > Lx/2 and ypert > Ly/2)
+		      {
+			Bxn[i][j][0] +=(B0x*pertGEM)*(M_PI/deltay)*cos(2*M_PI*xpert/deltax)*sin(M_PI*ypert/deltay  );
+			Byn[i][j][0] = B0y -(B0x*pertGEM)*(2*M_PI/deltax)*sin(2*M_PI*xpert/deltax)*cos(M_PI*ypert/deltay);
+		      }
 		    // add the initial X perturbation
 		    xpert = globalx- Lx/4;
 		    ypert = globaly- Ly/4;
@@ -2135,8 +2272,25 @@ inline void EMfields::initDoubleHarris(VirtualTopology *vct, Grid *grid){
                                 globaly = grid->getYC(i,j,0)+ Oy + coarsedy;
 				Bxc[i][j][0] = B0x*(-1.0+tanh((globaly - Ly/4)/delta)+tanh(-(globaly - 3*Ly/4)/delta));
 				// add the initial GEM perturbation
-				Bxc[i][j][0] +=(B0x*pertGEM)*(M_PI/Ly)*cos(2*M_PI*globalx/Lx)*sin(M_PI*(globaly- Ly/2)/Ly  );
-				Byc[i][j][0] = B0y -(B0x*pertGEM)*(2*M_PI/Lx)*sin(2*M_PI*globalx/Lx)*cos(M_PI*(globaly- Ly/2)/Ly);
+				//Bxc[i][j][0] +=(B0x*pertGEM)*(M_PI/Ly)*cos(2*M_PI*globalx/Lx)*sin(M_PI*(globaly- Ly/2)/Ly  ); //wrong if pertGEM!=0
+				//Byc[i][j][0] = B0y -(B0x*pertGEM)*(2*M_PI/Lx)*sin(2*M_PI*globalx/Lx)*cos(M_PI*(globaly- Ly/2)/Ly); //wrong if pertGEM!=0
+				xpert = globalx- Lx/4;
+				ypert = globaly- Ly/4;
+				double deltax= Lx/2.0;
+				double deltay= Ly/2.0;
+				if (xpert < Lx/2 and ypert < Ly/2)
+				  {
+				    Bxc[i][j][0] +=(B0x*pertGEM)*(M_PI/deltay)*cos(2*M_PI*xpert/deltax)*sin(M_PI*ypert/deltay  );
+				    Byc[i][j][0] = B0y -(B0x*pertGEM)*(2*M_PI/deltax)*sin(2*M_PI*xpert/deltax)*cos(M_PI*ypert/deltay);
+				  }
+				// add the second initial GEM perturbation                                                         
+				xpert = globalx- 3*Lx/4;
+				ypert = globaly- 3*Ly/4;
+				if (xpert > Lx/2 and ypert > Ly/2)
+				  {
+				    Bxc[i][j][0] +=(B0x*pertGEM)*(M_PI/deltay)*cos(2*M_PI*xpert/deltax)*sin(M_PI*ypert/deltay  );
+				    Byc[i][j][0] = B0y -(B0x*pertGEM)*(2*M_PI/deltax)*sin(2*M_PI*xpert/deltax)*cos(M_PI*ypert/deltay);
+				  }
 				// add the initial X perturbation
 				xpert = globalx- Lx/4;
 				ypert = globaly- Ly/4;
@@ -3041,56 +3195,6 @@ inline void EMfields::calculateHatFunctions(Grid *grid, VirtualTopology *vct){
   eqValue (0.0,tempYC,nxc,nyc);
   eqValue (0.0,tempZC,nxc,nyc);
 
-  // crucial point: fixing rho in the ghost cells of the coarse grid using divE= 4 pi rho
-  /* if (grid->getLevel()==1)
-    {
-      double compX, compY;
-      double invdx= 1.0/grid->getDX();
-      double invdy= 1.0/grid->getDY();
-      for (int i=0; i< nxc; i++)
-	{
-	  if (vct->getYleft_neighbor()== MPI_PROC_NULL && bcEMfaceYleft==0)
-	    {
-	      int j=0;
-	      //compX = .5*(Ex[i+1][j][0] - Ex[i][j][0])*invdx +  .5*(Ex[i+1][j+1][0] - Ex[i][j+1][0])*invdx;
-	      //compY = .5*(Ey[i][j+1][0] - Ey[i][j][0])*invdy +  .5*(Ey[i+1][j+1][0] - Ey[i+1][j][0])*invdy;
-	      //rhoc[i][j][0]=(compX + compY)/ FourPI;
-	      rhoc[i][j][0]=0.;
-	      rhon[i][j][0]=0.;
-	    }
-	  if (vct->getYright_neighbor()== MPI_PROC_NULL && bcEMfaceYright==0)
-	    {
-	      int j=nyc-1;
-              //compX = .5*(Ex[i+1][j][0] - Ex[i][j][0])*invdx +  .5*(Ex[i+1][j+1][0] - Ex[i][j+1][0])*invdx;
-              //compY = .5*(Ey[i][j+1][0] - Ey[i][j][0])*invdy +  .5*(Ey[i+1][j+1][0] - Ey[i+1][j][0])*invdy;
-              //rhoc[i][j][0]=(compX + compY)/ FourPI;
-              rhoc[i][j][0]=0.;
-	      rhon[i][j][0]=0.;
-	    } 
-	}  
-      for (int j=0; j<nyc; j++)
-	{
-	  if (vct->getXleft_neighbor()== MPI_PROC_NULL &&  bcEMfaceXleft==0)
-	    {
-	      int i=0;
-	      //compX = .5*(Ex[i+1][j][0] - Ex[i][j][0])*invdx +  .5*(Ex[i+1][j+1][0] - Ex[i][j+1][0])*invdx;
-              //compY = .5*(Ey[i][j+1][0] - Ey[i][j][0])*invdy +  .5*(Ey[i+1][j+1][0] - Ey[i+1][j][0])*invdy;
-              //rhoc[i][j][0]=(compX + compY)/ FourPI;
-              rhoc[i][j][0]=0.;
-	      rhon[i][j][0]=0.;
-	    }
-          if (vct->getXright_neighbor()== MPI_PROC_NULL && bcEMfaceXright==0)
-	    {
-	      int i=nxc-1;
-	      //compX = .5*(Ex[i+1][j][0] - Ex[i][j][0])*invdx +  .5*(Ex[i+1][j+1][0] - Ex[i][j+1][0])*invdx;
-              //compY = .5*(Ey[i][j+1][0] - Ey[i][j][0])*invdy +  .5*(Ey[i+1][j+1][0] - Ey[i+1][j][0])*invdy;
-              //rhoc[i][j][0]=(compX + compY)/ FourPI;
-              rhoc[i][j][0]=0.;
-	      rhon[i][j][0]=0.;
-	    }
-        }  
-    }*/
-
   //smoothing
   smooth(Nvolte,Smooth,rhoc,0,grid,vct);
   
@@ -3133,7 +3237,7 @@ inline void EMfields::calculateHatFunctions(Grid *grid, VirtualTopology *vct){
   eq(rhoh,tempXC,nxc,nyc);
   // at this point is communicated
 
-  if  (grid->getLevel()==1)                                                                             
+  if (0)//(grid->getLevel()==1) //patch removed //very harmful in the subcycling case
     {
       int END;
       //if (grid->getLevel()==0)                                                                                 
@@ -4260,6 +4364,19 @@ MPI_Request request;
 int i,j,k,ix,iy,step;
 double Ox,Oy,finelx,finely;
 
+// go back to E before smoothing; the E after smoohting SHOULD NOT participate in calculating B
+ for (int i=0; i<nxn; i++)
+   {
+     for (int j=0; j<nyn; j++)
+       {
+	 Ex[i][j][0]=Ex_BS[i][j][0];
+	 Ey[i][j][0]=Ey_BS[i][j][0];
+	 Ez[i][j][0]=Ez_BS[i][j][0];
+       }
+   }
+
+
+
 //int ID= vct->getCartesian_rank_COMMTOTAL();   // just for DDT
 
 Ox = grid->getOx(grid->getLevel()+1); //Origin x of finer grid
@@ -4286,14 +4403,6 @@ eqValue (0.0, Bzn_recvbufferproj, nxn,nyn);
            Byn_recvbufferproj[ix][iy][0] += bufferProj[6*j+4];
            Bzn_recvbufferproj[ix][iy][0] += bufferProj[6*j+5];
        }
-       /*if(vct->getCartesian_rank_COMMTOTAL()==10){
-           cout << "proc 10 receives message from "<<fromProj[i]<<endl;
-           for (j=0;j<npointsreceivedProj[i];j++){
-               ix = ixrecvfirstProj[i] + j/nyrecvProj[i];
-               iy = iyrecvfirstProj[i] + j%nyrecvProj[i];
-               cout << Ex_recvbufferproj[ix][iy][0]<< " ";
-           }
-       }*/
     }
     
    // Completing recvprojbuffers with the values gathered by the other coarse procs
@@ -4458,14 +4567,56 @@ eqValue (0.0, Bzn_recvbufferproj, nxn,nyn);
         }
     }
 
-if (nmessagerecvProj>0) {
+    if (nmessagerecvProj>0) {
     //Average between the current fields and the projected ones stores in the recvbufferproj and normalization
             //cout << "receive ixrecvfirstProjglobal= "<<ixrecvfirstProjglobal<<" iyrecvfirstProjglobal= "<< iyrecvfirstProjglobal<<" ixrecvlastProjglobal= "<< ixrecvlastProjglobal<<" iyrecvlastProjglobal= "<<iyrecvlastProjglobal<<endl;
     for (i=ixrecvfirstProjglobal ;i<ixrecvlastProjglobal+1;i++){
         for (j=iyrecvfirstProjglobal;j<iyrecvlastProjglobal+1;j++){
-	  Ex[i][j][0] = ( Ex[i][j][0] + Ex_recvbufferproj[i][j][0]/normalizerecvProj[i][j][0] )/2.;
-	  Ey[i][j][0] = ( Ey[i][j][0] + Ey_recvbufferproj[i][j][0]/normalizerecvProj[i][j][0] )/2.;
-	  Ez[i][j][0] = ( Ez[i][j][0] + Ez_recvbufferproj[i][j][0]/normalizerecvProj[i][j][0] )/2.;
+
+	  // too extreme, keep just in case
+	  /*if (i==ixrecvfirstProjglobal or j== iyrecvfirstProjglobal or i== ixrecvlastProjglobal or j== iyrecvlastProjglobal )
+	    {
+	      double perc=0.875;
+	      Ex[i][j][0] = perc* Ex[i][j][0] + (1.0-perc)*Ex_recvbufferproj[i][j][0]/normalizerecvProj[i][j][0];
+	      Ey[i][j][0] = perc* Ey[i][j][0] + (1.0-perc)*Ey_recvbufferproj[i][j][0]/normalizerecvProj[i][j][0];
+	      Ez[i][j][0] = perc* Ez[i][j][0] + (1.0-perc)*Ez_recvbufferproj[i][j][0]/normalizerecvProj[i][j][0];
+	    }
+	  else if (i==ixrecvfirstProjglobal+1 or j== iyrecvfirstProjglobal+1 or i== ixrecvlastProjglobal-1 or j== iyrecvlastProjglobal-1 )
+            {
+	      double perc=0.75;
+              Ex[i][j][0] = perc* Ex[i][j][0] + (1.0-perc)*Ex_recvbufferproj[i][j][0]/normalizerecvProj[i][j][0];
+              Ey[i][j][0] = perc* Ey[i][j][0] + (1.0-perc)*Ey_recvbufferproj[i][j][0]/normalizerecvProj[i][j][0];
+              Ez[i][j][0] = perc* Ez[i][j][0] + (1.0-perc)*Ez_recvbufferproj[i][j][0]/normalizerecvProj[i][j][0];
+            }
+	  else if (i==ixrecvfirstProjglobal+2 or j== iyrecvfirstProjglobal+2 or i== ixrecvlastProjglobal-2 or j== iyrecvlastProjglobal-2 )
+            {
+              double perc=0.625;
+	      Ex[i][j][0] = perc* Ex[i][j][0] + (1.0-perc)*Ex_recvbufferproj[i][j][0]/normalizerecvProj[i][j][0];
+              Ey[i][j][0] = perc* Ey[i][j][0] + (1.0-perc)*Ey_recvbufferproj[i][j][0]/normalizerecvProj[i][j][0];
+              Ez[i][j][0] = perc* Ez[i][j][0] + (1.0-perc)*Ez_recvbufferproj[i][j][0]/normalizerecvProj[i][j][0];
+            }
+	  else
+	  {
+	      Ex[i][j][0] = ( Ex[i][j][0] + Ex_recvbufferproj[i][j][0]/normalizerecvProj[i][j][0] )/2.;
+	      Ey[i][j][0] = ( Ey[i][j][0] + Ey_recvbufferproj[i][j][0]/normalizerecvProj[i][j][0] )/2.;
+	      Ez[i][j][0] = ( Ez[i][j][0] + Ez_recvbufferproj[i][j][0]/normalizerecvProj[i][j][0] )/2.;
+	      }*/
+
+	  if (i==ixrecvfirstProjglobal or j== iyrecvfirstProjglobal or i== ixrecvlastProjglobal or j== iyrecvlastProjglobal )
+            {
+              double perc=0.75;
+              Ex[i][j][0] = perc* Ex[i][j][0] + (1.0-perc)*Ex_recvbufferproj[i][j][0]/normalizerecvProj[i][j][0];
+              Ey[i][j][0] = perc* Ey[i][j][0] + (1.0-perc)*Ey_recvbufferproj[i][j][0]/normalizerecvProj[i][j][0];
+              Ez[i][j][0] = perc* Ez[i][j][0] + (1.0-perc)*Ez_recvbufferproj[i][j][0]/normalizerecvProj[i][j][0];
+            }
+          else
+	    {
+              Ex[i][j][0] = ( Ex[i][j][0] + Ex_recvbufferproj[i][j][0]/normalizerecvProj[i][j][0] )/2.;
+              Ey[i][j][0] = ( Ey[i][j][0] + Ey_recvbufferproj[i][j][0]/normalizerecvProj[i][j][0] )/2.;
+              Ez[i][j][0] = ( Ez[i][j][0] + Ez_recvbufferproj[i][j][0]/normalizerecvProj[i][j][0] )/2.;
+	    }
+
+
 	  //Bxn[i][j][0] = (Bxn[i][j][0]+ Bxn_recvbufferproj[i][j][0]/normalizerecvProj[i][j][0] )/2.;
 	  //Byn[i][j][0] = (Byn[i][j][0]+ Byn_recvbufferproj[i][j][0]/normalizerecvProj[i][j][0] )/2.;
           //Bzn[i][j][0] = (Bzn[i][j][0]+ Bzn_recvbufferproj[i][j][0]/normalizerecvProj[i][j][0] )/2.;
@@ -4477,10 +4628,9 @@ if (nmessagerecvProj>0) {
 	  //// Byn[i][j][0] =  Byn_recvbufferproj[i][j][0]/normalizerecvProj[i][j][0] ;               
 	  //// Bzn[i][j][0] =  Bzn_recvbufferproj[i][j][0]/normalizerecvProj[i][j][0] ;
 	   
-	  //cout << "R" <<vct->getCartesian_rank_COMMTOTAL()<<" i " << i <<" j " <<j <<" normalizerecvProj[i][j][0]" << normalizerecvProj[i][j][0] << " coords x and y " << grid->getXN(i, j, 0) << " and " << grid->getYN(i, j, 0)  <<endl;
        }
     }
- } // edn if (nmessagerecvProj>0)
+    } // edn if (nmessagerecvProj>0)
  
 // this part is useful to fix the first active node of the coarse grid in case it falls in the PM / MP / PP area of the corresponding refined proc
 // it just copies it from the proc to the left
@@ -4544,238 +4694,451 @@ if (nmessagerecvProj>0) {
 	   }
 	 
        }
- 
+    
  // up to now, the ghost nodes have not been modified
  communicateNode(nxn,nyn,Ex,vct);
  communicateNode(nxn,nyn,Ey,vct);
  communicateNode(nxn,nyn,Ez,vct);
  
+ //calculateB_afterProj(grid, vct);
+ 
+ //Recalculate the new Eth
+ for (i=0;i<nxn;i++){
+   for (j=0;j<nyn;j++){
+     // this E is the one pre-smoothing (otherwise mess in calculating B) with projection
+     Exth[i][j][0] = (1-th)*Ex_old[i][j][0]+th*Ex[i][j][0];
+     Eyth[i][j][0] = (1-th)*Ey_old[i][j][0]+th*Ey[i][j][0];
+     Ezth[i][j][0] = (1-th)*Ez_old[i][j][0]+th*Ez[i][j][0];
 
- // THIS IS FUNDAMENTAL                                                                 
+   }
+ }        
+
+ //Go back to the old B at centers (not really needed with 2 grids, since, with calculateB has never been done before)
+ for (i=0;i<nxc;i++){
+   for (j=0;j<nyc;j++){
+     Bxc[i][j][0] = Bxc_old[i][j][0];
+     Byc[i][j][0] = Byc_old[i][j][0];
+     Bzc[i][j][0] = Bzc_old[i][j][0];
+   }
+ }     
+
+ calculateB(grid, vct);  
+
+ // the smoothed E should not be involved in the calculation of B;
+ // smooth later
  smooth(Nvolte,Smooth,Ex,1,grid,vct);
  smooth(Nvolte,Smooth,Ey,1,grid,vct);
  smooth(Nvolte,Smooth,Ez,1,grid,vct);
-
-
- calculateB_afterProj(grid, vct);
  
- //cout <<"END RECEIVE PROJ" << endl;
 }
 /** Receive the boundary conditions from coarser level*/
-inline void EMfields::receiveBC(Grid *grid, VirtualTopology *vct, CollectiveIO *col){
+inline void EMfields::receiveBC(Grid *grid, VirtualTopology *vct, CollectiveIO *col, int n, int N){
 
+  //n: refined grid subcycle, from 1 to N
+  //N: time ratio between the gird
 int i,j,ierr,count;
 double isend[12],irecv[12];
 MPI_Status status;
 MPI_Request request;
 
+ bool PRINT=false;
 
-for (i=0;i<nmessagerecuBC;i++) {
-    ierr = MPI_Recv(bufferBC,npointsreceived[i]*6,MPI_DOUBLE,fromBC[i],1,MPI_COMM_WORLD, &status);
-    //Updating the electric fields on ghost nodes
-    for (j=0;j<xmrecv[i];j++) {
-        vectX[ixmrecvfirst[i]+j][0][0] =  bufferBC[6*j];
-        vectY[ixmrecvfirst[i]+j][0][0] =  bufferBC[6*j+1];
-        vectZ[ixmrecvfirst[i]+j][0][0] =  bufferBC[6*j+2];
-        Bxn_new[ixmrecvfirst[i]+j][0][0] = bufferBC[6*j+3];//B_new on finer grid receives B(n+1) and stores it before it is used as BC in calculateB
-        Byn_new[ixmrecvfirst[i]+j][0][0] = bufferBC[6*j+4];
-        Bzn_new[ixmrecvfirst[i]+j][0][0] = bufferBC[6*j+5];
-    }
-    count = xmrecv[i];
-    for (j=0;j<xprecv[i];j++) {
-        vectX[ixprecvfirst[i]+j][grid->getNYN()-1][0] =  bufferBC[6*(count+j)];
-        vectY[ixprecvfirst[i]+j][grid->getNYN()-1][0] =  bufferBC[6*(count+j)+1];
-        vectZ[ixprecvfirst[i]+j][grid->getNYN()-1][0] =  bufferBC[6*(count+j)+2];
-        Bxn_new[ixprecvfirst[i]+j][grid->getNYN()-1][0] = bufferBC[6*(count+j)+3];
-        Byn_new[ixprecvfirst[i]+j][grid->getNYN()-1][0] = bufferBC[6*(count+j)+4];
-        Bzn_new[ixprecvfirst[i]+j][grid->getNYN()-1][0] = bufferBC[6*(count+j)+5];
-    }
-    count = count+xprecv[i];
-    for (j=0;j<ymrecv[i];j++) {
-        vectX[0][iymrecvfirst[i]+j][0] =  bufferBC[6*(count+j)];
-        vectY[0][iymrecvfirst[i]+j][0] =  bufferBC[6*(count+j)+1];
-        vectZ[0][iymrecvfirst[i]+j][0] =  bufferBC[6*(count+j)+2];
-        Bxn_new[0][iymrecvfirst[i]+j][0] = bufferBC[6*(count+j)+3];
-        Byn_new[0][iymrecvfirst[i]+j][0] = bufferBC[6*(count+j)+4];
-        Bzn_new[0][iymrecvfirst[i]+j][0] = bufferBC[6*(count+j)+5];
-    }
-    count = count+ymrecv[i];
-    for (j=0;j<yprecv[i];j++) {
-        vectX[grid->getNXN()-1][iyprecvfirst[i]+j][0] =  bufferBC[6*(count+j)];
-        vectY[grid->getNXN()-1][iyprecvfirst[i]+j][0] =  bufferBC[6*(count+j)+1];
-        vectZ[grid->getNXN()-1][iyprecvfirst[i]+j][0] =  bufferBC[6*(count+j)+2];
-        Bxn_new[grid->getNXN()-1][iyprecvfirst[i]+j][0] = bufferBC[6*(count+j)+3];
-        Byn_new[grid->getNXN()-1][iyprecvfirst[i]+j][0] = bufferBC[6*(count+j)+4];
-        Bzn_new[grid->getNXN()-1][iyprecvfirst[i]+j][0] = bufferBC[6*(count+j)+5];
-    }
-}
-// Now finish the communication of BC by updating the few ghost nodes that were not updated directly from the coarser grid
-//communicate from right to left: 2 nodes
-if (vct->getCoordinates(0)== 0 || vct->getCoordinates(0)==vct->getXLEN()-1){
-    if (vct->getCoordinates(1) > 0) {
-        isend[0]  = vectX[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][1][0];
-        isend[1]  = vectY[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][1][0];
-        isend[2]  = vectZ[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][1][0];
-        isend[3]  = vectX[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][2][0];
-        isend[4]  = vectY[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][2][0];
-        isend[5]  = vectZ[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][2][0];
-        isend[6] =  Bxn_new[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][1][0];
-        isend[7] =  Byn_new[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][1][0];
-        isend[8] =  Bzn_new[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][1][0];
-        isend[9] =  Bxn_new[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][2][0];
-        isend[10] = Byn_new[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][2][0];
-        isend[11] = Bzn_new[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][2][0];
-        if (vct->getCoordinates(1) == vct->getYLEN()-1){
-            ierr = MPI_Send(isend,12,MPI_DOUBLE,vct->getYleft_neighbor(),1,vct->getCART_COMM());
-        } else {
-            ierr = MPI_Sendrecv(isend,12,MPI_DOUBLE,vct->getYleft_neighbor(),1,irecv,12,MPI_DOUBLE,vct->getYright_neighbor(),1,vct->getCART_COMM(),&status);
-        }
-    }
+ if (!SubCycling || SubCycling and n==1)  // in these cases, receive
+   {
+     if (vct->getCartesian_rank() ==0 and PRINT)
+       {
+	 cout << "Level 1 is receiving BC, n= " << n <<", N= " <<N<<endl;
+       }
 
-    if (vct->getCoordinates(1) < vct->getYLEN()-1) {
-        if (vct->getCoordinates(1) == 0){
-            ierr = MPI_Recv(irecv,12,MPI_DOUBLE,vct->getYright_neighbor(),1,vct->getCART_COMM(),&status);
-        }
-        vectX[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][grid->getNYN()-2][0]  = irecv[0]; 
-        vectY[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][grid->getNYN()-2][0]  = irecv[1];
-        vectZ[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][grid->getNYN()-2][0]  = irecv[2];
-        vectX[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][grid->getNYN()-1][0]  = irecv[3];
-        vectY[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][grid->getNYN()-1][0]  = irecv[4];
-        vectZ[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][grid->getNYN()-1][0]  = irecv[5];
-        Bxn_new[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][grid->getNYN()-2][0] = irecv[6]; 
-        Byn_new[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][grid->getNYN()-2][0] = irecv[7];
-        Bzn_new[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][grid->getNYN()-2][0] = irecv[8];
-        Bxn_new[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][grid->getNYN()-1][0] = irecv[9];
-        Byn_new[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][grid->getNYN()-1][0] = irecv[10];
-        Bzn_new[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][grid->getNYN()-1][0] = irecv[11];
-    }
-}
-if (vct->getCoordinates(1)== 0 || vct->getCoordinates(1)==vct->getYLEN()-1){
-    if (vct->getCoordinates(0) > 0){
-        isend[0]  = vectX[1][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0];
-        isend[1]  = vectY[1][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0];
-        isend[2]  = vectZ[1][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0];
-        isend[3]  = vectX[2][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0];
-        isend[4]  = vectY[2][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0];
-        isend[5]  = vectZ[2][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0];
-        isend[6]  = Bxn_new[1][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0];
-        isend[7]  = Byn_new[1][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0];
-        isend[8]  = Bzn_new[1][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0];
-        isend[9]  = Bxn_new[2][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0];
-        isend[10] = Byn_new[2][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0];
-        isend[11] = Bzn_new[2][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0];
-        if (vct->getCoordinates(0) == vct->getXLEN()-1){
-            ierr = MPI_Send(isend,12,MPI_DOUBLE,vct->getXleft_neighbor(),1,vct->getCART_COMM());
-        } else {
-            ierr = MPI_Sendrecv(isend,12,MPI_DOUBLE,vct->getXleft_neighbor(),1,irecv,12,MPI_DOUBLE,vct->getXright_neighbor(),1,vct->getCART_COMM(),&status);
-        }
-    }
-    if (vct->getCoordinates(0) < vct->getXLEN()-1) {
-        if (vct->getCoordinates(0) == 0) {
-            ierr = MPI_Recv(irecv,12,MPI_DOUBLE,vct->getXright_neighbor(),1,vct->getCART_COMM(),&status);
-        }
-        vectX[grid->getNXN()-2][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0]  = irecv[0];
-        vectY[grid->getNXN()-2][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0]  = irecv[1];
-        vectZ[grid->getNXN()-2][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0]  = irecv[2];
-        vectX[grid->getNXN()-1][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0]  = irecv[3];
-        vectY[grid->getNXN()-1][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0]  = irecv[4];
-        vectZ[grid->getNXN()-1][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0]  = irecv[5];
-        Bxn_new[grid->getNXN()-2][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0] = irecv[6];
-        Byn_new[grid->getNXN()-2][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0] = irecv[7];
-        Bzn_new[grid->getNXN()-2][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0] = irecv[8];
-        Bxn_new[grid->getNXN()-1][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0] = irecv[9];
-        Byn_new[grid->getNXN()-1][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0] = irecv[10];
-        Bzn_new[grid->getNXN()-1][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0] = irecv[11];
-    }
-}
-//Communicate from left to right: 1 node
-if (vct->getCoordinates(0)== 0 || vct->getCoordinates(0)==vct->getXLEN()-1){
-    if(vct->getCoordinates(1) < vct->getYLEN()-1){
-        isend[0] = vectX[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][grid->getNYN()-3][0];
-        isend[1] = vectY[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][grid->getNYN()-3][0];
-        isend[2] = vectZ[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][grid->getNYN()-3][0];
-        isend[3] = Bxn_new[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][grid->getNYN()-3][0];
-        isend[4] = Byn_new[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][grid->getNYN()-3][0];
-        isend[5] = Bzn_new[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][grid->getNYN()-3][0];
-        if (vct->getCoordinates(1) == 0){
-            ierr = MPI_Send(isend,6,MPI_DOUBLE,vct->getYright_neighbor(),1,vct->getCART_COMM());
-        } else {
-            ierr = MPI_Sendrecv(isend,6,MPI_DOUBLE,vct->getYright_neighbor(),1,irecv,6,MPI_DOUBLE,vct->getYleft_neighbor(),1,vct->getCART_COMM(),&status);
-        }
-    }
-    if (vct->getCoordinates(1) > 0) {
-        if(vct->getCoordinates(1) == vct->getYLEN()-1){
-            ierr = MPI_Recv(irecv,6,MPI_DOUBLE,vct->getYleft_neighbor(),1,vct->getCART_COMM(),&status);
-        }
-        vectX[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][0][0] = irecv[0]; 
-        vectY[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][0][0] = irecv[1];
-        vectZ[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][0][0] = irecv[2];
-        Bxn_new[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][0][0] = irecv[3]; 
-        Byn_new[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][0][0] = irecv[4];
-        Bzn_new[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][0][0] = irecv[5];
-    }
-}
-if (vct->getCoordinates(1)== 0 || vct->getCoordinates(1)==vct->getYLEN()-1){
-    if(vct->getCoordinates(0) < vct->getXLEN()-1){
-        isend[0] = vectX[grid->getNXN()-3][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0];
-        isend[1] = vectY[grid->getNXN()-3][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0];
-        isend[2] = vectZ[grid->getNXN()-3][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0];
-        isend[3] =  Bxn_new[grid->getNXN()-3][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0];
-        isend[4] = Byn_new[grid->getNXN()-3][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0];
-        isend[5] = Bzn_new[grid->getNXN()-3][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0];
-        if (vct->getCoordinates(0) == 0){
-	  //cout << "send to " << vct->getXright_neighbor() << endl ;
-            ierr = MPI_Send(isend,6,MPI_DOUBLE,vct->getXright_neighbor(),1,vct->getCART_COMM());
-        } else {
-	  //cout << "send to " << vct->getXright_neighbor() <<" receive from " << vct->getXleft_neighbor() << endl ;
-            ierr = MPI_Sendrecv(isend,6,MPI_DOUBLE,vct->getXright_neighbor(),1,irecv,6,MPI_DOUBLE,vct->getXleft_neighbor(),1,vct->getCART_COMM(),&status);
-        }
-    }
-    if(vct->getCoordinates(0) > 0) {
-        if(vct->getCoordinates(0) == vct->getXLEN()-1){
-            //cout << "receive from  " << vct->getXleft_neighbor() << endl ;
-            ierr = MPI_Recv(irecv,6,MPI_DOUBLE,vct->getXleft_neighbor(),1,vct->getCART_COMM(),&status);
-        }
-        vectX[0][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0] = irecv[0]; 
-        vectY[0][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0] = irecv[1];
-        vectZ[0][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0] = irecv[2];
-        Bxn_new[0][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0] = irecv[3]; 
-        Byn_new[0][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0] = irecv[4];
-        Bzn_new[0][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0] = irecv[5];
-    }
-}
-if (nmessagerecuBC >0){
-// Store boundary conditions in the appropritate buffers
-    if (vct->getCoordinates(1)==0) { 
-        for (j=0;j < nxn;j++){
-            bufferBCExxm[j]  = vectX[j][0][0]*th+Ex[j][0][0]*(1-th);
-            bufferBCEyxm[j]  = vectY[j][0][0]*th+Ey[j][0][0]*(1-th);
+     for (i=0;i<nmessagerecuBC;i++) {
+       ierr = MPI_Recv(bufferBC,npointsreceived[i]*6,MPI_DOUBLE,fromBC[i],1,MPI_COMM_WORLD, &status);
+       //Updating the electric fields on ghost nodes
+       for (j=0;j<xmrecv[i];j++) {
+	 vectX[ixmrecvfirst[i]+j][0][0] =  bufferBC[6*j];
+	 vectY[ixmrecvfirst[i]+j][0][0] =  bufferBC[6*j+1];
+	 vectZ[ixmrecvfirst[i]+j][0][0] =  bufferBC[6*j+2];
+	 Bxn_new[ixmrecvfirst[i]+j][0][0] = bufferBC[6*j+3];//B_new on finer grid receives B(n+1) and stores it before it is used as BC in calculateB
+	 Byn_new[ixmrecvfirst[i]+j][0][0] = bufferBC[6*j+4];
+	 Bzn_new[ixmrecvfirst[i]+j][0][0] = bufferBC[6*j+5];
+       }
+       count = xmrecv[i];
+       for (j=0;j<xprecv[i];j++) {
+	 vectX[ixprecvfirst[i]+j][grid->getNYN()-1][0] =  bufferBC[6*(count+j)];
+	 vectY[ixprecvfirst[i]+j][grid->getNYN()-1][0] =  bufferBC[6*(count+j)+1];
+	 vectZ[ixprecvfirst[i]+j][grid->getNYN()-1][0] =  bufferBC[6*(count+j)+2];
+	 Bxn_new[ixprecvfirst[i]+j][grid->getNYN()-1][0] = bufferBC[6*(count+j)+3];
+	 Byn_new[ixprecvfirst[i]+j][grid->getNYN()-1][0] = bufferBC[6*(count+j)+4];
+	 Bzn_new[ixprecvfirst[i]+j][grid->getNYN()-1][0] = bufferBC[6*(count+j)+5];
+       }
+       count = count+xprecv[i];
+       for (j=0;j<ymrecv[i];j++) {
+	 vectX[0][iymrecvfirst[i]+j][0] =  bufferBC[6*(count+j)];
+	 vectY[0][iymrecvfirst[i]+j][0] =  bufferBC[6*(count+j)+1];
+	 vectZ[0][iymrecvfirst[i]+j][0] =  bufferBC[6*(count+j)+2];
+	 Bxn_new[0][iymrecvfirst[i]+j][0] = bufferBC[6*(count+j)+3];
+	 Byn_new[0][iymrecvfirst[i]+j][0] = bufferBC[6*(count+j)+4];
+	 Bzn_new[0][iymrecvfirst[i]+j][0] = bufferBC[6*(count+j)+5];
+       }
+       count = count+ymrecv[i];
+       for (j=0;j<yprecv[i];j++) {
+	 vectX[grid->getNXN()-1][iyprecvfirst[i]+j][0] =  bufferBC[6*(count+j)];
+	 vectY[grid->getNXN()-1][iyprecvfirst[i]+j][0] =  bufferBC[6*(count+j)+1];
+	 vectZ[grid->getNXN()-1][iyprecvfirst[i]+j][0] =  bufferBC[6*(count+j)+2];
+	 Bxn_new[grid->getNXN()-1][iyprecvfirst[i]+j][0] = bufferBC[6*(count+j)+3];
+	 Byn_new[grid->getNXN()-1][iyprecvfirst[i]+j][0] = bufferBC[6*(count+j)+4];
+	 Bzn_new[grid->getNXN()-1][iyprecvfirst[i]+j][0] = bufferBC[6*(count+j)+5];
+       }
+     }
+     // Now finish the communication of BC by updating the few ghost nodes that were not updated directly from the coarser grid
+     //communicate from right to left: 2 nodes
+     if (vct->getCoordinates(0)== 0 || vct->getCoordinates(0)==vct->getXLEN()-1){
+       if (vct->getCoordinates(1) > 0) {
+	 isend[0]  = vectX[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][1][0];
+	 isend[1]  = vectY[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][1][0];
+	 isend[2]  = vectZ[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][1][0];
+	 isend[3]  = vectX[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][2][0];
+	 isend[4]  = vectY[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][2][0];
+	 isend[5]  = vectZ[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][2][0];
+	 isend[6] =  Bxn_new[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][1][0];
+	 isend[7] =  Byn_new[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][1][0];
+	 isend[8] =  Bzn_new[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][1][0];
+	 isend[9] =  Bxn_new[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][2][0];
+	 isend[10] = Byn_new[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][2][0];
+	 isend[11] = Bzn_new[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][2][0];
+	 if (vct->getCoordinates(1) == vct->getYLEN()-1){
+	   ierr = MPI_Send(isend,12,MPI_DOUBLE,vct->getYleft_neighbor(),1,vct->getCART_COMM());
+	 } else {
+	   ierr = MPI_Sendrecv(isend,12,MPI_DOUBLE,vct->getYleft_neighbor(),1,irecv,12,MPI_DOUBLE,vct->getYright_neighbor(),1,vct->getCART_COMM(),&status);
+	 }
+       }
+       
+       if (vct->getCoordinates(1) < vct->getYLEN()-1) {
+	 if (vct->getCoordinates(1) == 0){
+	   ierr = MPI_Recv(irecv,12,MPI_DOUBLE,vct->getYright_neighbor(),1,vct->getCART_COMM(),&status);
+	 }
+	 vectX[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][grid->getNYN()-2][0]  = irecv[0]; 
+	 vectY[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][grid->getNYN()-2][0]  = irecv[1];
+	 vectZ[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][grid->getNYN()-2][0]  = irecv[2];
+	 vectX[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][grid->getNYN()-1][0]  = irecv[3];
+	 vectY[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][grid->getNYN()-1][0]  = irecv[4];
+	 vectZ[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][grid->getNYN()-1][0]  = irecv[5];
+	 Bxn_new[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][grid->getNYN()-2][0] = irecv[6]; 
+	 Byn_new[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][grid->getNYN()-2][0] = irecv[7];
+	 Bzn_new[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][grid->getNYN()-2][0] = irecv[8];
+	 Bxn_new[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][grid->getNYN()-1][0] = irecv[9];
+	 Byn_new[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][grid->getNYN()-1][0] = irecv[10];
+	 Bzn_new[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][grid->getNYN()-1][0] = irecv[11];
+       }
+     }
+     if (vct->getCoordinates(1)== 0 || vct->getCoordinates(1)==vct->getYLEN()-1){
+       if (vct->getCoordinates(0) > 0){
+	 isend[0]  = vectX[1][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0];
+	 isend[1]  = vectY[1][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0];
+	 isend[2]  = vectZ[1][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0];
+	 isend[3]  = vectX[2][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0];
+	 isend[4]  = vectY[2][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0];
+	 isend[5]  = vectZ[2][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0];
+	 isend[6]  = Bxn_new[1][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0];
+	 isend[7]  = Byn_new[1][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0];
+	 isend[8]  = Bzn_new[1][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0];
+	 isend[9]  = Bxn_new[2][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0];
+	 isend[10] = Byn_new[2][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0];
+	 isend[11] = Bzn_new[2][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0];
+	 if (vct->getCoordinates(0) == vct->getXLEN()-1){
+	   ierr = MPI_Send(isend,12,MPI_DOUBLE,vct->getXleft_neighbor(),1,vct->getCART_COMM());
+	 } else {
+	   ierr = MPI_Sendrecv(isend,12,MPI_DOUBLE,vct->getXleft_neighbor(),1,irecv,12,MPI_DOUBLE,vct->getXright_neighbor(),1,vct->getCART_COMM(),&status);
+	 }
+       }
+       if (vct->getCoordinates(0) < vct->getXLEN()-1) {
+	 if (vct->getCoordinates(0) == 0) {
+	   ierr = MPI_Recv(irecv,12,MPI_DOUBLE,vct->getXright_neighbor(),1,vct->getCART_COMM(),&status);
+	 }
+	 vectX[grid->getNXN()-2][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0]  = irecv[0];
+	 vectY[grid->getNXN()-2][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0]  = irecv[1];
+	 vectZ[grid->getNXN()-2][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0]  = irecv[2];
+	 vectX[grid->getNXN()-1][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0]  = irecv[3];
+	 vectY[grid->getNXN()-1][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0]  = irecv[4];
+	 vectZ[grid->getNXN()-1][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0]  = irecv[5];
+	 Bxn_new[grid->getNXN()-2][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0] = irecv[6];
+	 Byn_new[grid->getNXN()-2][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0] = irecv[7];
+	 Bzn_new[grid->getNXN()-2][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0] = irecv[8];
+	 Bxn_new[grid->getNXN()-1][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0] = irecv[9];
+	 Byn_new[grid->getNXN()-1][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0] = irecv[10];
+	 Bzn_new[grid->getNXN()-1][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0] = irecv[11];
+       }
+     }
+     //Communicate from left to right: 1 node
+     if (vct->getCoordinates(0)== 0 || vct->getCoordinates(0)==vct->getXLEN()-1){
+       if(vct->getCoordinates(1) < vct->getYLEN()-1){
+	 isend[0] = vectX[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][grid->getNYN()-3][0];
+	 isend[1] = vectY[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][grid->getNYN()-3][0];
+	 isend[2] = vectZ[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][grid->getNYN()-3][0];
+	 isend[3] = Bxn_new[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][grid->getNYN()-3][0];
+	 isend[4] = Byn_new[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][grid->getNYN()-3][0];
+	 isend[5] = Bzn_new[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][grid->getNYN()-3][0];
+	 if (vct->getCoordinates(1) == 0){
+	   ierr = MPI_Send(isend,6,MPI_DOUBLE,vct->getYright_neighbor(),1,vct->getCART_COMM());
+	 } else {
+	   ierr = MPI_Sendrecv(isend,6,MPI_DOUBLE,vct->getYright_neighbor(),1,irecv,6,MPI_DOUBLE,vct->getYleft_neighbor(),1,vct->getCART_COMM(),&status);
+	 }
+       }
+       if (vct->getCoordinates(1) > 0) {
+	 if(vct->getCoordinates(1) == vct->getYLEN()-1){
+	   ierr = MPI_Recv(irecv,6,MPI_DOUBLE,vct->getYleft_neighbor(),1,vct->getCART_COMM(),&status);
+	 }
+	 vectX[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][0][0] = irecv[0]; 
+	 vectY[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][0][0] = irecv[1];
+	 vectZ[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][0][0] = irecv[2];
+	 Bxn_new[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][0][0] = irecv[3]; 
+	 Byn_new[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][0][0] = irecv[4];
+	 Bzn_new[vct->getCoordinates(0)/(vct->getXLEN()-1)*(grid->getNXN()-1)][0][0] = irecv[5];
+       }
+     }
+     if (vct->getCoordinates(1)== 0 || vct->getCoordinates(1)==vct->getYLEN()-1){
+       if(vct->getCoordinates(0) < vct->getXLEN()-1){
+	 isend[0] = vectX[grid->getNXN()-3][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0];
+	 isend[1] = vectY[grid->getNXN()-3][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0];
+	 isend[2] = vectZ[grid->getNXN()-3][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0];
+	 isend[3] =  Bxn_new[grid->getNXN()-3][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0];
+	 isend[4] = Byn_new[grid->getNXN()-3][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0];
+	 isend[5] = Bzn_new[grid->getNXN()-3][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0];
+	 if (vct->getCoordinates(0) == 0){
+	   //cout << "send to " << vct->getXright_neighbor() << endl ;
+	   ierr = MPI_Send(isend,6,MPI_DOUBLE,vct->getXright_neighbor(),1,vct->getCART_COMM());
+	 } else {
+	   //cout << "send to " << vct->getXright_neighbor() <<" receive from " << vct->getXleft_neighbor() << endl ;
+	   ierr = MPI_Sendrecv(isend,6,MPI_DOUBLE,vct->getXright_neighbor(),1,irecv,6,MPI_DOUBLE,vct->getXleft_neighbor(),1,vct->getCART_COMM(),&status);
+	 }
+       }
+       if(vct->getCoordinates(0) > 0) {
+	 if(vct->getCoordinates(0) == vct->getXLEN()-1){
+	   //cout << "receive from  " << vct->getXleft_neighbor() << endl ;
+	   ierr = MPI_Recv(irecv,6,MPI_DOUBLE,vct->getXleft_neighbor(),1,vct->getCART_COMM(),&status);
+	 }
+	 vectX[0][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0] = irecv[0]; 
+	 vectY[0][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0] = irecv[1];
+	 vectZ[0][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0] = irecv[2];
+	 Bxn_new[0][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0] = irecv[3]; 
+	 Byn_new[0][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0] = irecv[4];
+	 Bzn_new[0][vct->getCoordinates(1)/(vct->getYLEN()-1)*(grid->getNYN()-1)][0] = irecv[5];
+       }
+     }
+
+   } // end receive
+
+ if (!SubCycling ) // I don't need to average, BC already ready; Bxn_new will be applied in calculateB
+   {
+
+     if (vct->getCartesian_rank() ==0 and PRINT)
+       {
+         cout << "Level 1 is doing BC, not SubCycling ops, n= " << n <<", N= " <<N<<endl;
+       }
+     if (nmessagerecuBC >0){
+       // Store boundary conditions in the appropritate buffers
+       if (vct->getCoordinates(1)==0) { 
+	 for (j=0;j < nxn;j++){
+	   bufferBCExxm[j]  = vectX[j][0][0]*th+Ex[j][0][0]*(1-th);
+	   bufferBCEyxm[j]  = vectY[j][0][0]*th+Ey[j][0][0]*(1-th);
             bufferBCEzxm[j]  = vectZ[j][0][0]*th+Ez[j][0][0]*(1-th);
             
-        }
-    }
-    if (vct->getCoordinates(1)==vct->getYLEN()-1){
-        for (j=0;j < nxn;j++){
-            bufferBCExxp[j]  = vectX[j][nyn-1][0]*th+Ex[j][nyn-1][0]*(1-th);
-            bufferBCEyxp[j]  = vectY[j][nyn-1][0]*th+Ey[j][nyn-1][0]*(1-th);
-            bufferBCEzxp[j]  = vectZ[j][nyn-1][0]*th+Ez[j][nyn-1][0]*(1-th);
-        }
-    }
-    if (vct->getCoordinates(0)==0){
-        for (j=0;j < nyn;j++){
-            bufferBCExym[j]  = vectX[0][j][0]*th+Ex[0][j][0]*(1-th);
-            bufferBCEyym[j]  = vectY[0][j][0]*th+Ey[0][j][0]*(1-th);
-            bufferBCEzym[j]  = vectZ[0][j][0]*th+Ez[0][j][0]*(1-th);
-        }
-    }
-    if (vct->getCoordinates(0)==vct->getXLEN()-1){
-        for (j=0;j < nyn;j++){
-            bufferBCExyp[j]  = vectX[nxn-1][j][0]*th+Ex[nxn-1][j][0]*(1-th);
-            bufferBCEyyp[j]  = vectY[nxn-1][j][0]*th+Ey[nxn-1][j][0]*(1-th);
-            bufferBCEzyp[j]  = vectZ[nxn-1][j][0]*th+Ez[nxn-1][j][0]*(1-th);
-        }
-    }
-}
+	 }
+       }
+       if (vct->getCoordinates(1)==vct->getYLEN()-1){
+	 for (j=0;j < nxn;j++){
+	   bufferBCExxp[j]  = vectX[j][nyn-1][0]*th+Ex[j][nyn-1][0]*(1-th);
+	   bufferBCEyxp[j]  = vectY[j][nyn-1][0]*th+Ey[j][nyn-1][0]*(1-th);
+	   bufferBCEzxp[j]  = vectZ[j][nyn-1][0]*th+Ez[j][nyn-1][0]*(1-th);
+	 }
+       }
+       if (vct->getCoordinates(0)==0){
+	 for (j=0;j < nyn;j++){
+	   bufferBCExym[j]  = vectX[0][j][0]*th+Ex[0][j][0]*(1-th);
+	   bufferBCEyym[j]  = vectY[0][j][0]*th+Ey[0][j][0]*(1-th);
+	   bufferBCEzym[j]  = vectZ[0][j][0]*th+Ez[0][j][0]*(1-th);
+	 }
+       }
+       if (vct->getCoordinates(0)==vct->getXLEN()-1){
+	 for (j=0;j < nyn;j++){
+	   bufferBCExyp[j]  = vectX[nxn-1][j][0]*th+Ex[nxn-1][j][0]*(1-th);
+	   bufferBCEyyp[j]  = vectY[nxn-1][j][0]*th+Ey[nxn-1][j][0]*(1-th);
+	   bufferBCEzyp[j]  = vectZ[nxn-1][j][0]*th+Ez[nxn-1][j][0]*(1-th);
+	 }
+       }
+     } // end if (nmessagerecuBC >0)
+     return;
+   }
+
+ if (SubCycling)
+   {
+     if (nmessagerecuBC >0)//  // Store boundary conditions in the appropritate buffers   
+       {
+	 if (n==1) // do the storing of the BC for E^{ t0 + N dt} and BN^{ t0 + N dt}
+	   {
+	     if (vct->getCartesian_rank() ==0 and PRINT)
+	       {
+		 cout << "Level 1 is doing SubCycling, n=1, ops, n= " << n <<", N= " <<N<<endl;
+	       }
+
+	     if (vct->getCoordinates(1)==0) {
+	       for (j=0;j < nxn;j++){
+		 bufferBCExxm_Ndt[j]  = vectX[j][0][0];
+		 bufferBCEyxm_Ndt[j]  = vectY[j][0][0];
+		 bufferBCEzxm_Ndt[j]  = vectZ[j][0][0];
+
+		 bufferBCBxnxm_Ndt[j]  = Bxn_new[j][0][0];
+                 bufferBCBynxm_Ndt[j]  = Byn_new[j][0][0];
+                 bufferBCBznxm_Ndt[j]  = Bzn_new[j][0][0];
+		 
+	       }
+	     }
+	     if (vct->getCoordinates(1)==vct->getYLEN()-1){
+	       for (j=0;j < nxn;j++){
+		 bufferBCExxp_Ndt[j]  = vectX[j][nyn-1][0];
+		 bufferBCEyxp_Ndt[j]  = vectY[j][nyn-1][0];
+		 bufferBCEzxp_Ndt[j]  = vectZ[j][nyn-1][0];
+
+		 bufferBCBxnxp_Ndt[j]  = Bxn_new[j][nyn-1][0];
+                 bufferBCBynxp_Ndt[j]  = Byn_new[j][nyn-1][0];
+                 bufferBCBznxp_Ndt[j]  = Bzn_new[j][nyn-1][0];
+	       }
+	     }
+	     if (vct->getCoordinates(0)==0){
+	       for (j=0;j < nyn;j++){
+		 bufferBCExym_Ndt[j]  = vectX[0][j][0];
+		 bufferBCEyym_Ndt[j]  = vectY[0][j][0];
+		 bufferBCEzym_Ndt[j]  = vectZ[0][j][0];
+
+		 bufferBCBxnym_Ndt[j]  = Bxn_new[0][j][0];
+                 bufferBCBynym_Ndt[j]  = Byn_new[0][j][0];
+                 bufferBCBznym_Ndt[j]  = Bzn_new[0][j][0];
+	       }
+	     }
+	     if (vct->getCoordinates(0)==vct->getXLEN()-1){
+	       for (j=0;j < nyn;j++){
+		 bufferBCExyp_Ndt[j]  = vectX[nxn-1][j][0];
+		 bufferBCEyyp_Ndt[j]  = vectY[nxn-1][j][0];
+		 bufferBCEzyp_Ndt[j]  = vectZ[nxn-1][j][0];
+
+		 bufferBCBxnyp_Ndt[j]  = Bxn_new[nxn-1][j][0];
+                 bufferBCBynyp_Ndt[j]  = Byn_new[nxn-1][j][0];
+                 bufferBCBznyp_Ndt[j]  = Bzn_new[nxn-1][j][0];
+	       }
+	     }
+
+	     // now, store E^{t0} and B^{t0}
+	     if (vct->getCoordinates(1)==0) {
+               for (j=0;j < nxn;j++){
+                 bufferBCExxm_t0[j]  = Ex[j][0][0];
+                 bufferBCEyxm_t0[j]  = Ey[j][0][0];
+                 bufferBCEzxm_t0[j]  = Ez[j][0][0];
+
+		 bufferBCBxnxm_t0[j]  = Bxn[j][0][0];
+                 bufferBCBynxm_t0[j]  = Byn[j][0][0];
+                 bufferBCBznxm_t0[j]  = Bzn[j][0][0];
+
+               }
+             }
+             if (vct->getCoordinates(1)==vct->getYLEN()-1){
+               for (j=0;j < nxn;j++){
+                 bufferBCExxp_t0[j]  = Ex[j][nyn-1][0];
+                 bufferBCEyxp_t0[j]  = Ey[j][nyn-1][0];
+                 bufferBCEzxp_t0[j]  = Ez[j][nyn-1][0];
+
+		 bufferBCBxnxp_t0[j]  = Bxn[j][nyn-1][0];
+                 bufferBCBynxp_t0[j]  = Byn[j][nyn-1][0];
+                 bufferBCBznxp_t0[j]  = Bzn[j][nyn-1][0];
+               }
+             }
+             if (vct->getCoordinates(0)==0){
+               for (j=0;j < nyn;j++){
+                 bufferBCExym_t0[j]  = Ex[0][j][0];
+                 bufferBCEyym_t0[j]  = Ey[0][j][0];
+                 bufferBCEzym_t0[j]  = Ez[0][j][0];
+
+		 bufferBCBxnym_t0[j]  = Bxn[0][j][0];
+                 bufferBCBynym_t0[j]  = Byn[0][j][0];
+                 bufferBCBznym_t0[j]  = Bzn[0][j][0];
+               }
+             }
+             if (vct->getCoordinates(0)==vct->getXLEN()-1){
+               for (j=0;j < nyn;j++){
+                 bufferBCExyp_t0[j]  = Ex[nxn-1][j][0];
+                 bufferBCEyyp_t0[j]  = Ey[nxn-1][j][0];
+                 bufferBCEzyp_t0[j]  = Ez[nxn-1][j][0];
+
+		 bufferBCBxnyp_t0[j]  = Bxn[nxn-1][j][0];
+                 bufferBCBynyp_t0[j]  = Byn[nxn-1][j][0];
+                 bufferBCBznyp_t0[j]  = Bzn[nxn-1][j][0];
+               }
+             }
+	     // end store E^t0
+
+	   } //end if n==1
+
+	 // always do the time average, also if n==1
+	 double n_N= (double)n/ (double)N;
+	 if (vct->getCartesian_rank() ==0 and PRINT)
+	   {
+	     cout << "Level 1 is doing SubCycling, any n, ops, n= " << n <<", N= " <<N<<endl;
+	     cout << "n_N: " << n_N << " (1.0 - n_N): " << (1.0 - n_N) <<endl;
+	   }
+
+	 // E^{t0 + (n-1)dt + th }= (n/N * E^{t0 + Ndt} + (N-n)/n E^{t0})*th + (E^ {t0 + (n-1)*dt} )*(1-th); n from 1 onwards
+	 // B^{t0 + ndt}= (n/N * B^{t0 + Ndt} + (N-n)/n B^{t0}), saved as B...n_new for consistency with before
+	 if (vct->getCoordinates(1)==0) {
+	 
+	   for (j=0;j < nxn;j++){
+	     bufferBCExxm[j]  = (n_N* bufferBCExxm_Ndt[j] + (1.0 - n_N)* bufferBCExxm_t0[j]) *th+Ex[j][0][0]*(1-th);
+	     bufferBCEyxm[j]  = (n_N* bufferBCEyxm_Ndt[j] + (1.0 - n_N)* bufferBCEyxm_t0[j]) *th+Ey[j][0][0]*(1-th);
+	     bufferBCEzxm[j]  = (n_N* bufferBCEzxm_Ndt[j] + (1.0 - n_N)* bufferBCEzxm_t0[j]) *th+Ez[j][0][0]*(1-th);
+
+	     Bxn_new[j][0][0]  = (n_N* bufferBCBxnxm_Ndt[j] + (1.0 - n_N)* bufferBCBxnxm_t0[j]);
+             Byn_new[j][0][0]  = (n_N* bufferBCBynxm_Ndt[j] + (1.0 - n_N)* bufferBCBynxm_t0[j]);
+             Bzn_new[j][0][0]  = (n_N* bufferBCBznxm_Ndt[j] + (1.0 - n_N)* bufferBCBznxm_t0[j]);
+
+	   }
+	 }
+	 if (vct->getCoordinates(1)==vct->getYLEN()-1){
+	   for (j=0;j < nxn;j++){
+	     bufferBCExxp[j]  = (n_N* bufferBCExxp_Ndt[j] + (1.0 - n_N)* bufferBCExxp_t0[j]) *th+Ex[j][nyn-1][0]*(1-th);
+	     bufferBCEyxp[j]  = (n_N* bufferBCEyxp_Ndt[j] + (1.0 - n_N)* bufferBCEyxp_t0[j]) *th+Ey[j][nyn-1][0]*(1-th);
+	     bufferBCEzxp[j]  = (n_N* bufferBCEzxp_Ndt[j] + (1.0 - n_N)* bufferBCEzxp_t0[j]) *th+Ez[j][nyn-1][0]*(1-th);
+
+	     Bxn_new[j][nyn-1][0]  = (n_N* bufferBCBxnxp_Ndt[j] + (1.0 - n_N)* bufferBCBxnxp_t0[j]);
+             Byn_new[j][nyn-1][0]  = (n_N* bufferBCBynxp_Ndt[j] + (1.0 - n_N)* bufferBCBynxp_t0[j]);
+             Bzn_new[j][nyn-1][0]  = (n_N* bufferBCBznxp_Ndt[j] + (1.0 - n_N)* bufferBCBznxp_t0[j]);
+	   }
+	 }
+	 if (vct->getCoordinates(0)==0){
+	   for (j=0;j < nyn;j++){
+	     bufferBCExym[j]  = (n_N* bufferBCExym_Ndt[j] + (1.0 - n_N)* bufferBCExym_t0[j]) *th+Ex[0][j][0]*(1-th);
+	     bufferBCEyym[j]  = (n_N* bufferBCEyym_Ndt[j] + (1.0 - n_N)* bufferBCEyym_t0[j]) *th+Ey[0][j][0]*(1-th);
+	     bufferBCEzym[j]  = (n_N* bufferBCEzym_Ndt[j] + (1.0 - n_N)* bufferBCEzym_t0[j]) *th+Ez[0][j][0]*(1-th);
+
+	     Bxn_new[0][j][0]  = (n_N* bufferBCBxnym_Ndt[j] + (1.0 - n_N)* bufferBCBxnym_t0[j]);
+             Byn_new[0][j][0]  = (n_N* bufferBCBynym_Ndt[j] + (1.0 - n_N)* bufferBCBynym_t0[j]);
+             Bzn_new[0][j][0]  = (n_N* bufferBCBznym_Ndt[j] + (1.0 - n_N)* bufferBCBznym_t0[j]);
+	   }
+	 }
+	 if (vct->getCoordinates(0)==vct->getXLEN()-1){
+	   for (j=0;j < nyn;j++){
+	     bufferBCExyp[j]  = (n_N* bufferBCExyp_Ndt[j] + (1.0 - n_N)* bufferBCExyp_t0[j]) *th+Ex[nxn-1][j][0]*(1-th); 
+	     bufferBCEyyp[j]  = (n_N* bufferBCEyyp_Ndt[j] + (1.0 - n_N)* bufferBCEyyp_t0[j]) *th+Ey[nxn-1][j][0]*(1-th);
+	     bufferBCEzyp[j]  = (n_N* bufferBCEzyp_Ndt[j] + (1.0 - n_N)* bufferBCEzyp_t0[j]) *th+Ez[nxn-1][j][0]*(1-th);
+
+	     Bxn_new[nxn-1][j][0]  = (n_N* bufferBCBxnyp_Ndt[j] + (1.0 - n_N)* bufferBCBxnyp_t0[j]);
+             Byn_new[nxn-1][j][0]  = (n_N* bufferBCBynyp_Ndt[j] + (1.0 - n_N)* bufferBCBynyp_t0[j]);
+             Bzn_new[nxn-1][j][0]  = (n_N* bufferBCBznyp_Ndt[j] + (1.0 - n_N)* bufferBCBznyp_t0[j]);
+	   }
+	 }
+	 // end of the time average
+	 
+	 
+       } //  if (nmessagerecuBC >0)
+     
+   }// end SubCycling
+
 }
 /** Output ghost values **/
 inline void EMfields::outputghost(VirtualTopology *vct, CollectiveIO *col, int cycle){
@@ -5102,7 +5465,7 @@ inline EMfields::EMfields(CollectiveIO *col,Grid *grid, VCtopology *vct){
 	// ME
 	nxnproj = ceil((double)nxn /(double)col->getRatio()) +2;
         nynproj = ceil((double)nyn /(double)col->getRatio()) +2;
-	cout <<"R" <<vct->getCartesian_rank_COMMTOTAL() << ": WithDOUBLE: nxnproj " << nxnproj <<" nynproj "<<nynproj << " nxn " << nxn << " nyn " << nyn  << " ratio " << col->getRatio()<<endl; 
+	//cout <<"R" <<vct->getCartesian_rank_COMMTOTAL() << ": WithDOUBLE: nxnproj " << nxnproj <<" nynproj "<<nynproj << " nxn " << nxn << " nyn " << nyn  << " ratio " << col->getRatio()<<endl; 
 	// end ME
 	dx = grid->getDX();
 	dy = grid ->getDY();
@@ -5118,15 +5481,23 @@ inline EMfields::EMfields(CollectiveIO *col,Grid *grid, VCtopology *vct){
 	ns  = col->getNs();
 	c = col->getC();
 	dt = col->getDt();
+	int level= grid->getLevel();
+	double ratio= grid->getRatio();
+	SubCycling = col->getSubCycling();
+	int TimeRatio= col->getTimeRatio();
+	if (level and SubCycling)
+	  dt= dt/(double)pow(TimeRatio,level);
+	//cout << "level " << level << ", dt " <<dt <<endl;
 	Smooth = col->getSmooth();
 	Nvolte = col ->getNvolte();
 
-	// I need very high smoothing on the refined grid                               
+	// I need very high smoothing on the refined grid    
+	// removed for comparison with the usual test
         if (grid->getLevel()>0)
           {
             Smooth=0.0;
             Nvolte=5;
-	  }
+	    }
 
 	th = col->getTh();
 	delt = c*th*dt;
@@ -5155,7 +5526,11 @@ inline EMfields::EMfields(CollectiveIO *col,Grid *grid, VCtopology *vct){
 
 	// expSR is the number of cores on the other grid with which each core is expected to interacted
 	// fail-safe value: col->getXLEN()*col->getYLEN(); 
-	int expSR= col->getXLEN()*col->getYLEN();
+	//int expSR= col->getXLEN()*col->getYLEN();
+	if (col->getXLEN()> col->getYLEN())
+	  expSR= (col->getXLEN()+1)*4;
+	else 
+	  expSR= (col->getYLEN()+1)*4;
 
 	qom = new double[ns];
 	targetBC  = new int[expSR];
@@ -5347,6 +5722,72 @@ inline EMfields::EMfields(CollectiveIO *col,Grid *grid, VCtopology *vct){
 	allocArr1(&bufferBCEzym, nyn);
         //bufferBCEzyp = new double[nyn];
 	allocArr1(&bufferBCEzyp, nyn);
+	// buffer to store BC info at time {t0} and {t0 + Ndt}, only when refined level and SubCycling
+	if (level and SubCycling)
+	  {
+	    //t0, E
+	    allocArr1(&bufferBCExxm_t0, nxn);
+	    allocArr1(&bufferBCExxp_t0, nxn);
+	    allocArr1(&bufferBCExym_t0, nyn);
+	    allocArr1(&bufferBCExyp_t0, nyn);
+	    allocArr1(&bufferBCEyxm_t0, nxn);
+	    allocArr1(&bufferBCEyxp_t0, nxn);
+	    allocArr1(&bufferBCEyym_t0, nyn);
+	    allocArr1(&bufferBCEyyp_t0, nyn);
+	    allocArr1(&bufferBCEzxm_t0, nxn);
+	    allocArr1(&bufferBCEzxp_t0, nxn);
+	    allocArr1(&bufferBCEzym_t0, nyn);
+	    allocArr1(&bufferBCEzyp_t0, nyn);
+	    //t0, B
+	    allocArr1(&bufferBCBxnxm_t0, nxn);
+            allocArr1(&bufferBCBxnxp_t0, nxn);
+            allocArr1(&bufferBCBxnym_t0, nyn);
+            allocArr1(&bufferBCBxnyp_t0, nyn);
+            allocArr1(&bufferBCBynxm_t0, nxn);
+            allocArr1(&bufferBCBynxp_t0, nxn);
+            allocArr1(&bufferBCBynym_t0, nyn);
+            allocArr1(&bufferBCBynyp_t0, nyn);
+            allocArr1(&bufferBCBznxm_t0, nxn);
+            allocArr1(&bufferBCBznxp_t0, nxn);
+            allocArr1(&bufferBCBznym_t0, nyn);
+            allocArr1(&bufferBCBznyp_t0, nyn);
+
+	    //tN, E
+	    allocArr1(&bufferBCExxm_Ndt, nxn);
+            allocArr1(&bufferBCExxp_Ndt, nxn);
+            allocArr1(&bufferBCExym_Ndt, nyn);
+            allocArr1(&bufferBCExyp_Ndt, nyn);
+            allocArr1(&bufferBCEyxm_Ndt, nxn);
+            allocArr1(&bufferBCEyxp_Ndt, nxn);
+            allocArr1(&bufferBCEyym_Ndt, nyn);
+            allocArr1(&bufferBCEyyp_Ndt, nyn);
+            allocArr1(&bufferBCEzxm_Ndt, nxn);
+            allocArr1(&bufferBCEzxp_Ndt, nxn);
+            allocArr1(&bufferBCEzym_Ndt, nyn);
+            allocArr1(&bufferBCEzyp_Ndt, nyn);
+
+	    //tN, B
+            allocArr1(&bufferBCBxnxm_Ndt, nxn);
+            allocArr1(&bufferBCBxnxp_Ndt, nxn);
+            allocArr1(&bufferBCBxnym_Ndt, nyn);
+            allocArr1(&bufferBCBxnyp_Ndt, nyn);
+            allocArr1(&bufferBCBynxm_Ndt, nxn);
+            allocArr1(&bufferBCBynxp_Ndt, nxn);
+            allocArr1(&bufferBCBynym_Ndt, nyn);
+            allocArr1(&bufferBCBynyp_Ndt, nyn);
+            allocArr1(&bufferBCBznxm_Ndt, nxn);
+            allocArr1(&bufferBCBznxp_Ndt, nxn);
+            allocArr1(&bufferBCBznym_Ndt, nyn);
+            allocArr1(&bufferBCBznyp_Ndt, nyn);
+	  }
+
+	if (level==0 and vct->getNgrids()>1)
+	  {
+	    allocArr3(&Ex_BS, nxn, nyn, 1);
+	    allocArr3(&Ey_BS, nxn, nyn, 1);
+	    allocArr3(&Ez_BS, nxn, nyn, 1);
+	  }
+	// end buffer to store BC info at time {t0} and {t0 + Ndt}, only when refined level and SubCycling
 	//nxnproj*nynproj projected nodes. 6 components of electric and magnetic field.
         //bufferProj = new double[nxnproj*nynproj*6];
 	allocArr1(&bufferProj, nxnproj*nynproj*6);
@@ -5559,6 +6000,58 @@ inline EMfields::~EMfields(){
   //delete[] bufferBCEzyp ;
   freeArr1(&bufferBCEzyp);
 	   
+  freeArr1(&bufferBCExxm_t0);
+  freeArr1(&bufferBCExxp_t0);
+  freeArr1(&bufferBCExym_t0);
+  freeArr1(&bufferBCExyp_t0);
+  freeArr1(&bufferBCEyxm_t0);
+  freeArr1(&bufferBCEyym_t0);
+  freeArr1(&bufferBCEyym_t0);
+  freeArr1(&bufferBCEyyp_t0);
+  freeArr1(&bufferBCEzxm_t0);
+  freeArr1(&bufferBCEzxp_t0);
+  freeArr1(&bufferBCEzym_t0);
+  freeArr1(&bufferBCEzyp_t0);
+
+  freeArr1(&bufferBCBxnxm_t0);
+  freeArr1(&bufferBCBxnxp_t0);
+  freeArr1(&bufferBCBxnym_t0);
+  freeArr1(&bufferBCBxnyp_t0);
+  freeArr1(&bufferBCBynxm_t0);
+  freeArr1(&bufferBCBynym_t0);
+  freeArr1(&bufferBCBynym_t0);
+  freeArr1(&bufferBCBynyp_t0);
+  freeArr1(&bufferBCBznxm_t0);
+  freeArr1(&bufferBCBznxp_t0);
+  freeArr1(&bufferBCBznym_t0);
+  freeArr1(&bufferBCBznyp_t0);
+
+  freeArr1(&bufferBCExxm_Ndt);
+  freeArr1(&bufferBCExxp_Ndt);
+  freeArr1(&bufferBCExym_Ndt);
+  freeArr1(&bufferBCExyp_Ndt);
+  freeArr1(&bufferBCEyxm_Ndt);
+  freeArr1(&bufferBCEyym_Ndt);
+  freeArr1(&bufferBCEyym_Ndt);
+  freeArr1(&bufferBCEyyp_Ndt);
+  freeArr1(&bufferBCEzxm_Ndt);
+  freeArr1(&bufferBCEzxp_Ndt);
+  freeArr1(&bufferBCEzym_Ndt);
+  freeArr1(&bufferBCEzyp_Ndt);
+
+  freeArr1(&bufferBCBxnxm_Ndt);
+  freeArr1(&bufferBCBxnxp_Ndt);
+  freeArr1(&bufferBCBxnym_Ndt);
+  freeArr1(&bufferBCBxnyp_Ndt);
+  freeArr1(&bufferBCBynxm_Ndt);
+  freeArr1(&bufferBCBynym_Ndt);
+  freeArr1(&bufferBCBynym_Ndt);
+  freeArr1(&bufferBCBynyp_Ndt);
+  freeArr1(&bufferBCBznxm_Ndt);
+  freeArr1(&bufferBCBznxp_Ndt);
+  freeArr1(&bufferBCBznym_Ndt);
+  freeArr1(&bufferBCBznyp_Ndt);
+
   // Nodes () and species
   //delArr4(rhons,ns,nxn,nyn);
   freeArr4(&rhons);
@@ -5645,6 +6138,10 @@ inline EMfields::~EMfields(){
 
   delete[] BCSide;
 
+
+  freeArr3(&Ex_BS);
+  freeArr3(&Ey_BS);
+  freeArr3(&Ez_BS);
 }
 
 // AMR, ME
@@ -5798,7 +6295,13 @@ inline void EMfields::calculateB_afterProj(Grid *grid, VirtualTopology *vct){
   eqValue (0.0,tempZC,nxc,nyc);
 
   // calculate the curl of Eth                                                                                     
-  grid->curlN2C(tempXC,tempYC,tempZC,Exth,Eyth,Ezth); // I don't care about BC; just about the internal domain
+  //grid->curlN2C(tempXC,tempYC,tempZC,Exth,Eyth,Ezth); // I don't care about BC; just about the internal domain
+  if (grid->getLevel() > 0) {
+    grid->curlN2C(tempXC,tempYC,tempZC,Exth,Eyth,Ezth);
+  } else {
+    grid->curlN2C_withghost(tempXC,tempYC,tempZC,Exth,Eyth,Ezth);
+  }
+
 
   // update the magnetic field                                                                                     
   addscale(-c*dt,1,Bxc,tempXC,nxc,nyc);
@@ -5809,6 +6312,100 @@ inline void EMfields::calculateB_afterProj(Grid *grid, VirtualTopology *vct){
   communicateCenter(nxc,nyc,Bxc,vct);
   communicateCenter(nxc,nyc,Byc,vct);
   communicateCenter(nxc,nyc,Bzc,vct);
+
+
+  // the BC, in case this is the only time calculateB is done (copied form calculateB)
+
+  //BC are applied only on coarsest grid
+  if (grid->getLevel() == 0) {
+    // apply boundary conditions on B
+    if(vct->getXleft_neighbor()==MPI_PROC_NULL && bcEMfaceXleft ==0 ){ // perfect conductor
+      BperfectConductorLeft(0,grid,vct);
+    } else if (vct->getXleft_neighbor()==MPI_PROC_NULL && bcEMfaceXleft ==1) {
+      BmagneticMirrorLeft(0,grid,vct);
+    }
+    // boundary condition: Xright
+    if(vct->getXright_neighbor()==MPI_PROC_NULL && bcEMfaceXright==0 ){ // perfect conductor
+      BperfectConductorRight(0,grid,vct);
+    } else if (vct->getXright_neighbor()==MPI_PROC_NULL && bcEMfaceXright==1){
+      BmagneticMirrorRight(0,grid,vct);
+    } 
+    // boundary condition: Yleft
+    if(vct->getYleft_neighbor()==MPI_PROC_NULL && bcEMfaceYleft ==0){ // perfect conductor
+      BperfectConductorLeft(1,grid,vct);
+    } else if(vct->getYleft_neighbor()==MPI_PROC_NULL && bcEMfaceYleft ==1) {
+      BmagneticMirrorLeft(1,grid,vct);
+    }
+    // boundary condition: Yright
+    if(vct->getYright_neighbor()==MPI_PROC_NULL && bcEMfaceYright==0){ // perfect conductor
+      BperfectConductorRight(1,grid,vct);
+    } else if (vct->getYright_neighbor()==MPI_PROC_NULL && bcEMfaceYright==1){
+      BmagneticMirrorRight(1,grid,vct);
+    }
+  }
+  if (grid->getLevel() > 0) {
+    if (nmessagerecuBC > 0){
+      magneticfieldBC(Bxn,grid,Bxn_new,vct); 
+      magneticfieldBC(Byn,grid,Byn_new,vct);
+      magneticfieldBC(Bzn,grid,Bzn_new,vct);
+    }
+    //Recalculate magnetic field in the ghost centers
+    i=0;
+    if(vct->getXleft_neighbor()==MPI_PROC_NULL){ 
+      for (j=0;j < nyc;j++){
+	Bxc[i][j][0] =(Bxn[i][j][0] + Bxn[i][j+1][0] + Bxc[i+1][j][0])/3.;
+	Byc[i][j][0] =(Byn[i][j][0] + Byn[i][j+1][0] + Byc[i+1][j][0])/3.;
+	Bzc[i][j][0] =(Bzn[i][j][0] + Bzn[i][j+1][0] + Bzc[i+1][j][0])/3.;
+      }
+    }
+    i=nxc-1;
+    if(vct->getXright_neighbor()==MPI_PROC_NULL){ 
+      for (j=0;j < nyc;j++){
+	Bxc[i][j][0] = (Bxn[i+1][j][0] + Bxn[i+1][j+1][0] + Bxc[i-1][j][0])/3.;
+	Byc[i][j][0] = (Byn[i+1][j][0] + Byn[i+1][j+1][0] + Byc[i-1][j][0])/3.;
+	Bzc[i][j][0] = (Bzn[i+1][j][0] + Bzn[i+1][j+1][0] + Bzc[i-1][j][0])/3.;
+      }
+    }
+    j=0;
+    if(vct->getYleft_neighbor()==MPI_PROC_NULL){ 
+      for (i=0;i < nxc;i++){
+	Bxc[i][j][0] = (Bxn[i][j][0] + Bxn[i+1][j][0] + Bxc[i][j+1][0])/3.;
+	Byc[i][j][0] = (Byn[i][j][0] + Byn[i+1][j][0] + Byc[i][j+1][0])/3.;
+	Bzc[i][j][0] = (Bzn[i][j][0] + Bzn[i+1][j][0] + Bzc[i][j+1][0])/3.;
+      }
+    }
+    j=nyc-1;
+    if(vct->getYright_neighbor()==MPI_PROC_NULL){ 
+      for (i=0;i < nxc;i++){
+	Bxc[i][j][0] = (Bxn[i][j+1][0] + Bxn[i+1][j+1][0] + Bxc[i][j-1][0])/3.;
+	Byc[i][j][0] = (Byn[i][j+1][0] + Byn[i+1][j+1][0] + Byc[i][j-1][0])/3.;
+	Bzc[i][j][0] = (Bzn[i][j+1][0] + Bzn[i+1][j+1][0] + Bzc[i][j-1][0])/3.;
+      }
+    }
+    //And now for the corners
+    if(vct->getXleft_neighbor()==MPI_PROC_NULL && vct->getYleft_neighbor()==MPI_PROC_NULL){ 
+      Bxc[0][0][0] = (Bxn[0][0][0] + Bxn[1][0][0] + Bxn[0][1][0])/3.;
+      Byc[0][0][0] = (Byn[0][0][0] + Byn[1][0][0] + Byn[0][1][0])/3.;
+      Bzc[0][0][0] = (Bzn[0][0][0] + Bzn[1][0][0] + Bzn[0][1][0])/3.;
+    }
+    if(vct->getXleft_neighbor()==MPI_PROC_NULL && vct->getYright_neighbor()==MPI_PROC_NULL){ 
+      Bxc[0][nyc-1][0] = (Bxn[0][nyc][0] + Bxn[1][nyc][0] + Bxn[0][nyc-1][0])/3.;
+      Byc[0][nyc-1][0] = (Byn[0][nyc][0] + Byn[1][nyc][0] + Byn[0][nyc-1][0])/3.;
+      Bzc[0][nyc-1][0] = (Bzn[0][nyc][0] + Bzn[1][nyc][0] + Bzn[0][nyc-1][0])/3.;
+    }
+    if(vct->getXright_neighbor()==MPI_PROC_NULL && vct->getYleft_neighbor()==MPI_PROC_NULL){ 
+      Bxc[nxc-1][0][0] = (Bxn[nxc][0][0] + Bxn[nxc-1][0][0] + Bxn[nxc][1][0])/3.;
+      Byc[nxc-1][0][0] = (Byn[nxc][0][0] + Byn[nxc-1][0][0] + Byn[nxc][1][0])/3.;
+      Bzc[nxc-1][0][0] = (Bzn[nxc][0][0] + Bzn[nxc-1][0][0] + Bzn[nxc][1][0])/3.;
+    }
+    if(vct->getXright_neighbor()==MPI_PROC_NULL && vct->getYright_neighbor()==MPI_PROC_NULL){ 
+      Bxc[nxc-1][nyc-1][0] = (Bxn[nxc][nyc][0] + Bxn[nxc-1][nyc][0] + Bxn[nxc][nyc-1][0])/3.;
+      Byc[nxc-1][nyc-1][0] = (Byn[nxc][nyc][0] + Byn[nxc-1][nyc][0] + Byn[nxc][nyc-1][0])/3.;
+      Bzc[nxc-1][nyc-1][0] = (Bzn[nxc][nyc][0] + Bzn[nxc-1][nyc][0] + Bzn[nxc][nyc-1][0])/3.;
+    }
+
+  }
+  //end new part here
   
 
   // update nodes, which are not received by projection
@@ -5829,7 +6426,7 @@ inline void EMfields::calculateB_afterProj(Grid *grid, VirtualTopology *vct){
 /** modified by ME to avoid problems when nodes sent and receive do not match**/
 inline int EMfields::initWeightBC(VirtualTopology *vct, Grid *grid, CollectiveIO* col){
 
-  bool DEBUG= false;// in case of problems, set this to true for a lot of additional checks for debug
+  bool DEBUG= true;// in case of problems, set this to true for a lot of additional checks for debug
 
   int i,j,ix,iy,nproc;
   double finedx, finedy,finelx,finely, xfirst, xlast,xfirstnext, Ox, Oy,xloc,yloc;
@@ -6102,16 +6699,17 @@ inline int EMfields::initWeightBC(VirtualTopology *vct, Grid *grid, CollectiveIO
 	}
     }
 
-  int *buffer=new int[col->getXLEN()*col->getYLEN()*4];
+  int *buffer=new int[expSR];//[col->getXLEN()*col->getYLEN()*4];
   if (grid->getLevel() == 0 )
     {
       nmessageBC=0;
 
-
       for (int r=0; r< vct->getXLEN()*vct->getYLEN(); r++)
 	{
-	  MPI_Recv(buffer, col->getXLEN()*col->getYLEN()*4,MPI_INT, MPI_ANY_SOURCE, TagMap, vct->getCART_COMM_TOTAL(), &status);
-	  for (int i=0; i< col->getXLEN()*col->getYLEN()*4; i++)
+	  //MPI_Recv(buffer, col->getXLEN()*col->getYLEN()*4,MPI_INT, MPI_ANY_SOURCE, TagMap, vct->getCART_COMM_TOTAL(), &status);
+	  //for (int i=0; i< col->getXLEN()*col->getYLEN()*4; i++)
+	   MPI_Recv(buffer, expSR,MPI_INT, MPI_ANY_SOURCE, TagMap, vct->getCART_COMM_TOTAL(), &status);                            
+	   for (int i=0; i< expSR; i++)  
 	    {
 	      if (buffer[i]!=-1)
 		{
@@ -6230,8 +6828,8 @@ inline int EMfields::initWeightBC(VirtualTopology *vct, Grid *grid, CollectiveIO
 	      }
 	    }// end switch  
 	  // end this is actually debug
-	}
-    }
+	}//end for
+    }// end coarse grid
   // end coarse grid receiving the info
 
   if (DEBUG)
@@ -6864,7 +7462,7 @@ inline int EMfields::initWeightProj(VirtualTopology *vct, Grid *grid, Collective
 	}// end cycle on messages to receive
 
       // for global
-      int Skip=1;
+      int Skip=1; // it was 1
       if (nmessagerecvProj>0)
 	{
 	  ixrecvfirstProjglobal= min_startX;

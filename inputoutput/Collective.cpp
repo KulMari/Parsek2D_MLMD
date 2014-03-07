@@ -45,6 +45,8 @@ void Collective::ReadInput(string inputfile){
    // the following variables are ALWAYS taken from inputfile, even if restarting
    {
 	dt = config.read<double>( "dt" );
+	SubCycling= config.read<int> ( "SubCycling");
+	TimeRatio= config.read<int> ( "TimeRatio");
 	ncycles = config.read<int>( "ncycles" );
 	th = config.read<double>( "th" );
 	config.readInto(Smooth, "Smooth" ) ;
@@ -416,6 +418,14 @@ int Collective::ReadRestart(string inputfile){
     dataset_id = H5Dopen1(file_id, "/collective/Dt");
     status = H5Dread(dataset_id, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT,&dt);
     status = H5Dclose(dataset_id);
+    // read SubCycling                                                                                  
+    dataset_id = H5Dopen1(file_id, "/collective/SubCycling");
+    status = H5Dread(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,&SubCycling);
+    status = H5Dclose(dataset_id);
+    // read TimeRatio                                                          
+    dataset_id = H5Dopen1(file_id, "/collective/TimeRatio");
+    status = H5Dread(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT,&TimeRatio);
+    status = H5Dclose(dataset_id);
     // read th
     dataset_id = H5Dopen1(file_id, "/collective/Th");
     status = H5Dread(dataset_id, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT,&th);
@@ -548,6 +558,8 @@ void Collective::Print(){
   cout << "Number of grids = " << ngrids << endl;
   cout << "Ratio between the grids = " << ratio << endl;
   cout << "Time step                = " << dt      << endl;
+  cout << "SubCycling               = " << SubCycling      << endl;
+  cout << "TimeRatio                = " << TimeRatio <<endl;
   cout << "Number of cycles         = " << ncycles << endl;
   cout << "Results saved in: "<< SaveDirName <<endl;
   cout << "---------------------" << endl;
@@ -622,6 +634,14 @@ inline double Collective::getC(){
 /** get the time step */
 double Collective::getDt(){
  return(dt);
+}
+/** get SubCyling */
+int Collective::getSubCycling(){
+  return(SubCycling);
+}
+/** get TimeRatio */
+int Collective::getTimeRatio(){
+  return(TimeRatio);
 }
 /** get the decentering parameter */
 double Collective::getTh(){
