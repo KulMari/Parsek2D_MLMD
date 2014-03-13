@@ -90,25 +90,25 @@ void Particles2D::DoubleHarris(Grid* grid,Field* EMf,VirtualTopology* vct){
         //if (vct->getXleft_neighbor()== MPI_PROC_NULL) {xcS=0;}
         if (vct->getXleft_neighbor()== MPI_PROC_NULL) {
             xcS=0;
-            cout << "Proc " << vct->getCartesian_rank_COMMTOTAL() << "has MPI_PROC_NULL left X neighbor" << endl;
+            //cout << "Proc " << vct->getCartesian_rank_COMMTOTAL() << "has MPI_PROC_NULL left X neighbor" << endl;
         } //if periodic boundary conditions, no particles in GC
         else {xcS=1;}
         //if (vct->getXright_neighbor()== MPI_PROC_NULL) {xcE=grid->getNXC();}
         if (vct->getXright_neighbor()== MPI_PROC_NULL ) {
             xcE=grid->getNXC();
-            cout << "Proc " << vct->getCartesian_rank_COMMTOTAL() << "has MPI_PROC_NULL right X neighbor" << endl;
+            //cout << "Proc " << vct->getCartesian_rank_COMMTOTAL() << "has MPI_PROC_NULL right X neighbor" << endl;
         } 
         else {xcE=grid->getNXC()-1;}
         //if (vct->getYleft_neighbor()== MPI_PROC_NULL) {ycS=0;}
         if (vct->getYleft_neighbor()== MPI_PROC_NULL ) {
             ycS=0;
-            cout << "Proc " << vct->getCartesian_rank_COMMTOTAL() << "has MPI_PROC_NULL left Y neighbor" << endl;
+            //cout << "Proc " << vct->getCartesian_rank_COMMTOTAL() << "has MPI_PROC_NULL left Y neighbor" << endl;
             } 
         else {ycS=1;}
         //if (vct->getYright_neighbor()== MPI_PROC_NULL) {ycE=grid->getNYC();}
         if (vct->getYright_neighbor()== MPI_PROC_NULL ) {
             ycE=grid->getNYC();
-            cout << "Proc " << vct->getCartesian_rank_COMMTOTAL() << "has MPI_PROC_NULL right Y neighbor" << endl;
+            //cout << "Proc " << vct->getCartesian_rank_COMMTOTAL() << "has MPI_PROC_NULL right Y neighbor" << endl;
         } 
         else {ycE=grid->getNYC()-1;}
         /*xcS = 1;
@@ -639,6 +639,10 @@ int Particles2D::mover_PC(Grid* grid,VirtualTopology* vct, Field* EMf){
   int cartesian_rank_total;
   MPI_Comm_rank(vct->getCART_COMM_TOTAL(), &cartesian_rank_total);     
 
+  if (vct->getCartesian_rank() ==0)
+    {
+      cout << "Grid " << grid->getLevel() << ": mover, dt: " << dt <<"\n ";
+    }
 
   int innter,temp1,temp2;
   int avail;
@@ -658,16 +662,18 @@ int Particles2D::mover_PC(Grid* grid,VirtualTopology* vct, Field* EMf){
       }
   }
 
-  int nxn = grid->getNXN();
+
   int ll, lu, ul, uu;
 
   // pointers for field access
-  /*double *ex = **(EMf->Ex),
-         *ey = **(EMf->Ey),
-         *ez = **(EMf->Ez),
-         *bxn = **(EMf->Bxn),
-         *byn = **(EMf->Byn),
-         *bzn = **(EMf->Bzn);*/
+     double *ex = **(EMf->Ex),
+    *ey = **(EMf->Ey),
+    *ez = **(EMf->Ez),
+    *bxn = **(EMf->Bxn),
+    *byn = **(EMf->Byn),
+    *bzn = **(EMf->Bzn);
+  
+  // XN and YN allocated when constructing, copied from grid->xn, grid->yn
 
   innter=0;
   while (innter< NiterMover)
@@ -680,37 +686,43 @@ int Particles2D::mover_PC(Grid* grid,VirtualTopology* vct, Field* EMf){
       iy = 2 +  int((y[i]-ystart)/dy);
 
       //indices for interpolation
-      
-      /*uu = ix * nyn + iy;               
+
+      uu = ix * nyn + iy;               
       ul = uu - 1;        
       lu = uu - nyn;
-      ll = lu - 1;*/
+      ll = lu - 1;
 
-      weight11 = ((x[i] - grid->getXN(ix-1,iy-1,0))*inv_dx)*((y[i] - grid->getYN(ix-1,iy-1,0))*inv_dy);
+      // xn and yn are now direclty accessible
+      /*weight11 = ((x[i] - grid->getXN(ix-1,iy-1,0))*inv_dx)*((y[i] - grid->getYN(ix-1,iy-1,0))*inv_dy);
       weight10 = ((x[i] - grid->getXN(ix-1,iy,0))*inv_dx)*((grid->getYN(ix-1,iy,0) - y[i])*inv_dy);
       weight01 = ((grid->getXN(ix,iy-1,0) - x[i])*inv_dx)*((y[i] - grid->getYN(ix,iy-1,0))*inv_dy);
-      weight00 = ((grid->getXN(ix,iy,0) - x[i])*inv_dx)*((grid->getYN(ix,iy,0) - y[i])*inv_dy);
+      weight00 = ((grid->getXN(ix,iy,0) - x[i])*inv_dx)*((grid->getYN(ix,iy,0) - y[i])*inv_dy);*/
 
-      /*Exl = weight00*EMf->getEx(ix-1,iy-1,0) + weight01*EMf->getEx(ix-1,iy,0) + weight10*EMf->getEx(ix,iy-1,0) + weight11*EMf->getEx(ix,iy,0);
+      weight11 = ((x[i] - XN[ix-1][iy-1][0])*inv_dx)*((y[i] - YN[ix-1][iy-1][0])*inv_dy);
+      weight10 = ((x[i] - XN[ix-1][iy][0])*inv_dx)*((YN[ix-1][iy][0] - y[i])*inv_dy);
+      weight01 = ((XN[ix][iy-1][0] - x[i])*inv_dx)*((y[i] - YN[ix][iy-1][0])*inv_dy);
+      weight00 = ((XN[ix][iy][0] - x[i])*inv_dx)*((YN[ix][iy][0] - y[i])*inv_dy);
+	
+      /*    Exl = weight00*EMf->getEx(ix-1,iy-1,0) + weight01*EMf->getEx(ix-1,iy,0) + weight10*EMf->getEx(ix,iy-1,0) + weight11*EMf->getEx(ix,iy,0);
       Eyl = weight00*EMf->getEy(ix-1,iy-1,0) + weight01*EMf->getEy(ix-1,iy,0) + weight10*EMf->getEy(ix,iy-1,0) + weight11*EMf->getEy(ix,iy,0);
       Ezl = weight00*EMf->getEz(ix-1,iy-1,0) + weight01*EMf->getEz(ix-1,iy,0) + weight10*EMf->getEz(ix,iy-1,0) + weight11*EMf->getEz(ix,iy,0);
       Bxl = weight00*EMf->getBx(ix-1,iy-1,0) + weight01*EMf->getBx(ix-1,iy,0) + weight10*EMf->getBx(ix,iy-1,0) + weight11*EMf->getBx(ix,iy,0);
       Byl = weight00*EMf->getBy(ix-1,iy-1,0) + weight01*EMf->getBy(ix-1,iy,0) + weight10*EMf->getBy(ix,iy-1,0) + weight11*EMf->getBy(ix,iy,0);
       Bzl = weight00*EMf->getBz(ix-1,iy-1,0) + weight01*EMf->getBz(ix-1,iy,0) + weight10*EMf->getBz(ix,iy-1,0) + weight11*EMf->getBz(ix,iy,0);*/
     
-      Exl = weight00*EMf->Ex[ix-1][iy-1][0] + weight01*EMf->Ex[ix-1][iy][0] + weight10*EMf->Ex[ix][iy-1][0] + weight11*EMf->Ex[ix][iy][0];
+      /*Exl = weight00*EMf->Ex[ix-1][iy-1][0] + weight01*EMf->Ex[ix-1][iy][0] + weight10*EMf->Ex[ix][iy-1][0] + weight11*EMf->Ex[ix][iy][0];
       Eyl = weight00*EMf->Ey[ix-1][iy-1][0] + weight01*EMf->Ey[ix-1][iy][0] + weight10*EMf->Ey[ix][iy-1][0] + weight11*EMf->Ey[ix][iy][0];
       Ezl = weight00*EMf->Ez[ix-1][iy-1][0] + weight01*EMf->Ez[ix-1][iy][0] + weight10*EMf->Ez[ix][iy-1][0] + weight11*EMf->Ez[ix][iy][0];
       Bxl = weight00*EMf->Bxn[ix-1][iy-1][0] + weight01*EMf->Bxn[ix-1][iy][0] + weight10*EMf->Bxn[ix][iy-1][0] + weight11*EMf->Bxn[ix][iy][0];
       Byl = weight00*EMf->Byn[ix-1][iy-1][0] + weight01*EMf->Byn[ix-1][iy][0] + weight10*EMf->Byn[ix][iy-1][0] + weight11*EMf->Byn[ix][iy][0];
-      Bzl = weight00*EMf->Bzn[ix-1][iy-1][0] + weight01*EMf->Bzn[ix-1][iy][0] + weight10*EMf->Bzn[ix][iy-1][0] + weight11*EMf->Bzn[ix][iy][0];
+      Bzl = weight00*EMf->Bzn[ix-1][iy-1][0] + weight01*EMf->Bzn[ix-1][iy][0] + weight10*EMf->Bzn[ix][iy-1][0] + weight11*EMf->Bzn[ix][iy][0];*/
 
-      /*Exl = weight00*ex[ll] + weight01*ex[lu] + weight10*ex[ul] + weight11*ex[uu];
+      Exl = weight00*ex[ll] + weight01*ex[lu] + weight10*ex[ul] + weight11*ex[uu];
       Eyl = weight00*ey[ll] + weight01*ey[lu] + weight10*ey[ul] + weight11*ey[uu];
       Ezl = weight00*ez[ll] + weight01*ez[lu] + weight10*ez[ul] + weight11*ez[uu];
       Bxl = weight00*bxn[ll] + weight01*bxn[lu] + weight10*bxn[ul] + weight11*bxn[uu];
       Byl = weight00*byn[ll] + weight01*byn[lu] + weight10*byn[ul] + weight11*byn[uu];
-      Bzl = weight00*bzn[ll] + weight01*bzn[lu] + weight10*bzn[ul] + weight11*bzn[uu];*/
+      Bzl = weight00*bzn[ll] + weight01*bzn[lu] + weight10*bzn[ul] + weight11*bzn[uu];
 
       // end interpolation
       omdtsq = qomdt*qomdt/c/c*(Bxl*Bxl+Byl*Byl+Bzl*Bzl);
@@ -828,7 +840,14 @@ int Particles2D::mover_PC(Grid* grid,VirtualTopology* vct, Field* EMf){
     }
     }*/
   LastCommunicate=0;  // because Last Communicate is checked also in unbuffer, which is used again when distributing splitted particles
-  
+
+  /*  delete[] ex; // do not de-allocate here; they were never allocated
+  delete[] ey;
+  delete[] ez;
+  delete[] bxn;
+  delete[] byn;
+  delete[] bzn;*/
+
   return(0); // exit succcesfully	
 }
 /** relativistic mover with a Predictor-Corrector scheme */

@@ -182,6 +182,13 @@ void Particles2Dcomm::allocate(int species, CollectiveIO* col, VirtualTopology* 
   //if (vct->getCartesian_rank_COMMTOTAL() == 0 || vct->getCartesian_rank_COMMTOTAL()==3000)
   //  cout <<"Starting allocating particle vectors" <<endl;
 
+  // for the mover                                                                        
+  allocArr3(&XN, nxn, nyn, 1);
+  allocArr3(&YN, nxn, nyn, 1);
+  XN= grid->xn;
+  YN=grid->yn;
+
+
   // positions
   x = new double[npmax];
   y = new double[npmax];
@@ -4701,8 +4708,6 @@ MPI_Allreduce( &nmessagerecuBCTOP, &ALLRECEIVERS_TOP, 1,  MPI_INT, MPI_SUM, vct-
 
 if (ALL_TARGETS!=ALL_RECEIVERS)
   {
-
-    
     if (vct->getCartesian_rank_COMMTOTAL()==0)
       {
 	cout <<"ALL_TARGETS= " <<ALL_TARGETS <<"!= ALL_RECEIVERS= "<<ALL_RECEIVERS <<endl;
@@ -4713,6 +4718,7 @@ if (ALL_TARGETS!=ALL_RECEIVERS)
 	return -1;
       }
   }
-
+ delete[] buffer;
+  delete[] info;
 return 1; // OK
 } // end new version of initPRAVariables

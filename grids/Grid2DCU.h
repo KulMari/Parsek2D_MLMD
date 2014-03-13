@@ -1,6 +1,6 @@
 /*******************************************************************************************************
  Grid2DCU.h  -  uniform cartesian 2D local grid for each process, including che guard cells
-                             -------------------
+p                             -------------------
  developers: Stefano Markidis, Giovanni Lapenta
  *******************************************************************************************************/
 
@@ -193,10 +193,11 @@ class Grid2DCU : public Grid {
      double invdy;
      /** invol = inverse of volume*/
      double invVOL;
+     // put them in Grid.h, to make them publicly accessible
      /** node - X coordinate (indexX, indexY)   */
-     double ***xn;
+     //double ***xn;
      /** node - Y coordinate (indexX, indexY)   */
-     double ***yn;
+     //double ***yn;
      /** centre of cell - X coordinate */
      double ***xc;
      /** centre of cell - Y coordinate */
@@ -242,8 +243,8 @@ inline Grid2DCU::Grid2DCU(CollectiveIO* col, VirtualTopology* vct, int GridLevel
      //ox[i] = col->getLx()/(double)2.*(double)pow(ratio,-i+1)*((double)1.-(double)1./ratio);
      //oy[i] = col->getLy()/(double)2.*(double)pow(ratio,-i+1)*((double)1.-(double)1./ratio)*1.5;
        //Manually tuned
-     ox[i] = 15-col->getLx()/pow(ratio,i)/2.;
-     oy[i] = 15-col->getLy()/pow(ratio,i)/2.;
+     ox[i] = 10.5-col->getLx()/pow(ratio,i)/2.;
+     oy[i] = 10.5-col->getLy()/pow(ratio,i)/2.;
 
      //Manually tuned Laila               
      //ox[i] = 150-col->getLx()/pow(ratio,i)/2.; 

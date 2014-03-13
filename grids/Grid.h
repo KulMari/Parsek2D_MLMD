@@ -17,6 +17,13 @@ developers: Stefano Markidis, Giovanni Lapenta
 */
 class Grid {
   public:
+
+  // put them in Grid.h, to make them publicly accessible                                                                   
+  /** node - X coordinate (indexX, indexY)   */
+  double ***xn;                                                                                                           
+  /** node - Y coordinate (indexX, indexY)   */
+  double ***yn;              
+
     /** print grid info */
     virtual void print(VirtualTopology* ptVCT)=0;
     /** calculate gradient on nodes, given a scalar field defined on central points  */

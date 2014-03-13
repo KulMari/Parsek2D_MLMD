@@ -581,6 +581,11 @@ class Particles2Dcomm : public Particles {
     unsigned long *RP_ParticleID;
 
     int SizeRP_Sub;
+
+
+    // for the mover
+    double ***XN;
+    double ***YN;
 }
 ;
 

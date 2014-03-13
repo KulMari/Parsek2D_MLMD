@@ -51,11 +51,11 @@ using std::endl;
 
 int main (int argc, char **argv) {
 
-  bool TEST=1; //this takes a lot od reduces, put to 0 normally
+  bool TEST=0; //this takes a lot od reduces, put to 0 normally
   bool TEST_B=0; // to eliminate the barriers; when debugging, the barriers mark the beginning/ end of each phase
   //  bool SCALASCA_SELECTIVE=0;
   
-  bool RandomizeParticlePos= true;
+  bool RandomizeParticlePos= false;
 
   int proj=1;
   int interp=1;
@@ -146,8 +146,8 @@ if (coord[0] != coord_particles[0]) {
   EMfields *EMf = new EMfields(col, grid, vct); // Create Electromagnetic Fields Object
   
   // Initial Condition for FIELD if you are not starting from RESTART
-  //EMf->initUniform(vct,grid); // initialize with constant values
-  EMf->initDoubleHarris(vct,grid); // initialize with constant values 
+  EMf->initUniform(vct,grid); // initialize with constant values
+  //EMf->initDoubleHarris(vct,grid); // initialize with constant values 
   //EMf->initLightwave(vct,grid); // initialize with a dipole
   
   
@@ -230,8 +230,8 @@ if (coord[0] != coord_particles[0]) {
   {
     for (int i=0; i < ns; i++)
       {
-	//part[i].maxwellian(grid,EMf,vctparticles);  // all the species have Maxwellian distribution in the velocity
-	part[i].DoubleHarris(grid,EMf,vctparticles);
+	part[i].maxwellian(grid,EMf,vctparticles);  // all the species have Maxwellian distribution in the velocity
+	//part[i].DoubleHarris(grid,EMf,vctparticles);
 	//int out;
 	//out =part[i].maxwellian_sameParticleInit(grid,EMf,vctparticles);
 	//if (out<0)
@@ -282,9 +282,11 @@ if (coord[0] != coord_particles[0]) {
   double Eenergy, Benergy, TOTKenergy, TOTmomentum;
   double *Kenergy;
   double *momentum;
+  int *tp_ALL;
   string cq;
   Kenergy = new double[ns];
   momentum = new double[ns];
+  tp_ALL= new int[ns];
   if (TEST)
     {
       stringstream levelstr;
@@ -695,9 +697,8 @@ if (coord[0] != coord_particles[0]) {
 	    writeRESTART(RestartDirName,myrank,cycle,ns,mpi,vct,col,grid,EMf,part,0); // without ,0 add to restart file	   
 	}
 
-      //if (TEST)// and !(cycle%20 ))
-      //if (TEST and (level or (!level and CoarseOp) )) // sub; be careful with timing the output
-      if (TEST and CoarseOp and (cycle%(col->getFieldOutputCycle())==0 or cycle==first_cycle))
+      if (TEST)
+      //if (TEST and CoarseOp and (cycle%(col->getFieldOutputCycle())==0 or cycle==first_cycle))
       {
 	Eenergy= EMf->getEenergy(vct);
 	Benergy= EMf->getBenergy(vct);
@@ -709,6 +710,10 @@ if (coord[0] != coord_particles[0]) {
 	    TOTKenergy+=Kenergy[is];
 	    momentum[is]=part[is].getP(vctparticles);
 	    TOTmomentum+=momentum[is];
+	    tp_ALL[is]=0;
+	    int tp= part[is].getNOP();
+	    MPI_Allreduce(&tp, tp_ALL+is,1, MPI_INT, MPI_SUM, vct->getCART_COMM());
+	    
 	    }
 
 	if (vct->getCartesian_rank() == 0) {
@@ -719,13 +724,14 @@ if (coord[0] != coord_particles[0]) {
 	    {
 	      my_file <<Kenergy[is] <<"\t" <<momentum[is] <<"\t" ;
 	      }
+	  for (int is=0; is<ns; is ++)
+	    {
+	      my_file << tp_ALL[is] <<"\t";
+	    }
 	  my_file <<endl;
 	  my_file.close();
-	 
 	}
-	
       }// end TEST
-
 
   }  // end of the cycle
   if (mem_avail==0) // write the restart only if the simulation finished succesfully

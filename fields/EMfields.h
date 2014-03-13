@@ -3237,7 +3237,9 @@ inline void EMfields::calculateHatFunctions(Grid *grid, VirtualTopology *vct){
   eq(rhoh,tempXC,nxc,nyc);
   // at this point is communicated
 
-  if (0)//(grid->getLevel()==1) //patch removed //very harmful in the subcycling case
+
+  ///WORKING PACTH
+    if (grid->getLevel()==1) //patch removed //very harmful in the subcycling case
     {
       int END;
       //if (grid->getLevel()==0)                                                                                 
@@ -3273,11 +3275,9 @@ inline void EMfields::calculateHatFunctions(Grid *grid, VirtualTopology *vct){
             }
         }
 
-	}
-
-
-  communicateCenter(nxc, nyc, rhoh, vct);
-  
+    }
+    communicateCenter(nxc, nyc, rhoh, vct);
+    
 }
 
 /** Calculate PI dot (vectX, vectY, vectZ)*/
@@ -3753,7 +3753,7 @@ inline  void EMfields::BperfectConductorLeft(int dir, Grid *grid, VirtualTopolog
 			break;
 		case 1: // boundary condition on Y-DIRECTION left
                   	for (int i=1; i < nxn-1;i++){
-				Bxn[i][0][0] = (Bxc[i][0][0]+Bxc[i-1][0][0])/2.+Jz[i][0][0]*dy/2.;
+			  Bxn[i][0][0] = (Bxc[i][0][0]+Bxc[i-1][0][0])/2.+Jz[i][0][0]*dy/2.;
 				Byn[i][0][0] = 0.0;         
 				Bzn[i][0][0] = (Bzc[i][0][0]+Bzc[i-1][0][0])/2.-Jx[i][0][0]*dy/2.;
 			}
@@ -3795,7 +3795,7 @@ inline  void EMfields::BperfectConductorRight(int dir,Grid *grid,VirtualTopology
                         break;
 		case 1: // boundary condition on Y-DIRECTION right
                        for (int i=1; i < nxn-1;i++){                          
-				Bxn[i][nyn-1][0] = (Bxc[i][nyn-2][0]+Bxc[i-1][nyn-2][0])/2.-Jz[i][nyn-1][0]*dy/2.;
+			 Bxn[i][nyn-1][0] = (Bxc[i][nyn-2][0]+Bxc[i-1][nyn-2][0])/2.-Jz[i][nyn-1][0]*dy/2.;
 				Byn[i][nyn-1][0] = 0.0;             
 				Bzn[i][nyn-1][0] = (Bzc[i][nyn-2][0]+Bzc[i-1][nyn-2][0])/2.+Jx[i][nyn-1][0]*dy/2.;
 			}
@@ -4573,8 +4573,8 @@ eqValue (0.0, Bzn_recvbufferproj, nxn,nyn);
     for (i=ixrecvfirstProjglobal ;i<ixrecvlastProjglobal+1;i++){
         for (j=iyrecvfirstProjglobal;j<iyrecvlastProjglobal+1;j++){
 
-	  // too extreme, keep just in case
-	  /*if (i==ixrecvfirstProjglobal or j== iyrecvfirstProjglobal or i== ixrecvlastProjglobal or j== iyrecvlastProjglobal )
+	  // 4 points average
+	  if (i==ixrecvfirstProjglobal or j== iyrecvfirstProjglobal or i== ixrecvlastProjglobal or j== iyrecvlastProjglobal )
 	    {
 	      double perc=0.875;
 	      Ex[i][j][0] = perc* Ex[i][j][0] + (1.0-perc)*Ex_recvbufferproj[i][j][0]/normalizerecvProj[i][j][0];
@@ -4600,9 +4600,9 @@ eqValue (0.0, Bzn_recvbufferproj, nxn,nyn);
 	      Ex[i][j][0] = ( Ex[i][j][0] + Ex_recvbufferproj[i][j][0]/normalizerecvProj[i][j][0] )/2.;
 	      Ey[i][j][0] = ( Ey[i][j][0] + Ey_recvbufferproj[i][j][0]/normalizerecvProj[i][j][0] )/2.;
 	      Ez[i][j][0] = ( Ez[i][j][0] + Ez_recvbufferproj[i][j][0]/normalizerecvProj[i][j][0] )/2.;
-	      }*/
+	      }
 
-	  if (i==ixrecvfirstProjglobal or j== iyrecvfirstProjglobal or i== ixrecvlastProjglobal or j== iyrecvlastProjglobal )
+	  /*if (i==ixrecvfirstProjglobal or j== iyrecvfirstProjglobal or i== ixrecvlastProjglobal or j== iyrecvlastProjglobal )
             {
               double perc=0.75;
               Ex[i][j][0] = perc* Ex[i][j][0] + (1.0-perc)*Ex_recvbufferproj[i][j][0]/normalizerecvProj[i][j][0];
@@ -4614,7 +4614,7 @@ eqValue (0.0, Bzn_recvbufferproj, nxn,nyn);
               Ex[i][j][0] = ( Ex[i][j][0] + Ex_recvbufferproj[i][j][0]/normalizerecvProj[i][j][0] )/2.;
               Ey[i][j][0] = ( Ey[i][j][0] + Ey_recvbufferproj[i][j][0]/normalizerecvProj[i][j][0] )/2.;
               Ez[i][j][0] = ( Ez[i][j][0] + Ez_recvbufferproj[i][j][0]/normalizerecvProj[i][j][0] )/2.;
-	    }
+	      }*/
 
 
 	  //Bxn[i][j][0] = (Bxn[i][j][0]+ Bxn_recvbufferproj[i][j][0]/normalizerecvProj[i][j][0] )/2.;
