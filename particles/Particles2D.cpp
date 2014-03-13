@@ -692,16 +692,24 @@ int Particles2D::mover_PC(Grid* grid,VirtualTopology* vct, Field* EMf){
       lu = uu - nyn;
       ll = lu - 1;
 
+
+      //      cout << "uu " <<uu << " ul " <<ul <<" lu " <<lu <<" ll " << ll <<endl;
       // xn and yn are now direclty accessible
       /*weight11 = ((x[i] - grid->getXN(ix-1,iy-1,0))*inv_dx)*((y[i] - grid->getYN(ix-1,iy-1,0))*inv_dy);
       weight10 = ((x[i] - grid->getXN(ix-1,iy,0))*inv_dx)*((grid->getYN(ix-1,iy,0) - y[i])*inv_dy);
       weight01 = ((grid->getXN(ix,iy-1,0) - x[i])*inv_dx)*((y[i] - grid->getYN(ix,iy-1,0))*inv_dy);
       weight00 = ((grid->getXN(ix,iy,0) - x[i])*inv_dx)*((grid->getYN(ix,iy,0) - y[i])*inv_dy);*/
 
-      weight11 = ((x[i] - XN[ix-1][iy-1][0])*inv_dx)*((y[i] - YN[ix-1][iy-1][0])*inv_dy);
+      /*weight11 = ((x[i] - XN[ix-1][iy-1][0])*inv_dx)*((y[i] - YN[ix-1][iy-1][0])*inv_dy);
       weight10 = ((x[i] - XN[ix-1][iy][0])*inv_dx)*((YN[ix-1][iy][0] - y[i])*inv_dy);
       weight01 = ((XN[ix][iy-1][0] - x[i])*inv_dx)*((y[i] - YN[ix][iy-1][0])*inv_dy);
-      weight00 = ((XN[ix][iy][0] - x[i])*inv_dx)*((YN[ix][iy][0] - y[i])*inv_dy);
+      weight00 = ((XN[ix][iy][0] - x[i])*inv_dx)*((YN[ix][iy][0] - y[i])*inv_dy);*/
+
+      //with 1D access
+      weight11 = ((x[i] - XN[ll])*inv_dx)*((y[i] - YN[ll])*inv_dy);
+      weight10 = ((x[i] - XN[lu])*inv_dx)*((YN[lu] - y[i])*inv_dy);
+      weight01 = ((XN[ul] - x[i])*inv_dx)*((y[i] - YN[ul])*inv_dy);
+      weight00 = ((XN[uu] - x[i])*inv_dx)*((YN[uu] - y[i])*inv_dy);
 	
       /*    Exl = weight00*EMf->getEx(ix-1,iy-1,0) + weight01*EMf->getEx(ix-1,iy,0) + weight10*EMf->getEx(ix,iy-1,0) + weight11*EMf->getEx(ix,iy,0);
       Eyl = weight00*EMf->getEy(ix-1,iy-1,0) + weight01*EMf->getEy(ix-1,iy,0) + weight10*EMf->getEy(ix,iy-1,0) + weight11*EMf->getEy(ix,iy,0);

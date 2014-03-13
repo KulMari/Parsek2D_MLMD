@@ -183,11 +183,8 @@ void Particles2Dcomm::allocate(int species, CollectiveIO* col, VirtualTopology* 
   //  cout <<"Starting allocating particle vectors" <<endl;
 
   // for the mover                                                                        
-  allocArr3(&XN, nxn, nyn, 1);
-  allocArr3(&YN, nxn, nyn, 1);
-  XN= grid->xn;
-  YN=grid->yn;
-
+  XN = **(grid->xn);
+  YN = **(grid->yn);
 
   // positions
   x = new double[npmax];

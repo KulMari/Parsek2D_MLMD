@@ -584,8 +584,10 @@ class Particles2Dcomm : public Particles {
 
 
     // for the mover
-    double ***XN;
-    double ***YN;
+    double *XN;
+    double *YN;
+
+   
 }
 ;
 
