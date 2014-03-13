@@ -146,8 +146,8 @@ if (coord[0] != coord_particles[0]) {
   EMfields *EMf = new EMfields(col, grid, vct); // Create Electromagnetic Fields Object
   
   // Initial Condition for FIELD if you are not starting from RESTART
-  EMf->initUniform(vct,grid); // initialize with constant values
-  //EMf->initDoubleHarris(vct,grid); // initialize with constant values 
+  //EMf->initUniform(vct,grid); // initialize with constant values
+  EMf->initDoubleHarris(vct,grid); // initialize with constant values 
   //EMf->initLightwave(vct,grid); // initialize with a dipole
   
   
@@ -230,8 +230,8 @@ if (coord[0] != coord_particles[0]) {
   {
     for (int i=0; i < ns; i++)
       {
-	part[i].maxwellian(grid,EMf,vctparticles);  // all the species have Maxwellian distribution in the velocity
-	//part[i].DoubleHarris(grid,EMf,vctparticles);
+	//part[i].maxwellian(grid,EMf,vctparticles);  // all the species have Maxwellian distribution in the velocity
+	part[i].DoubleHarris(grid,EMf,vctparticles);
 	//int out;
 	//out =part[i].maxwellian_sameParticleInit(grid,EMf,vctparticles);
 	//if (out<0)
