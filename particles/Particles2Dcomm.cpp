@@ -3069,19 +3069,33 @@ bool Particles2Dcomm::applyParticleBC(int BC_partCommunicate, int np_current, in
       cout << "Particle " << ParticleID[np_current] <<" is in applyParticleBC, BC_partCommunicate: " <<BC_partCommunicate << endl;
       }*/
   
+  double dx= grid->getDX();
+  double dy= grid->getDY();
+  bool PX=   ptVCT->getPERIODICX();
+  bool PY=   ptVCT->getPERIODICY();
+
+
   if (BC_partCommunicate==0)
     {// coarse grid
-      if (  (x[np_current] < 0- grid->getDX() && !ptVCT->getPERIODICX()) || (x[np_current] < 0 && ptVCT->getPERIODICX()) ){ 
-	BCpart(&x[np_current],&u[np_current],&v[np_current],&w[np_current],Lx,uth,vth,wth,bcPfaceXright,bcPfaceXleft, grid->getDX(), ptVCT, ptVCT->getPERIODICX()); 
+      //if (  (x[np_current] < 0- grid->getDX() && !ptVCT->getPERIODICX()) || (x[np_current] < 0 && ptVCT->getPERIODICX()) ){ 
+      if (  (x[np_current] < 0- dx && !PX) || (x[np_current] < 0 && PX) ){   
+	//BCpart(&x[np_current],&u[np_current],&v[np_current],&w[np_current],Lx,uth,vth,wth,bcPfaceXright,bcPfaceXleft, grid->getDX(), ptVCT, ptVCT->getPERIODICX()); 
+	BCpart(&x[np_current],&u[np_current],&v[np_current],&w[np_current],Lx,uth,vth,wth,bcPfaceXright,bcPfaceXleft, dx, ptVCT, PX); 
       }
-      else if ( ( x[np_current] > Lx+grid->getDX() && !ptVCT->getPERIODICX()) || ( x[np_current] > Lx && ptVCT->getPERIODICX())  ) { 
-	BCpart(&x[np_current],&u[np_current],&v[np_current],&w[np_current],Lx,uth,vth,wth,bcPfaceXright,bcPfaceXleft, grid->getDX(), ptVCT, ptVCT->getPERIODICX());
+      //else if ( ( x[np_current] > Lx+grid->getDX() && !ptVCT->getPERIODICX()) || ( x[np_current] > Lx && ptVCT->getPERIODICX())  ) { 
+      else if ( ( x[np_current] > Lx+dx && !PX) || ( x[np_current] > Lx && PX)  ) {   
+      	//BCpart(&x[np_current],&u[np_current],&v[np_current],&w[np_current],Lx,uth,vth,wth,bcPfaceXright,bcPfaceXleft, grid->getDX(), ptVCT, ptVCT->getPERIODICX());
+	BCpart(&x[np_current],&u[np_current],&v[np_current],&w[np_current],Lx,uth,vth,wth,bcPfaceXright,bcPfaceXleft, dx, ptVCT, PX); 
       }
-      if ( (y[np_current] < 0- grid->getDY() && !ptVCT->getPERIODICY()) || (y[np_current] < 0 && ptVCT->getPERIODICY())  ){  
-	BCpart(&y[np_current],&v[np_current],&u[np_current],&w[np_current],Ly,vth,uth,wth,bcPfaceYright,bcPfaceYleft, grid->getDY(), ptVCT, ptVCT->getPERIODICY());  
+      //if ( (y[np_current] < 0- grid->getDY() && !ptVCT->getPERIODICY()) || (y[np_current] < 0 && ptVCT->getPERIODICY())  ){  
+      if ( (y[np_current] < 0- dy && !PY) || (y[np_current] < 0 && PY)  ){ 
+	//BCpart(&y[np_current],&v[np_current],&u[np_current],&w[np_current],Ly,vth,uth,wth,bcPfaceYright,bcPfaceYleft, grid->getDY(), ptVCT, ptVCT->getPERIODICY());  
+	BCpart(&y[np_current],&v[np_current],&u[np_current],&w[np_current],Ly,vth,uth,wth,bcPfaceYright,bcPfaceYleft, dy, ptVCT, PY); 
       }
-      else if ( (y[np_current] > Ly +grid->getDY() && !ptVCT->getPERIODICY()) || (y[np_current] > Ly  && ptVCT->getPERIODICY())  ){  
-	BCpart(&y[np_current],&v[np_current],&u[np_current],&w[np_current],Ly,vth,uth,wth,bcPfaceYright,bcPfaceYleft, grid->getDY(), ptVCT, ptVCT->getPERIODICY());
+      //else if ( (y[np_current] > Ly +grid->getDY() && !ptVCT->getPERIODICY()) || (y[np_current] > Ly  && ptVCT->getPERIODICY())  ){  
+      else if ( (y[np_current] > Ly + dy && !PY) || (y[np_current] > Ly  && PY)  ){  
+	//BCpart(&y[np_current],&v[np_current],&u[np_current],&w[np_current],Ly,vth,uth,wth,bcPfaceYright,bcPfaceYleft, grid->getDY(), ptVCT, ptVCT->getPERIODICY());
+	BCpart(&y[np_current],&v[np_current],&u[np_current],&w[np_current],Ly,vth,uth,wth,bcPfaceYright,bcPfaceYleft, dy, ptVCT, PY);  
       }
       return false; //skip to false, do not skip the other chekcs on the particle
     }
