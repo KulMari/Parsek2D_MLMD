@@ -317,6 +317,10 @@ class Particles2Dcomm : public Particles {
     int bcPfaceYright;
     /** Boundary Condition Particles: FaceYleft */
     int bcPfaceYleft;
+    /** vct periodicity x **/
+    bool PX;
+    /** vct periocity y **/
+    bool PY;
     /** speed of light in vacuum */
     double c;
     /** reconnection thickness */

@@ -175,6 +175,11 @@ void Particles2Dcomm::allocate(int species, CollectiveIO* col, VirtualTopology* 
   bcPfaceYright = col->getBcPfaceYright();
   bcPfaceYleft = col->getBcPfaceYleft();
     
+
+  // periodicity for particles
+  PX=   vct->getPERIODICX();
+  PY=   vct->getPERIODICY();
+
   ////////////////////////////////////////////////////////////////
   ////////////////     ALLOCATE ARRAYS   /////////////////////////
   ////////////////////////////////////////////////////////////////
@@ -3069,11 +3074,7 @@ bool Particles2Dcomm::applyParticleBC(int BC_partCommunicate, int np_current, in
       cout << "Particle " << ParticleID[np_current] <<" is in applyParticleBC, BC_partCommunicate: " <<BC_partCommunicate << endl;
       }*/
   
-  double dx= grid->getDX();
-  double dy= grid->getDY();
-  bool PX=   ptVCT->getPERIODICX();
-  bool PY=   ptVCT->getPERIODICY();
-
+  // PX, PY: periodicity for particles set at allocation
 
   if (BC_partCommunicate==0)
     {// coarse grid
