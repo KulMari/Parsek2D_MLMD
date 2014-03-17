@@ -2193,7 +2193,7 @@ int Particles2Dcomm::PRASend(Grid* grid, VirtualTopology* vct)
   
 
   // count the number of sent particles
-  if (1)// debug
+  if (0)// debug
     {
       int total_p_sent= np_REPOP_b_BOTTOM+ np_REPOP_b_TOP+ np_REPOP_b_LEFT+ np_REPOP_b_RIGHT;
       int total_p_sent_Clevel= 0;
@@ -2360,7 +2360,7 @@ int Particles2Dcomm::PRAReceive(Grid* grid, VirtualTopology *vct, Field* EMf)
       
     }   // end receive + split
   
-  if (1)// debug                                                                                                                                  
+  if (0)// debug                                                                                                                                  
     {
       int total_received_p= 0;
       int total_accepted=0;
@@ -2452,7 +2452,7 @@ int Particles2Dcomm::PRAReceive(Grid* grid, VirtualTopology *vct, Field* EMf)
 	memcpy(RP_ParticleID, ParticleID+nop_BeforeSplit, sizeof(unsigned long)*RP_nop);
 
   }
-  if (1)// debug                                 
+  if (0)// debug                                 
     {
       int total_particle=0;
       MPI_Allreduce(&nop, &total_particle, 1, MPI_INT, MPI_SUM, vct->getCART_COMM());
