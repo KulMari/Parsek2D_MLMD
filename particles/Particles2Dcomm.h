@@ -242,8 +242,14 @@ class Particles2Dcomm : public Particles {
     double* q;
     /** Simulation domain lengths */
     double xstart, xend, ystart, yend;
-	/** cell size */
-	double dx, dy, invVOL;
+    /** cell size */
+    double dx, dy, invVOL;
+    /** XLEN, YLEN **/
+    int XLEN;
+    int YLEN;
+    /** Coordinate **/
+    int Coord0; //vct->getCoordinates(0)
+    int Coord1; //vct->getCoordinates(1)
     /** time step */
     double dt;
     /** am I subcycling? */

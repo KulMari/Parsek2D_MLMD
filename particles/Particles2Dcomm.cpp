@@ -168,7 +168,11 @@ void Particles2Dcomm::allocate(int species, CollectiveIO* col, VirtualTopology* 
   invVOL = grid->getInvVOL();
   // info from VirtualTopology
   cVERBOSE = vct->getcVERBOSE();
-    
+  XLEN= vct->getXLEN();
+  YLEN= vct->getYLEN();
+  Coord0= vct->getCoordinates(0);
+  Coord1= vct->getCoordinates(1);
+
   // boundary condition for particles
   bcPfaceXright = col->getBcPfaceXright();
   bcPfaceXleft = col->getBcPfaceXleft();
@@ -230,7 +234,8 @@ void Particles2Dcomm::allocate(int species, CollectiveIO* col, VirtualTopology* 
   if (PrintSize)
     {
       MPI_Barrier(vct->getCART_COMM());
-      if (! (vct->getCartesian_rank_COMMTOTAL()%(vct->getXLEN()*vct->getYLEN()))   )
+      //if (! (vct->getCartesian_rank_COMMTOTAL()%(vct->getXLEN()*vct->getYLEN()))   )
+      if (! (vct->getCartesian_rank_COMMTOTAL()%(XLEN*YLEN))   )   
 	cout <<"Each core of level " << grid->getLevel() <<" allocated 13 vectors of size npmax= " <<npmax << " for basic particle info"<<endl; 
       if (vct->getCartesian_rank_COMMTOTAL() == 0 || vct->getCartesian_rank_COMMTOTAL()==3000)
 	cout <<"Each core of level " << grid->getLevel() <<" allocated 13 vectors of size npmax= " <<npmax << " for basic particle info"<<endl;
@@ -264,7 +269,8 @@ void Particles2Dcomm::allocate(int species, CollectiveIO* col, VirtualTopology* 
   if (PrintSize)
     {
       MPI_Barrier(vct->getCART_COMM());
-      if (! (vct->getCartesian_rank_COMMTOTAL()%(vct->getXLEN()*vct->getYLEN()))   )
+      //if (! (vct->getCartesian_rank_COMMTOTAL()%(vct->getXLEN()*vct->getYLEN()))   )
+      if (! (vct->getCartesian_rank_COMMTOTAL()%(XLEN*YLEN))   )  
         cout <<"Each core of level " << grid->getLevel() <<" allocated 4 vectors of size buffer_size= " <<buffer_size << " and 1 vector of size MAX_BUFFER_SIZE= " << MAX_BUFFER_SIZE << " for communication within the grid; alias ptr for resizing"<<endl;
     }
 
@@ -303,7 +309,8 @@ void Particles2Dcomm::allocate(int species, CollectiveIO* col, VirtualTopology* 
   if (PrintSize)
     {
       MPI_Barrier(vct->getCART_COMM());
-      if (! (vct->getCartesian_rank_COMMTOTAL()%(vct->getXLEN()*vct->getYLEN()))   )
+      //if (! (vct->getCartesian_rank_COMMTOTAL()%(vct->getXLEN()*vct->getYLEN()))   )
+      if (! (vct->getCartesian_rank_COMMTOTAL()%(XLEN*YLEN))   ) 
         cout <<"Each core of level " << grid->getLevel() <<" allocated 5 vectors of size MAX_NP_REPOP_SIZE* nVar= " <<MAX_NP_REPOP_SIZE* nVar << " for particle repopulation; alias for resizing"<<endl;
     }
 
@@ -342,7 +349,8 @@ void Particles2Dcomm::allocate(int species, CollectiveIO* col, VirtualTopology* 
   if (PrintSize)
     {
       MPI_Barrier(vct->getCART_COMM());
-      if (! (vct->getCartesian_rank_COMMTOTAL()%(vct->getXLEN()*vct->getYLEN()))   )
+      //if (! (vct->getCartesian_rank_COMMTOTAL()%(vct->getXLEN()*vct->getYLEN()))   )
+      if (! (vct->getCartesian_rank_COMMTOTAL()%(XLEN*YLEN))   ) 
 	{
 	  cout <<"Each core of the refined grid allocated 4 vectors of size max_np_SplitPartComm* nVar= " <<max_np_SplitPartComm* nVar <<" and 1 vector of size MAX_NP_SPLIPARTCOMM* nVar= " << MAX_NP_SPLIPARTCOMM* nVar << " for split particles, alias for resize "<<endl;
 	  cout << "I am level " << grid->getLevel()<<endl;
@@ -646,15 +654,16 @@ int Particles2Dcomm::communicate(VirtualTopology* ptVCT, Grid* grid, int BC_part
     //cout << "R" << ptVCT->getCartesian_rank_COMMTOTAL() << "After ApplyParticleBC, ID " << ParticleID[np_current]<< " x[np_current] " <<x[np_current] << " y[np_current] " <<y[np_current]<<endl;
     if (!Skip)
       {
-	double dx = grid->getDX();
-	double dy = grid->getDY();
+	//double dx = grid->getDX();  // already here!!!
+	//double dy = grid->getDY();
 	// if the particle exits, apply the boundary conditions add the particle to communication buffer
 	// enter here if you need to be communicated
 	// the first two conditions legitimate, the others to catch errors and eventually to eliminate
-	if ( (x[np_current] < xstart && ptVCT->getCoordinates(0) != 0 ) || (x[np_current] > xend && ptVCT->getCoordinates(0) != (ptVCT->getXLEN()-1)) || (x[np_current] < Modified_xstart && ptVCT->getCoordinates(0) == 0 )|| (x[np_current] > Modified_xend && ptVCT->getCoordinates(0) == (ptVCT->getXLEN()-1) )  ){
-
+	//if ( (x[np_current] < xstart && ptVCT->getCoordinates(0) != 0 ) || (x[np_current] > xend && ptVCT->getCoordinates(0) != (ptVCT->getXLEN()-1)) || (x[np_current] < Modified_xstart && ptVCT->getCoordinates(0) == 0 )|| (x[np_current] > Modified_xend && ptVCT->getCoordinates(0) == (ptVCT->getXLEN()-1) )  ){
+	if ( (x[np_current] < xstart && Coord0 != 0 ) || (x[np_current] > xend && Coord0 != (XLEN-1)) || (x[np_current] < Modified_xstart && Coord0 == 0 )|| (x[np_current] > Modified_xend && Coord0 == (XLEN-1) )  ){  
 	// communicate if they don't belong to the domain
-	  if (x[np_current] < xstart && ptVCT->getCoordinates(0) != 0){
+	  //if (x[np_current] < xstart && ptVCT->getCoordinates(0) != 0){
+	  if (x[np_current] < xstart && Coord0 != 0){          
 	    // check if there is enough space in the buffer before putting in the particle
 	    if(((npExitXleft+1)*nVar)>=buffer_size){
 	      cout << "R" << ptVCT->getCartesian_rank_COMMTOTAL() << "communicate resizing the sending buffer to " << (int) (buffer_size*2) << " buffer size" << endl;
@@ -669,7 +678,8 @@ int Particles2Dcomm::communicate(VirtualTopology* ptVCT, Grid* grid, int BC_part
 	    // delete the particle and pack the particle array, the value of nplast changes
 	    del_pack(np_current,&nplast);
 	    npExitXleft++;
-	  } else if (x[np_current] > xend && ptVCT->getCoordinates(0) != (ptVCT->getXLEN()-1)){
+	    //} else if (x[np_current] > xend && ptVCT->getCoordinates(0) != (ptVCT->getXLEN()-1)){
+	  } else if (x[np_current] > xend && Coord0 != (XLEN-1)){  
 	    // check if there is enough space in the buffer before putting in the particle
 	    if(((npExitXright+1)*nVar)>=buffer_size){
 	      cout << "R" << ptVCT->getCartesian_rank_COMMTOTAL() << "communicate resizing the sending buffer " << (int) (buffer_size*2) << endl; 
@@ -684,18 +694,21 @@ int Particles2Dcomm::communicate(VirtualTopology* ptVCT, Grid* grid, int BC_part
 	    // delete the particle and pack the particle array, the value of nplast changes
 	    del_pack(np_current,&nplast);
 	    npExitXright++;
-	  } else if (x[np_current] < Modified_xstart && ptVCT->getCoordinates(0) == 0 ){
+	    //} else if (x[np_current] < Modified_xstart && ptVCT->getCoordinates(0) == 0 ){
+	  } else if (x[np_current] < Modified_xstart && Coord0 == 0 ){    
 	    cout <<"Communicate: problem with particle position, exiting";
 	    return -1;
-	  } else if (x[np_current] > Modified_xend && ptVCT->getCoordinates(0) == (ptVCT->getXLEN()-1)){
+	    //} else if (x[np_current] > Modified_xend && ptVCT->getCoordinates(0) == (ptVCT->getXLEN()-1)){
+	  } else if (x[np_current] > Modified_xend && Coord0 == (XLEN-1)){  
 	    cout <<"Communicate: problem with particle position, exiting";
 	    return -1;
 	  }
 	} //end condition on x
-    else if ( (y[np_current] < ystart && ptVCT->getCoordinates(1) != 0 ) || (y[np_current] > yend && ptVCT->getCoordinates(1) != (ptVCT->getYLEN()-1)) || (y[np_current] < Modified_ystart && ptVCT->getCoordinates(1) == 0 )|| (y[np_current] > Modified_yend && ptVCT->getCoordinates(1) == (ptVCT->getYLEN()-1))     ){
-
+	//else if ( (y[np_current] < ystart && ptVCT->getCoordinates(1) != 0 ) || (y[np_current] > yend && ptVCT->getCoordinates(1) != (ptVCT->getYLEN()-1)) || (y[np_current] < Modified_ystart && ptVCT->getCoordinates(1) == 0 )|| (y[np_current] > Modified_yend && ptVCT->getCoordinates(1) == (ptVCT->getYLEN()-1))     ){
+	else if ( (y[np_current] < ystart && Coord1 != 0 ) || (y[np_current] > yend && Coord1 != (YLEN-1)) || (y[np_current] < Modified_ystart && Coord1 == 0 )|| (y[np_current] > Modified_yend && Coord1 == (YLEN-1))     ){  
 	  // communicate if they don't belong to the domain
-	 if (y[np_current] < ystart && ptVCT->getCoordinates(1) != 0){
+	  //if (y[np_current] < ystart && ptVCT->getCoordinates(1) != 0){
+	  if (y[np_current] < ystart && Coord1 != 0){   
 	 // check if there is enough space in the buffer before putting in the particle
 	    if(((npExitYleft+1)*nVar)>=buffer_size){
 	      cout << "R"<< ptVCT->getCartesian_rank_COMMTOTAL() << "communicate resizing the sending buffer " << (int) (buffer_size*2) << endl;
@@ -710,7 +723,8 @@ int Particles2Dcomm::communicate(VirtualTopology* ptVCT, Grid* grid, int BC_part
 	    // delete the particle and pack the particle array, the value of nplast changes
 	    del_pack(np_current,&nplast);
 	    npExitYleft++;
-	 } else if (y[np_current] > yend && ptVCT->getCoordinates(1) != (ptVCT->getYLEN()-1)){
+	    //} else if (y[np_current] > yend && ptVCT->getCoordinates(1) != (ptVCT->getYLEN()-1)){
+	  } else if (y[np_current] > yend && Coord1 != (YLEN-1)){ 
 	    // check if there is enough space in the buffer before putting in the particle
 	    if(((npExitYright+1)*nVar)>=buffer_size){
 	      cout << "R"<< ptVCT->getCartesian_rank_COMMTOTAL() << "communicate resizing the sending buffer " << (int) (buffer_size*2) << endl; 
@@ -725,10 +739,12 @@ int Particles2Dcomm::communicate(VirtualTopology* ptVCT, Grid* grid, int BC_part
 	    // delete the particle and pack the particle array, the value of nplast changes
 	    del_pack(np_current,&nplast);
 	    npExitYright++;
-	 } else if (y[np_current] < Modified_ystart && ptVCT->getCoordinates(1) == 0 ){
+	    //} else if (y[np_current] < Modified_ystart && ptVCT->getCoordinates(1) == 0 ){
+	  } else if (y[np_current] < Modified_ystart && Coord1 == 0 ){ 
 	   cout <<"Communicate: problem with particle position, exiting";
 	    return -1;
-	 } else if (y[np_current] > Modified_yend && ptVCT->getCoordinates(1) == (ptVCT->getYLEN()-1)){
+	    //} else if (y[np_current] > Modified_yend && ptVCT->getCoordinates(1) == (ptVCT->getYLEN()-1)){
+	  } else if (y[np_current] > Modified_yend && Coord1 == (YLEN-1)){   
 	    cout <<"Communicate: problem with particle position, exiting";
 	    return -1;
 	  }
@@ -1010,9 +1026,10 @@ int Particles2Dcomm::unbuffer(double *b_, VirtualTopology *ptVCT){
     if (cVERBOSE)
       cout << "Receiving Particle: X=" << x[nop] << ",Y=" << y[nop] << " ("<< xstart<<"," << xend << ")"<< " x ("<< ystart<<"," << yend << ")"<<endl;
 
-    bool XnotRightDom= (x[nop] < xstart && ptVCT->getCoordinates(0) != 0 ) || (x[nop] > xend && ptVCT->getCoordinates(0) != (ptVCT->getXLEN()-1) );
-    bool YnotRightDom=(y[nop] < ystart && ptVCT->getCoordinates(1) != 0 ) || (y[nop] > yend && ptVCT->getCoordinates(1) != (ptVCT->getYLEN()-1));
-
+    //bool XnotRightDom= (x[nop] < xstart && ptVCT->getCoordinates(0) != 0 ) || (x[nop] > xend && ptVCT->getCoordinates(0) != (ptVCT->getXLEN()-1) );
+    bool XnotRightDom= (x[nop] < xstart && Coord0 != 0 ) || (x[nop] > xend && Coord0 != (XLEN-1) ); 
+    //bool YnotRightDom=(y[nop] < ystart && ptVCT->getCoordinates(1) != 0 ) || (y[nop] > yend && ptVCT->getCoordinates(1) != (ptVCT->getYLEN()-1));
+    bool YnotRightDom=(y[nop] < ystart && Coord1 != 0 ) || (y[nop] > yend && Coord1 != (YLEN-1));
 
     if(XnotRightDom || YnotRightDom)
       {
@@ -2176,7 +2193,7 @@ int Particles2Dcomm::PRASend(Grid* grid, VirtualTopology* vct)
   
 
   // count the number of sent particles
-  if (0)// debug
+  if (1)// debug
     {
       int total_p_sent= np_REPOP_b_BOTTOM+ np_REPOP_b_TOP+ np_REPOP_b_LEFT+ np_REPOP_b_RIGHT;
       int total_p_sent_Clevel= 0;
@@ -2343,7 +2360,7 @@ int Particles2Dcomm::PRAReceive(Grid* grid, VirtualTopology *vct, Field* EMf)
       
     }   // end receive + split
   
-  if (0)// debug                                                                                                                                  
+  if (1)// debug                                                                                                                                  
     {
       int total_received_p= 0;
       int total_accepted=0;
@@ -2351,7 +2368,7 @@ int Particles2Dcomm::PRAReceive(Grid* grid, VirtualTopology *vct, Field* EMf)
       MPI_Allreduce(&received_p, &total_received_p, 1, MPI_INT, MPI_SUM, vct->getCART_COMM());
       MPI_Allreduce( &AcceptedRPAfterSplit,&total_accepted, 1, MPI_INT, MPI_SUM, vct->getCART_COMM());
       MPI_Allreduce(&nop, &total_particle, 1, MPI_INT, MPI_SUM, vct->getCART_COMM());
-      if (vct->getCartesian_rank() == 0) // any proc on this level
+      if (1) // any proc on this level
         {
           cout << "R" << vct->getCartesian_rank_COMMTOTAL() << "Total number of particles received by Refined llevel:  " << total_received_p << ", qom " << qom<< endl;
 	  cout << "R" << vct->getCartesian_rank_COMMTOTAL() << "Total number of particles accepted by Refined llevel:  " << total_accepted << ", qom " << qom<< endl;
@@ -2435,7 +2452,7 @@ int Particles2Dcomm::PRAReceive(Grid* grid, VirtualTopology *vct, Field* EMf)
 	memcpy(RP_ParticleID, ParticleID+nop_BeforeSplit, sizeof(unsigned long)*RP_nop);
 
   }
-  if (0)// debug                                 
+  if (1)// debug                                 
     {
       int total_particle=0;
       MPI_Allreduce(&nop, &total_particle, 1, MPI_INT, MPI_SUM, vct->getCART_COMM());
@@ -2637,9 +2654,11 @@ int Particles2Dcomm::communicateSP(VirtualTopology* ptVCT, Grid* grid){
   
   while (np_current < nplast+1){
     
-    if ( (x[np_current] < xstart && ptVCT->getCoordinates(0) != 0 ) || (x[np_current] > xend && ptVCT->getCoordinates(0) != (ptVCT->getXLEN()-1)) || (x[np_current] < Modified_xstart && ptVCT->getCoordinates(0) == 0 )|| (x[np_current] > Modified_xend && ptVCT->getCoordinates(0) == (ptVCT->getXLEN()-1))     ){
+    //if ( (x[np_current] < xstart && ptVCT->getCoordinates(0) != 0 ) || (x[np_current] > xend && ptVCT->getCoordinates(0) != (ptVCT->getXLEN()-1)) || (x[np_current] < Modified_xstart && ptVCT->getCoordinates(0) == 0 )|| (x[np_current] > Modified_xend && ptVCT->getCoordinates(0) == (ptVCT->getXLEN()-1))     ){
+    if ( (x[np_current] < xstart && Coord0 != 0 ) || (x[np_current] > xend && Coord0 != (XLEN-1)) || (x[np_current] < Modified_xstart && Coord0 == 0 )|| (x[np_current] > Modified_xend && Coord0 == (XLEN-1))     ){ 
       // communicate if they don't belong to the domain
-      if (x[np_current] < xstart && ptVCT->getCoordinates(0) != 0){
+      //if (x[np_current] < xstart && ptVCT->getCoordinates(0) != 0){
+      if (x[np_current] < xstart && Coord0 != 0){   
 	// check if there is enough space in the buffer before putting in the particle
 	if( (npExitXleft+1)>= max_np_SplitPartComm){ 
 	  cout << "R" << ptVCT->getCartesian_rank_COMMTOTAL() << "communicateSP doubling the sending buffer size" << endl;
@@ -2655,7 +2674,8 @@ int Particles2Dcomm::communicateSP(VirtualTopology* ptVCT, Grid* grid){
 	// delete the particle and pack the particle array, the value of nplast changes
 	del_pack(np_current,&nplast);
 	npExitXleft++;
-      } else if (x[np_current] > xend && ptVCT->getCoordinates(0) != (ptVCT->getXLEN()-1)){
+	//} else if (x[np_current] > xend && ptVCT->getCoordinates(0) != (ptVCT->getXLEN()-1)){
+      } else if (x[np_current] > xend && Coord0 != (XLEN-1)){  
 	// check if there is enough space in the buffer before putting in the particle
 	if( (npExitXright+1)>=max_np_SplitPartComm){
 	  cout << "R" << ptVCT->getCartesian_rank_COMMTOTAL() << "communicateSP doubling the sending buffer size" << endl;
@@ -2681,9 +2701,11 @@ int Particles2Dcomm::communicateSP(VirtualTopology* ptVCT, Grid* grid){
 	return -1;
 	}*/
     } 
-    else if ( (y[np_current] < ystart && ptVCT->getCoordinates(1) != 0 ) || (y[np_current] > yend && ptVCT->getCoordinates(1) != (ptVCT->getYLEN()-1)) || (y[np_current] < Modified_ystart && ptVCT->getCoordinates(1) == 0 )|| (y[np_current] > Modified_yend && ptVCT->getCoordinates(1) == (ptVCT->getYLEN()-1))     ){
+    //else if ( (y[np_current] < ystart && ptVCT->getCoordinates(1) != 0 ) || (y[np_current] > yend && ptVCT->getCoordinates(1) != (ptVCT->getYLEN()-1)) || (y[np_current] < Modified_ystart && ptVCT->getCoordinates(1) == 0 )|| (y[np_current] > Modified_yend && ptVCT->getCoordinates(1) == (ptVCT->getYLEN()-1))     ){
+    else if ( (y[np_current] < ystart && Coord1 != 0 ) || (y[np_current] > yend && Coord1 != (YLEN-1)) || (y[np_current] < Modified_ystart && Coord1 == 0 )|| (y[np_current] > Modified_yend && Coord1 == (YLEN-1))     ){  
       // communicate if they don't belong to the domain
-      if (y[np_current] < ystart && ptVCT->getCoordinates(1) != 0){
+      //if (y[np_current] < ystart && ptVCT->getCoordinates(1) != 0){
+      if (y[np_current] < ystart && Coord1 != 0){
 	// check if there is enough space in the buffer before putting in the particle
 	if( (npExitYleft+1)>=max_np_SplitPartComm){
 	  cout << "R" << ptVCT->getCartesian_rank_COMMTOTAL() << "communicateSP doubling the sending buffer size" << endl;
@@ -2699,7 +2721,8 @@ int Particles2Dcomm::communicateSP(VirtualTopology* ptVCT, Grid* grid){
 	// delete the particle and pack the particle array, the value of nplast changes
 	del_pack(np_current,&nplast);
 	npExitYleft++;
-      } else if (y[np_current] > yend && ptVCT->getCoordinates(1) != (ptVCT->getYLEN()-1)){
+	//} else if (y[np_current] > yend && ptVCT->getCoordinates(1) != (ptVCT->getYLEN()-1)){
+      } else if (y[np_current] > yend && Coord1 != (YLEN-1)){    
 	// check if there is enough space in the buffer before putting in the particle
 	if( (npExitYright+1)>=max_np_SplitPartComm){
 	  cout << "R" << ptVCT->getCartesian_rank_COMMTOTAL() << "communicateSP doubling the sending buffer size" << endl;
@@ -2928,7 +2951,8 @@ int Particles2Dcomm::CountPRAParticles(VirtualTopology* vct)
   MPI_Allreduce(&nonPRA, &allNonPRA, 1, MPI_INT, MPI_SUM, vct->getCART_COMM());
   MPI_Allreduce(&nop, &allNop, 1, MPI_INT, MPI_SUM, vct->getCART_COMM());
   
-  if (vct->getCartesian_rank_COMMTOTAL() == vct->getXLEN()*vct->getYLEN())
+  //if (vct->getCartesian_rank_COMMTOTAL() == vct->getXLEN()*vct->getYLEN())
+  if (vct->getCartesian_rank_COMMTOTAL() == XLEN*YLEN) 
     {
       cout << "Refined level, species "<<ns <<": particles in BOTTOM: " << allBOTTOM << ", TOP: " << allTOP <<", LEFT: "<< allLEFT << ", RIGHT: "<<allRIGHT <<", nonPRA: " <<allNonPRA << ", nop: "<<allNop << endl; 
     }
@@ -4245,7 +4269,7 @@ int Particles2Dcomm::initPRAVariables(int species, CollectiveIO* col,VirtualTopo
   // remember that there is always only 1 PRA ghost cell, the other in the active domain
 
   int expSR;
-  if (col->getXLEN()> col->getYLEN())
+  if (col->getXLEN()> col->getYLEN()) 
     {
       expSR= col->getXLEN()*2*4; // a occhio                                                                                                  
     }
