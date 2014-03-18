@@ -3591,7 +3591,8 @@ inline void  EMfields::smooth(int nvolte, double value,double ***vector, bool ty
 				communicateNode(nx, ny, vector, vct);
 
 			//delArr(temp,nx);
-			freeArr1(&temp);
+			//freeArr1(&temp);
+			freeArr2(&temp);
 		} // end of if (value !=1)
 	}
 	}
@@ -3641,7 +3642,8 @@ inline void  EMfields::smoothE(int nvolte, double value,double ***vector, bool t
 				communicateNode(nx, ny, vector, vct);
 
 			//delArr(temp,nx);
-			freeArr1(&temp);
+			//freeArr1(&temp);
+			freeArr2(&temp);
 		} // end of if (value !=1)
 	}
 }
@@ -3726,7 +3728,8 @@ inline void  EMfields::smooth(int nvolte, double value,double ****vector,int is,
 				communicateNode(nx, ny, vector, is, vct);
 
 			//delArr(temp,nx);
-			freeArr1(&temp);
+			//freeArr1(&temp);
+			freeArr2(&temp);
 		} // end of if
 	}
 }

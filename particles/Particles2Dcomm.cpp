@@ -4598,7 +4598,8 @@ int Particles2Dcomm::initPRAVariables(int species, CollectiveIO* col,VirtualTopo
 	  info[0]= vct->getCartesian_rank_COMMTOTAL();
 	  info[1]= BCSidecu[i];
 	  
-	  MPI_Isend (info, NInfo, MPI_DOUBLE, fromBC[i], TagInfo, vct->getCART_COMM_TOTAL(), &requestISend);
+	  //MPI_Isend (info, NInfo, MPI_DOUBLE, fromBC[i], TagInfo, vct->getCART_COMM_TOTAL(), &requestISend);
+	  MPI_Isend (info, NInfo, MPI_INT, fromBC[i], TagInfo, vct->getCART_COMM_TOTAL(), &requestISend); 
 	  MPI_Wait(&requestISend, &status);
 	}
     }
@@ -4610,8 +4611,8 @@ int Particles2Dcomm::initPRAVariables(int species, CollectiveIO* col,VirtualTopo
       targetRIGHT=0;
       for (int i=0; i<nmessageBC; i++)
 	{
-	  MPI_Recv(info, NInfo,MPI_DOUBLE, MPI_ANY_SOURCE, TagInfo, vct->getCART_COMM_TOTAL(), &status);
-	  
+	  //MPI_Recv(info, NInfo,MPI_DOUBLE, MPI_ANY_SOURCE, TagInfo, vct->getCART_COMM_TOTAL(), &status);
+	  MPI_Recv(info, NInfo,MPI_INT, MPI_ANY_SOURCE, TagInfo, vct->getCART_COMM_TOTAL(), &status); 
 	  targetBC[i]= info[0];
 	  BCSide[i]= info[1];
 	  switch(BCSide[i])
