@@ -51,6 +51,7 @@ using std::endl;
 
 int main (int argc, char **argv) {
 
+  bool HPC_TOOLKIT= false;  // not to have output interfering with HPC TOOLKIT
   bool TEST=0; //this takes a lot od reduces, put to 0 normally
   bool TEST_B=0; // to eliminate the barriers; when debugging, the barriers mark the beginning/ end of each phase
   //  bool SCALASCA_SELECTIVE=0;
@@ -397,13 +398,14 @@ if (coord[0] != coord_particles[0]) {
 
       }
 
-    MPI_Barrier(vct->getCART_COMM()); //leave this here!!!
+    //MPI_Barrier(vct->getCART_COMM()); //leave this here!!!
 	  
-    if  (CoarseOp ) // sub; be careful with timing the output
+    if  (CoarseOp and !HPC_TOOLKIT) // sub; be careful with timing the output
       {
 	// OUTPUT to large file, called proc**
 	if (cycle%(col->getFieldOutputCycle())==0 || cycle==first_cycle)
 	  {
+	    MPI_Barrier(vct->getCART_COMM()); //leave this here!!!      
 	    hdf5_agent.open_append(SaveDirName+"/proc"+num_proc.str()+".hdf");
 	    output_mgr.output("k_energy + E_energy + B_energy + pressure",cycle);
 	    output_mgr.output("Eall + Ball + rhos + rho + phi + Jsall",cycle);
@@ -412,6 +414,7 @@ if (coord[0] != coord_particles[0]) {
 	  }
 	if (cycle%(col->getParticlesOutputCycle())==0 && col->getParticlesOutputCycle()!=1)
 	  {
+	    MPI_Barrier(vct->getCART_COMM()); //leave this here!!!      
 	    hdf5_agent.open_append(SaveDirName+"/part"+num_proc.str()+".hdf");
 	    output_mgr.output("position + velocity + q +ID",cycle, 1);
 	    hdf5_agent.close();
@@ -691,14 +694,14 @@ if (coord[0] != coord_particles[0]) {
       }
 
     // Output save a file for the RESTART
-      if  (CoarseOp ) // sub; be careful with timing the output
+      if  (CoarseOp and !HPC_TOOLKIT) // sub; be careful with timing the output
 	{
 	  if (cycle%(col->getRestartOutputCycle())==0 && cycle != first_cycle)
 	    writeRESTART(RestartDirName,myrank,cycle,ns,mpi,vct,col,grid,EMf,part,0); // without ,0 add to restart file	   
 	}
 
-      if (TEST)
-      //if (TEST and CoarseOp and (cycle%(col->getFieldOutputCycle())==0 or cycle==first_cycle))
+      //if (TEST)
+      if (TEST and CoarseOp and (cycle%(col->getFieldOutputCycle())==0 or cycle==first_cycle) and !HPC_TOOLKIT)
       {
 	Eenergy= EMf->getEenergy(vct);
 	Benergy= EMf->getBenergy(vct);
