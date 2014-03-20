@@ -184,11 +184,6 @@ void Particles2Dcomm::allocate(int species, CollectiveIO* col, VirtualTopology* 
   PX=   vct->getPERIODICX();
   PY=   vct->getPERIODICY();
 
-  // am I at the boundary?
-  X_left_N=vct->getXleft_neighbor();
-  X_right_N=vct->getXright_neighbor();
-  Y_left_N=vct->getYleft_neighbor();
-  Y_right_N=vct->getYright_neighbor();
 
   ////////////////////////////////////////////////////////////////
   ////////////////     ALLOCATE ARRAYS   /////////////////////////
