@@ -184,6 +184,12 @@ void Particles2Dcomm::allocate(int species, CollectiveIO* col, VirtualTopology* 
   PX=   vct->getPERIODICX();
   PY=   vct->getPERIODICY();
 
+  // am I at the boundary?
+  X_left_N=vct->getXleft_neighbor();
+  X_right_N=vct->getXright_neighbor();
+  Y_left_N=vct->getYleft_neighbor();
+  Y_right_N=vct->getYright_neighbor();
+
   ////////////////////////////////////////////////////////////////
   ////////////////     ALLOCATE ARRAYS   /////////////////////////
   ////////////////////////////////////////////////////////////////
@@ -540,54 +546,82 @@ void Particles2Dcomm::interpP2G(Field* EMf, Grid *grid, VirtualTopology* vct){
 	//exit(-1);
 	continue;
       }
-        
-    weight[1][1][0] = ((x[i] - grid->getXN(ix-1,iy-1,0))*inv_dx)*((y[i] - grid->getYN(ix-1,iy-1,0))*inv_dy);
-    weight[1][0][0] = ((x[i] - grid->getXN(ix-1,iy,0))*inv_dx)*((grid->getYN(ix-1,iy,0) - y[i])*inv_dy);
-    weight[0][1][0] = ((grid->getXN(ix,iy-1,0) - x[i])*inv_dx)*((y[i] - grid->getYN(ix,iy-1,0))*inv_dy);
-    weight[0][0][0] = ((grid->getXN(ix,iy,0) - x[i])*inv_dx)*((grid->getYN(ix,iy,0) - y[i])*inv_dy);
 
-    if (0 && vct->getCartesian_rank_COMMTOTAL()== 496)
-      {
-	cout << "x[i] " << x[i] << " y[i] " << y[i] << " ix " << ix << " iy " << iy  << " xstart "<< xstart << " xend " << xend << " grid->getXN(ix,iy,0) " << grid->getXN(ix,iy,0) << " grid->getYN(ix,iy,0) " << grid->getYN(ix,iy,0) << " weight[1][1][0] " << weight[1][1][0] <<" weight[0][0][0] " <<weight[0][0][0] <<" weight[1][0][0] " <<weight[1][0][0] <<" weight[0][1][0] " <<weight[0][1][0] << " dx " << grid->getDX()<< endl;
-      }
-    scale(weight,q[i],2,2);
+    int ll, lu, ul, uu;
+    uu = ix * nyn + iy;               
+    ul = uu - 1;        
+    lu = uu - nyn;
+    ll = lu - 1;
+    
+    //weight[1][1][0] = ((x[i] - grid->getXN(ix-1,iy-1,0))*inv_dx)*((y[i] - grid->getYN(ix-1,iy-1,0))*inv_dy);
+    //weight[1][0][0] = ((x[i] - grid->getXN(ix-1,iy,0))*inv_dx)*((grid->getYN(ix-1,iy,0) - y[i])*inv_dy);
+    //weight[0][1][0] = ((grid->getXN(ix,iy-1,0) - x[i])*inv_dx)*((y[i] - grid->getYN(ix,iy-1,0))*inv_dy);
+    //weight[0][0][0] = ((grid->getXN(ix,iy,0) - x[i])*inv_dx)*((grid->getYN(ix,iy,0) - y[i])*inv_dy);
+
+    weight[1][1][0] = ((x[i] - XN[ll])*inv_dx)*((y[i] - YN[ll])*inv_dy);   
+    weight[1][0][0] = ((x[i] - XN[lu])*inv_dx)*((YN[lu] - y[i])*inv_dy);    
+    weight[0][1][0] = ((XN[ul] - x[i])*inv_dx)*((y[i] - YN[ul])*inv_dy); 
+    weight[0][0][0] = ((XN[uu] - x[i])*inv_dx)*((YN[uu] - y[i])*inv_dy);   
+
+
+
+    //scale(weight,q[i],2,2);
+    scale(**weight,q[i],4);  //for speed up 
     // add charge density
     EMf->addRho(weight,ix,iy,0,ns);
     // add current density - X
-    eqValue(0.0,temp,2,2);
-    addscale(u[i],temp,weight,2,2);
+    //eqValue(0.0,temp,2,2);
+    eqValue(0.0,**temp,4);  // for speed up
+    //addscale(u[i],temp,weight,2,2);
+    addscale(u[i],**temp,**weight,4); // for speed up
     EMf->addJx(temp,ix,iy,0,ns);
     // add current density - Y
-    eqValue(0.0,temp,2,2);
-    addscale(v[i],temp,weight,2,2);
+    //eqValue(0.0,temp,2,2);
+    eqValue(0.0,**temp,4);  //for speed up
+    //addscale(v[i],temp,weight,2,2);
+    addscale(v[i],**temp,**weight,4);  //for speed up
     EMf->addJy(temp,ix,iy,0,ns);
     // add current density - Z
-    eqValue(0.0,temp,2,2);
-    addscale(w[i],temp,weight,2,2);
+    //eqValue(0.0,temp,2,2);
+    eqValue(0.0,**temp,4);// for speed up   
+    //addscale(w[i],temp,weight,2,2);
+    addscale(w[i],**temp,**weight,4); // for speed up
     EMf->addJz(temp,ix,iy,0,ns);
     //Pxx - add pressure tensor
-    eqValue(0.0,temp,2,2);
-    addscale(u[i]*u[i],temp,weight,2,2);
+    //eqValue(0.0,temp,2,2);
+    eqValue(0.0,**temp,4);  // for speed up
+    //addscale(u[i]*u[i],temp,weight,2,2);
+    addscale(u[i]*u[i],**temp,**weight,4); //for speed up  
     EMf->addPxx(temp,ix,iy,0,ns);
     // Pxy - add pressure tensor
-    eqValue(0.0,temp,2,2);
-    addscale(u[i]*v[i],temp,weight,2,2);
+    //eqValue(0.0,temp,2,2);
+    eqValue(0.0,**temp,4);
+    //addscale(u[i]*v[i],temp,weight,2,2);
+    addscale(u[i]*v[i],**temp,**weight,4); //for speed up
     EMf->addPxy(temp,ix,iy,0,ns);
     // Pxz - add pressure tensor
-    eqValue(0.0,temp,2,2);
-    addscale(u[i]*w[i],temp,weight,2,2);
+    //eqValue(0.0,temp,2,2);
+    eqValue(0.0,**temp,4);    // for speed up
+    //addscale(u[i]*w[i],temp,weight,2,2);
+    addscale(u[i]*w[i],**temp,**weight,4); // for speed up  
     EMf->addPxz(temp,ix,iy,0,ns);
     // Pyy - add pressure tensor
-    eqValue(0.0,temp,2,2);
-    addscale(v[i]*v[i],temp,weight,2,2);
+    //eqValue(0.0,temp,2,2);
+    eqValue(0.0,**temp,4);  
+    //addscale(v[i]*v[i],temp,weight,2,2);
+    addscale(v[i]*v[i],**temp,**weight,4); // for speed up
     EMf->addPyy(temp,ix,iy,0,ns);
     // Pyz - add pressure tensor
-    eqValue(0.0,temp,2,2);
-    addscale(v[i]*w[i],temp,weight,2,2);
+    //eqValue(0.0,temp,2,2);
+    eqValue(0.0,**temp,4); // for speed up
+    //addscale(v[i]*w[i],temp,weight,2,2);
+    addscale(v[i]*w[i],**temp,**weight,4);  //for speed up
     EMf->addPyz(temp,ix,iy,0,ns);
     // Pzz - add pressure tensor
-    eqValue(0.0,temp,2,2);
-    addscale(w[i]*w[i],temp,weight,2,2);
+    //eqValue(0.0,temp,2,2);
+    eqValue(0.0,**temp,4);
+    //addscale(w[i]*w[i],temp,weight,2,2);
+    addscale(w[i]*w[i],**temp,**weight,4); 
     EMf->addPzz(temp,ix,iy,0,ns);
   }
   
@@ -650,12 +684,15 @@ int Particles2Dcomm::communicate(VirtualTopology* ptVCT, Grid* grid, int BC_part
     // 2: refined grid, final position
 
     //cout << "R" << ptVCT->getCartesian_rank_COMMTOTAL() << "Bef ApplyParticleBC, ID " << ParticleID[np_current] << " x[np_current] " << x[np_current] << " y[np_current] " <<y[np_current] <<endl;
-    bool Skip=applyParticleBC(BC_partCommunicate, np_current, &nplast, &npDeletedBoundary, grid, ptVCT);
-    //cout << "R" << ptVCT->getCartesian_rank_COMMTOTAL() << "After ApplyParticleBC, ID " << ParticleID[np_current]<< " x[np_current] " <<x[np_current] << " y[np_current] " <<y[np_current]<<endl;
+
+    bool Skip= false;
+    if (x[np_current]<0 or x[np_current]>Lx or y[np_current]<0 or y[np_current]>Ly   )
+      {
+	Skip=applyParticleBC(BC_partCommunicate, np_current, &nplast, &npDeletedBoundary, grid, ptVCT);
+      }
     if (!Skip)
       {
-	//double dx = grid->getDX();  // already here!!!
-	//double dy = grid->getDY();
+
 	// if the particle exits, apply the boundary conditions add the particle to communication buffer
 	// enter here if you need to be communicated
 	// the first two conditions legitimate, the others to catch errors and eventually to eliminate
