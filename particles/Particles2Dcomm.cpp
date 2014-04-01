@@ -681,7 +681,11 @@ int Particles2Dcomm::communicate(VirtualTopology* ptVCT, Grid* grid, int BC_part
     //cout << "R" << ptVCT->getCartesian_rank_COMMTOTAL() << "Bef ApplyParticleBC, ID " << ParticleID[np_current] << " x[np_current] " << x[np_current] << " y[np_current] " <<y[np_current] <<endl;
 
     bool Skip= false;
-    if (x[np_current]<0 or x[np_current]>Lx or y[np_current]<0 or y[np_current]>Ly   )
+    bool case1= BC_partCommunicate==0 and (x[np_current] < 0 or x[np_current]>Lx or y[np_current]<0 or y[np_current]>Ly);
+    bool case2= BC_partCommunicate==1 and (x[np_current] < PRA_oxStartLeft or x[np_current] > PRA_oxEndRight or y[np_current] < PRA_oyStartLeft or y[np_current] > PRA_oyEndRight );
+    bool case3= BC_partCommunicate==2 and (x[np_current] < PRA_oxEndLeft or x[np_current] > PRA_oxStartRight or y[np_current] < PRA_oyEndLeft or y[np_current] > PRA_oyStartRight);
+
+    if (case1 or case3 or case2  )
       {
 	Skip=applyParticleBC(BC_partCommunicate, np_current, &nplast, &npDeletedBoundary, grid, ptVCT);
       }
