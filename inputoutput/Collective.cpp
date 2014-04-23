@@ -51,6 +51,8 @@ void Collective::ReadInput(string inputfile){
 	th = config.read<double>( "th" );
 	config.readInto(Smooth, "Smooth" ) ;
 
+	L1_CX = config.read<double>( "L1_CX" );
+	L1_CY = config.read<double>( "L1_CY" );
 	Nvolte = config.read<int>( "Nvolte" ); // MP kv_file.get_data( "Nvolte", Nvolte );
 	XLEN = config.read<int>( "XLEN" ); // MP kv_file.get_data( "XLEN", XLEN );
 	YLEN = config.read<int>( "YLEN" ); // MP kv_file.get_data( "YLEN", YLEN );
@@ -282,6 +284,14 @@ int Collective::ReadRestart(string inputfile){
   status = H5Dclose(dataset_id);
   // read Ly
   dataset_id = H5Dopen1(file_id, "/collective/Ly");
+  status = H5Dread(dataset_id, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT,&Ly);
+  status = H5Dclose(dataset_id);
+  // read Ly                                                                                                                        
+  dataset_id = H5Dopen1(file_id, "/collective/L1_CX");
+  status = H5Dread(dataset_id, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT,&Ly);
+  status = H5Dclose(dataset_id);
+  // read Ly                                                                                                                        
+  dataset_id = H5Dopen1(file_id, "/collective/L1_CY");
   status = H5Dread(dataset_id, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT,&Ly);
   status = H5Dclose(dataset_id);
   // read nxc
@@ -516,7 +526,7 @@ Collective::Collective(int argc, char** argv) {
       cout <<"NpMaxNpRatio " << NpMaxNpRatio << " npMax[i] "<< npMax[i] <<endl;*/
      }
 
-
+    //    cout <<"npMax[0]" << npMax[0] <<endl;
 
 }
 /** destructor */
@@ -610,6 +620,14 @@ double Collective::getLx(){
 /** get Ly */
 double Collective::getLy(){
  return(Ly);
+}
+/** get L1_CX **/
+double Collective::getL1_CX(){
+  return(L1_CX);
+}
+/** get L1_CY **/
+double Collective::getL1_CY(){
+  return(L1_CY);
 }
 /** get nxc */
 int Collective::getNxc(){

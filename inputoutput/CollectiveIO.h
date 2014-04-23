@@ -31,6 +31,10 @@ class CollectiveIO {
     virtual double getLx(void)=0;
     /** get simulation box length - direction Y */
     virtual double getLy(void)=0;
+    /** Get central position of the refined grid - direction X */
+    virtual double getL1_CX()=0;
+    /** Get central position of the refined grid - direction Y */
+    virtual double getL1_CY()=0;
     /** get number of cells - direction X */
     virtual int getNxc(void)=0;
     /** get number of cells - direction Y */

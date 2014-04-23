@@ -232,34 +232,23 @@ inline Grid2DCU::Grid2DCU(CollectiveIO* col, VirtualTopology* vct, int GridLevel
    // For a centered refined grid
    ox[0]=(double)0.;
    oy[0]=(double)0.;
-       if (vct->getCartesian_rank_COMMTOTAL()==0){
-           cout << "level " << level << " Ox = " << ox[0]<< " Oy = "<<oy[0]<< " dx = "<<dx<<" dy = "<<dy<<" nxn = "<<nxn<< "nyn = "<<nyn<<endl;
-       }
+   //if (vct->getCartesian_rank_COMMTOTAL()==0){
+   //cout << "level " << level << " Ox = " << ox[0]<< " Oy = "<<oy[0]<< " dx = "<<dx<<" dy = "<<dy<<" nxn = "<<nxn<< "nyn = "<<nyn<<endl;}
+
    for (i=1;i<col->getNgrids();i++){
      // refined grid centered
-     //ox[i] = col->getLx()/(double)2.*(double)pow(ratio,-i+1)*((double)1.-(double)1./ratio);
-     //oy[i] = col->getLy()/(double)2.*(double)pow(ratio,-i+1)*((double)1.-(double)1./ratio);
-       // For a centered refined grid along x and shifted up along y
-     //ox[i] = col->getLx()/(double)2.*(double)pow(ratio,-i+1)*((double)1.-(double)1./ratio);
-     //oy[i] = col->getLy()/(double)2.*(double)pow(ratio,-i+1)*((double)1.-(double)1./ratio)*1.5;
+
        //Manually tuned
-     ox[i] = 10.5-col->getLx()/pow(ratio,i)/2.;
-     oy[i] = 10.5-col->getLy()/pow(ratio,i)/2.;
+     //ox[i] = 15.10-col->getLx()/pow(ratio,i)/2.;
+     //oy[i] = 15.10-col->getLy()/pow(ratio,i)/2.;
 
-     //Manually tuned Laila               
-     //ox[i] = 150-col->getLx()/pow(ratio,i)/2.; 
-     //oy[i] = 60-col->getLy()/pow(ratio,i)/2.; 
+     // from inputfile
+     ox[i] = col->getL1_CX()-col->getLx()/pow(ratio,i)/2.;
+     oy[i] = col->getL1_CY()-col->getLy()/pow(ratio,i)/2.;
 
-     //ox[i] = col->getLx()*(0.25+1./(double)2.*(double)pow(ratio,-i+1)*((double)1.-(double)1./ratio))-1;
-     //oy[i] = col->getLy()*(0.25+1./(double)2.*(double)pow(ratio,-i+1)*((double)1.-(double)1./ratio))-1;
-
-//       ox[i]=0.;
-//       oy[i]=0.;
-//       ox[i] = 1.;
-//       oy[i] = 0.2;
-       if (vct->getCartesian_rank()==0 && level == i){
-           cout << "level " << i << " Ox = " << ox[i]<< " Oy = "<<oy[i]<< " dx = "<<dx<<" dy = "<<dy<<endl;
-       }
+     if (vct->getCartesian_rank()==0 && level == i){
+       cout << "Level " << i << " getL1_CX: " << col->getL1_CX() << ", L1_CY: " << col->getL1_CY()  << ", Ox: " << ox[i]<< ", Oy: "<<oy[i]<< ", dx: "<<dx<<", dy: "<<dy<<endl;
+     }
    }
    // local grid dimensions and boundaries of active nodes
    xStart = vct->getCoordinates(0)*(lengthx/(double) vct->getXLEN());

@@ -45,6 +45,10 @@ class Collective : public CollectiveIO {
     double getLx();
     /** Get length of the system - direction Y */
     double getLy();
+    /** Get central position of the refined grid - direction X */
+    double getL1_CX();
+    /** Get central position of the refined grid - direction Y */
+    double getL1_CY();
     /** Get the number of cells - direction X*/
     int getNxc();
     /** Get the number of cells - direction Y*/
@@ -209,6 +213,10 @@ class Collective : public CollectiveIO {
     double Lx;
     /** simulation box length - Y direction   */
     double Ly;
+    /** central position of the refined grid - direction X */
+    double L1_CX;
+    /** central position of the refined grid - direction Y */
+    double L1_CY;
     /** number of cells - X direction        */
     int nxc;
     /** number of cells - Y direction        */
